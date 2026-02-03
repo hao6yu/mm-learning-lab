@@ -1,0 +1,61 @@
+name: mm_learning_lab
+
+description: >
+  M&M Learning Lab - A playful, modular Flutter app for early literacy and math.
+
+publish_to: 'none'
+version: 1.0.4+1
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.0.5
+  google_fonts: ^6.1.0
+  cupertino_icons: ^1.0.2
+  sqflite: ^2.3.0  # For SQLite database
+  path: ^1.8.3     # For database path handling
+  shared_preferences: ^2.5.3  # For storing user preferences
+  audioplayers: ^6.4.0  # For game sounds
+  flutter_animate: ^4.5.0  # For animations
+  flutter_launcher_icons: ^0.14.3
+  chess: ^0.8.1
+  flutter_tts: ^3.8.3
+  flutter_dotenv: ^5.1.0
+  web_socket_channel: ^3.0.3
+  flutter_sound: ^9.28.0
+  permission_handler: ^12.0.0+1
+  just_audio: ^0.9.35
+  path_provider: ^2.1.1
+  http: ^1.1.0
+  #audio_session: ^0.2.1
+  lottie: ^2.6.0
+  speech_to_text: 7.0.0
+  in_app_purchase: ^3.1.13  # For subscription handling
+  url_launcher: ^6.3.1
+  auto_size_text: ^3.0.0
+  flutter_screenutil: ^5.9.3
+  image_picker: ^1.0.4
+  image_cropper: ^8.0.2
+  responsive_sizer: ^3.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env
+    - assets/
+    - assets/images/
+    - assets/audio/ 
+    - assets/images/math_buddy/
+    - assets/icon/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png"
