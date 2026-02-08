@@ -13,6 +13,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare env file
+        run: |
+          if [ ! -f .env ]; then
+            cp env.example .env
+          fi
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
