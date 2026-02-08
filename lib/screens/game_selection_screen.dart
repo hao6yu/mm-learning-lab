@@ -149,6 +149,14 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
         onTap: () => _openActivity(ActivityIds.aiChat),
       ),
       _GameData(
+        title: 'Call with AI',
+        subtitle: 'Live voice conversation',
+        color: const Color(0xFF58A6FF),
+        icon: CupertinoIcons.phone_fill,
+        isNew: true,
+        onTap: () => _openActivity(ActivityIds.aiCall),
+      ),
+      _GameData(
         title: 'Letter Tracing',
         subtitle: 'Trace letters with your finger',
         color: const Color(0xFFFF9F43),

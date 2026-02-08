@@ -13,6 +13,9 @@ import '../services/openai_service.dart';
 import '../services/elevenlabs_service.dart';
 import '../services/speech_recognition_service.dart';
 import '../services/audio_recorder_service.dart';
+import '../services/ai_usage_limit_service.dart';
+import '../services/ai_proxy_config.dart';
+import '../services/subscription_service.dart';
 import '../providers/profile_provider.dart';
 
 class AiChatScreen extends StatefulWidget {
@@ -32,6 +35,7 @@ class _AiChatScreenState extends State<AiChatScreen>
   final SpeechRecognitionService _speechRecognitionService =
       SpeechRecognitionService();
   final AudioRecorderService _audioRecorderService = AudioRecorderService();
+  final AIUsageLimitService _aiUsageLimitService = AIUsageLimitService();
 
   List<ChatMessage> _messages = [];
   bool _isLoading = false;
@@ -44,6 +48,8 @@ class _AiChatScreenState extends State<AiChatScreen>
   int? _currentProfileAge;
   String? _currentProfileAvatar;
   String? _currentProfileAvatarType;
+  bool _isPremiumUser = false;
+  AiQuotaCheckResult? _chatQuotaStatus;
 
   bool _useVoiceResponse = true; // Whether to use ElevenLabs for AI responses
   String _selectedVoiceId = '9BWtsMINqrJLrRacOk9x'; // Default voice set to Aria
@@ -109,12 +115,6 @@ class _AiChatScreenState extends State<AiChatScreen>
 
     // Set default voice to Madeline for this screen
     ElevenLabsService.setVoiceId(_selectedVoiceId);
-
-    // Load previous messages
-    _loadMessages();
-
-    // Add welcome message if no messages exist
-    _addWelcomeMessageIfNeeded();
   }
 
   @override
@@ -125,11 +125,22 @@ class _AiChatScreenState extends State<AiChatScreen>
     final profileProvider =
         Provider.of<ProfileProvider>(context, listen: false);
     final currentProfileId = profileProvider.selectedProfileId;
+    final subscriptionService =
+        Provider.of<SubscriptionService>(context, listen: false);
+    _isPremiumUser = subscriptionService.isSubscribed;
 
-    if (currentProfileId != null) {
+    if (currentProfileId != null && _currentProfileId != currentProfileId) {
       _currentProfileId = currentProfileId;
       // Fetch profile details to get name and age
       _loadProfileDetails(currentProfileId);
+      _loadMessages().then((_) {
+        if (mounted) {
+          _addWelcomeMessageIfNeeded();
+        }
+      });
+      _refreshChatQuota();
+    } else if (currentProfileId != null) {
+      _refreshChatQuota();
     }
   }
 
@@ -243,7 +254,18 @@ class _AiChatScreenState extends State<AiChatScreen>
   }
 
   Future<void> _sendMessage(String text) async {
-    if (text.trim().isEmpty) return;
+    if (text.trim().isEmpty || _isSending) return;
+
+    final profileId = _currentProfileId;
+    if (profileId == null) {
+      _showErrorSnackBar('Please select a profile first.');
+      return;
+    }
+
+    final quotaResult = await _consumeChatQuota();
+    if (quotaResult == null) {
+      return;
+    }
 
     debugPrint('======== AI CHAT: SENDING MESSAGE ========');
     debugPrint(
@@ -302,11 +324,17 @@ class _AiChatScreenState extends State<AiChatScreen>
       debugPrint('  - Child age: $_currentProfileAge');
       debugPrint('  - History length: ${history.length}');
 
-      final response = await _openAIService.generateChatResponse(
-        message: text,
-        history: history,
-        childName: _currentProfileName,
-        childAge: _currentProfileAge,
+      final response = await AiProxyConfig.withRequestContext(
+        profileId: profileId,
+        isPremium: _isPremiumUser,
+        feature: 'chat_message',
+        units: 1,
+        action: () => _openAIService.generateChatResponse(
+          message: text,
+          history: history,
+          childName: _currentProfileName,
+          childAge: _currentProfileAge,
+        ),
       );
 
       debugPrint('✅ OpenAI API response received');
@@ -367,6 +395,7 @@ class _AiChatScreenState extends State<AiChatScreen>
       setState(() {
         _isSending = false;
       });
+      _refreshChatQuota();
     }
 
     debugPrint('======== AI CHAT: MESSAGE PROCESSING COMPLETE ========');
@@ -541,8 +570,16 @@ class _AiChatScreenState extends State<AiChatScreen>
         if (recordingBytes != null) {
           // Transcribe using OpenAI Whisper
           debugPrint('🔄 Calling OpenAI Whisper API for transcription...');
-          final transcription =
-              await _openAIService.transcribeAudio(recordingBytes);
+          final profileId = _currentProfileId;
+          final transcription = profileId == null
+              ? await _openAIService.transcribeAudio(recordingBytes)
+              : await AiProxyConfig.withRequestContext(
+                  profileId: profileId,
+                  isPremium: _isPremiumUser,
+                  feature: 'chat_transcription',
+                  units: 0,
+                  action: () => _openAIService.transcribeAudio(recordingBytes),
+                );
 
           if (transcription != null && transcription.isNotEmpty) {
             debugPrint('✅ Transcription received: "$transcription"');
@@ -597,6 +634,75 @@ class _AiChatScreenState extends State<AiChatScreen>
         content: Text(message),
         backgroundColor: Colors.red.shade800,
         behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _refreshChatQuota() async {
+    final profileId = _currentProfileId;
+    if (profileId == null) return;
+
+    final status = await _aiUsageLimitService.getCountQuotaStatus(
+      profileId: profileId,
+      isPremium: _isPremiumUser,
+      feature: AiCountFeature.chatMessage,
+    );
+    if (!mounted) return;
+    setState(() {
+      _chatQuotaStatus = status;
+    });
+  }
+
+  Future<AiQuotaCheckResult?> _consumeChatQuota() async {
+    final profileId = _currentProfileId;
+    if (profileId == null) {
+      _showErrorSnackBar('Please select a profile first.');
+      return null;
+    }
+
+    final result = await _aiUsageLimitService.tryConsumeCountQuota(
+      profileId: profileId,
+      isPremium: _isPremiumUser,
+      feature: AiCountFeature.chatMessage,
+    );
+    if (!result.allowed) {
+      _showQuotaBlockedDialog(
+        title: 'Chat limit reached',
+        message: result.buildBlockedMessage(isPremium: _isPremiumUser),
+      );
+      return null;
+    }
+
+    if (!mounted) return result;
+    setState(() {
+      _chatQuotaStatus = result;
+    });
+    return result;
+  }
+
+  void _showQuotaBlockedDialog({
+    required String title,
+    required String message,
+  }) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+          if (!_isPremiumUser)
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/subscription');
+              },
+              child: const Text('Upgrade'),
+            ),
+        ],
       ),
     );
   }
@@ -930,6 +1036,28 @@ class _AiChatScreenState extends State<AiChatScreen>
           maintainBottomViewPadding: true,
           child: Column(
             children: [
+              if (_chatQuotaStatus != null)
+                Container(
+                  width: double.infinity,
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.88),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _isPremiumUser
+                        ? 'Premium AI chat left: ${_chatQuotaStatus!.remainingToday}/${_chatQuotaStatus!.dailyLimit} today'
+                        : 'Free AI chat left: ${_chatQuotaStatus!.remainingToday}/${_chatQuotaStatus!.dailyLimit} today',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF355C7D),
+                    ),
+                  ),
+                ),
               // Chat messages list
               Expanded(
                 child: _isLoading

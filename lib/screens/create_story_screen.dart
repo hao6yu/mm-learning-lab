@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import '../services/database_service.dart';
 import '../models/story.dart';
 import '../services/openai_service.dart';
+import '../services/ai_usage_limit_service.dart';
+import '../services/ai_proxy_config.dart';
+import '../services/subscription_service.dart';
 import '../providers/profile_provider.dart';
 
 class CreateStoryScreen extends StatefulWidget {
@@ -32,6 +35,10 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
   bool _isGenerating = false;
   String? _generationError;
   final OpenAIService _openAIService = OpenAIService();
+  final AIUsageLimitService _aiUsageLimitService = AIUsageLimitService();
+  int? _currentProfileId;
+  bool _isPremiumUser = false;
+  AiQuotaCheckResult? _storyQuotaStatus;
 
   // Animation controllers for smooth transitions
   late AnimationController _stepAnimationController;
@@ -126,6 +133,25 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
     _promptController.dispose();
     _stepAnimationController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final profileProvider = context.read<ProfileProvider>();
+    final subscriptionService = context.read<SubscriptionService>();
+
+    final selectedProfileId = profileProvider.selectedProfileId;
+    final isPremium = subscriptionService.isSubscribed;
+    final profileChanged = selectedProfileId != _currentProfileId;
+    final tierChanged = isPremium != _isPremiumUser;
+
+    _currentProfileId = selectedProfileId;
+    _isPremiumUser = isPremium;
+
+    if ((profileChanged || tierChanged) && _currentProfileId != null) {
+      _refreshStoryQuota();
+    }
   }
 
   void _nextStep() {
@@ -955,6 +981,34 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
                             ),
                           ],
                         ),
+                        if (_storyQuotaStatus != null) ...[
+                          SizedBox(
+                              height: isLandscape
+                                  ? (isTablet ? 6.0 : 4.0)
+                                  : (isTablet ? 10.0 : 8.0)),
+                          Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isTablet ? 10.0 : 8.0,
+                              vertical: isTablet ? 8.0 : 6.0,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              borderRadius: BorderRadius.circular(10.0),
+                            ),
+                            child: Text(
+                              _isPremiumUser
+                                  ? 'Premium stories left: ${_storyQuotaStatus!.remainingToday}/${_storyQuotaStatus!.dailyLimit} today'
+                                  : 'Free stories left: ${_storyQuotaStatus!.remainingToday}/${_storyQuotaStatus!.dailyLimit} today',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: isTablet ? 13.0 : 12.0,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF355C7D),
+                              ),
+                            ),
+                          ),
+                        ],
                         SizedBox(
                             height: isLandscape
                                 ? (isTablet ? 8.0 : 6.0)
@@ -1211,8 +1265,84 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
     );
   }
 
+  Future<void> _refreshStoryQuota() async {
+    final profileId = _currentProfileId;
+    if (profileId == null) return;
+    final status = await _aiUsageLimitService.getCountQuotaStatus(
+      profileId: profileId,
+      isPremium: _isPremiumUser,
+      feature: AiCountFeature.storyGeneration,
+    );
+    if (!mounted) return;
+    setState(() {
+      _storyQuotaStatus = status;
+    });
+  }
+
+  Future<AiQuotaCheckResult?> _consumeStoryQuota() async {
+    final profileId = _currentProfileId;
+    if (profileId == null) {
+      setState(() {
+        _generationError = 'Please pick a child profile first.';
+      });
+      return null;
+    }
+
+    final result = await _aiUsageLimitService.tryConsumeCountQuota(
+      profileId: profileId,
+      isPremium: _isPremiumUser,
+      feature: AiCountFeature.storyGeneration,
+    );
+
+    if (!result.allowed) {
+      _showQuotaBlockedDialog(
+        title: 'Story limit reached',
+        message: result.buildBlockedMessage(isPremium: _isPremiumUser),
+      );
+      return null;
+    }
+
+    if (!mounted) return result;
+    setState(() {
+      _storyQuotaStatus = result;
+    });
+    return result;
+  }
+
+  void _showQuotaBlockedDialog({
+    required String title,
+    required String message,
+  }) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+          if (!_isPremiumUser)
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/subscription');
+              },
+              child: const Text('Upgrade'),
+            ),
+        ],
+      ),
+    );
+  }
+
   // Generate a complete story with title and content using AI
   Future<void> _generateFullStory() async {
+    final quotaResult = await _consumeStoryQuota();
+    if (quotaResult == null) return;
+    final profileId = _currentProfileId;
+    if (profileId == null) return;
+
     setState(() {
       _isGenerating = true;
       _generationError = null;
@@ -1239,9 +1369,15 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
             ' suitable for ${ageData['label']} (${ageData['description']})';
       }
 
-      final storyData = await _openAIService.generateStory(
-        ageGroup: _selectedAgeGroup,
-        prompt: prompt,
+      final storyData = await AiProxyConfig.withRequestContext(
+        profileId: profileId,
+        isPremium: _isPremiumUser,
+        feature: 'story_generation',
+        units: 1,
+        action: () => _openAIService.generateStory(
+          ageGroup: _selectedAgeGroup,
+          prompt: prompt,
+        ),
       );
 
       if (!mounted) return;
