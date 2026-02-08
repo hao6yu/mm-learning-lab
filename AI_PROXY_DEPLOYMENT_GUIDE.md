@@ -29,6 +29,22 @@ Forward requests to provider APIs using server-side secrets:
 - Add request timeout and basic rate limiting.
 - Disable verbose provider error bodies in production logs.
 
+## 2.1 Quota Context Headers (Recommended)
+
+The app now sends per-request metadata headers that your proxy can enforce:
+
+- `X-Child-Profile-Id`: child profile ID in app DB
+- `X-User-Tier`: `free` or `premium`
+- `X-AI-Feature`: feature key (examples: `chat_message`, `story_generation`, `voice_call`)
+- `X-AI-Units`: consumed units for the request (count-based features)
+- `X-AI-Call-Reserve-Seconds`: reserved seconds for a new voice call session
+
+Recommended proxy behavior:
+
+- Validate these headers server-side before calling providers.
+- Reject over-limit requests with `429`.
+- Keep server-side counters as source of truth in production.
+
 ## 3) Cloudflare Workers Quick Deploy (Recommended)
 
 ## 3.1 Create Worker
