@@ -59,6 +59,7 @@ class _AiLimitsScreenState extends State<AiLimitsScreen> {
   String? _profileName;
   bool _isPremium = false;
   bool _isLoading = false;
+  bool _isSavingControls = false;
 
   AiQuotaCheckResult? _chatQuota;
   AiQuotaCheckResult? _storyQuota;
@@ -83,6 +84,7 @@ class _AiLimitsScreenState extends State<AiLimitsScreen> {
     final profileId = _profileId;
     if (profileId == null) {
       setState(() {
+        _isLoading = false;
         _profileName = null;
         _chatQuota = null;
         _storyQuota = null;
@@ -96,20 +98,35 @@ class _AiLimitsScreenState extends State<AiLimitsScreen> {
       _isLoading = true;
     });
 
-    final data = widget.loadData != null
-        ? await widget.loadData!(profileId, _isPremium)
-        : await _loadDataFromServices(
-            profileId: profileId, isPremium: _isPremium);
+    try {
+      final data = widget.loadData != null
+          ? await widget.loadData!(profileId, _isPremium)
+          : await _loadDataFromServices(
+              profileId: profileId,
+              isPremium: _isPremium,
+            );
 
-    if (!mounted) return;
-    setState(() {
-      _profileName = data.profileName;
-      _chatQuota = data.chatQuota;
-      _storyQuota = data.storyQuota;
-      _callAllowance = data.callAllowance;
-      _controls = data.controls;
-      _isLoading = false;
-    });
+      if (!mounted) return;
+      setState(() {
+        _profileName = data.profileName;
+        _chatQuota = data.chatQuota;
+        _storyQuota = data.storyQuota;
+        _callAllowance = data.callAllowance;
+        _controls = data.controls;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not load AI limits. $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<AiLimitsScreenData> _loadDataFromServices({
@@ -147,23 +164,36 @@ class _AiLimitsScreenState extends State<AiLimitsScreen> {
 
   Future<void> _saveControls(AiParentalControls next) async {
     final profileId = _profileId;
-    if (profileId == null) return;
+    if (profileId == null || _isSavingControls) return;
+    final previous = _controls;
     setState(() {
       _controls = next;
+      _isSavingControls = true;
     });
-    if (widget.saveControls != null) {
-      await widget.saveControls!(profileId, next);
-    } else {
-      await _parentalControlService.saveControls(profileId, next);
+    try {
+      if (widget.saveControls != null) {
+        await widget.saveControls!(profileId, next);
+      } else {
+        await _parentalControlService.saveControls(profileId, next);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _controls = previous;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not save AI limits. $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingControls = false;
+        });
+      }
     }
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('AI limits updated'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    await _reload();
   }
 
   String _hourLabel(int hour) {
@@ -378,8 +408,15 @@ class _AiLimitsScreenState extends State<AiLimitsScreen> {
               label: '${sliderValue.round()} min',
               value: sliderValue,
               onChanged: (value) {
+                setState(() {
+                  _controls = controls.copyWith(
+                    maxCallMinutesOverride: value.round(),
+                  );
+                });
+              },
+              onChangeEnd: (value) {
                 _saveControls(
-                  controls.copyWith(maxCallMinutesOverride: value.round()),
+                  _controls.copyWith(maxCallMinutesOverride: value.round()),
                 );
               },
             ),

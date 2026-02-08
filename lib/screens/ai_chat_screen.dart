@@ -262,10 +262,11 @@ class _AiChatScreenState extends State<AiChatScreen>
       return;
     }
 
-    final quotaResult = await _consumeChatQuota();
-    if (quotaResult == null) {
+    final quotaReservation = await _reserveChatQuota();
+    if (quotaReservation == null) {
       return;
     }
+    var shouldReleaseReservation = true;
 
     debugPrint('======== AI CHAT: SENDING MESSAGE ========');
     debugPrint(
@@ -324,16 +325,16 @@ class _AiChatScreenState extends State<AiChatScreen>
       debugPrint('  - Child age: $_currentProfileAge');
       debugPrint('  - History length: ${history.length}');
 
-      final response = await AiProxyConfig.withRequestContext(
-        profileId: profileId,
-        isPremium: _isPremiumUser,
-        feature: 'chat_message',
-        units: 1,
-        action: () => _openAIService.generateChatResponse(
-          message: text,
-          history: history,
-          childName: _currentProfileName,
-          childAge: _currentProfileAge,
+      final response = await _openAIService.generateChatResponse(
+        message: text,
+        history: history,
+        childName: _currentProfileName,
+        childAge: _currentProfileAge,
+        requestContext: AiRequestContext(
+          profileId: profileId,
+          isPremium: _isPremiumUser,
+          feature: 'chat_message',
+          units: 1,
         ),
       );
 
@@ -350,9 +351,9 @@ class _AiChatScreenState extends State<AiChatScreen>
           profileId: _currentProfileId,
         );
 
+        shouldReleaseReservation = false;
         setState(() {
           _messages.add(aiMessage);
-          _isSending = false;
         });
 
         // Save AI message to database
@@ -385,17 +386,22 @@ class _AiChatScreenState extends State<AiChatScreen>
       } else {
         debugPrint('❌ OpenAI API returned null response');
         _showErrorSnackBar('Sorry, I couldn\'t respond to that right now.');
-        setState(() {
-          _isSending = false;
-        });
       }
     } catch (e) {
       debugPrint('❌ ERROR getting AI response: $e');
       _showErrorSnackBar('Something went wrong. Please try again.');
-      setState(() {
-        _isSending = false;
-      });
-      _refreshChatQuota();
+    } finally {
+      if (shouldReleaseReservation) {
+        await _aiUsageLimitService.releaseCountQuotaReservation(
+          quotaReservation.usageEventId,
+        );
+      }
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+      }
+      await _refreshChatQuota();
     }
 
     debugPrint('======== AI CHAT: MESSAGE PROCESSING COMPLETE ========');
@@ -571,15 +577,17 @@ class _AiChatScreenState extends State<AiChatScreen>
           // Transcribe using OpenAI Whisper
           debugPrint('🔄 Calling OpenAI Whisper API for transcription...');
           final profileId = _currentProfileId;
-          final transcription = profileId == null
-              ? await _openAIService.transcribeAudio(recordingBytes)
-              : await AiProxyConfig.withRequestContext(
-                  profileId: profileId,
-                  isPremium: _isPremiumUser,
-                  feature: 'chat_transcription',
-                  units: 0,
-                  action: () => _openAIService.transcribeAudio(recordingBytes),
-                );
+          final transcription = await _openAIService.transcribeAudio(
+            recordingBytes,
+            requestContext: profileId == null
+                ? null
+                : AiRequestContext(
+                    profileId: profileId,
+                    isPremium: _isPremiumUser,
+                    feature: 'chat_transcription',
+                    units: 0,
+                  ),
+          );
 
           if (transcription != null && transcription.isNotEmpty) {
             debugPrint('✅ Transcription received: "$transcription"');
@@ -653,31 +661,36 @@ class _AiChatScreenState extends State<AiChatScreen>
     });
   }
 
-  Future<AiQuotaCheckResult?> _consumeChatQuota() async {
+  Future<AiQuotaReservation?> _reserveChatQuota() async {
     final profileId = _currentProfileId;
     if (profileId == null) {
       _showErrorSnackBar('Please select a profile first.');
       return null;
     }
 
-    final result = await _aiUsageLimitService.tryConsumeCountQuota(
+    final reservation = await _aiUsageLimitService.reserveCountQuota(
       profileId: profileId,
       isPremium: _isPremiumUser,
       feature: AiCountFeature.chatMessage,
     );
-    if (!result.allowed) {
+    if (reservation == null) {
+      final status = await _aiUsageLimitService.getCountQuotaStatus(
+        profileId: profileId,
+        isPremium: _isPremiumUser,
+        feature: AiCountFeature.chatMessage,
+      );
       _showQuotaBlockedDialog(
         title: 'Chat limit reached',
-        message: result.buildBlockedMessage(isPremium: _isPremiumUser),
+        message: status.buildBlockedMessage(isPremium: _isPremiumUser),
       );
       return null;
     }
 
-    if (!mounted) return result;
+    if (!mounted) return reservation;
     setState(() {
-      _chatQuotaStatus = result;
+      _chatQuotaStatus = reservation.statusAfterReserve;
     });
-    return result;
+    return reservation;
   }
 
   void _showQuotaBlockedDialog({

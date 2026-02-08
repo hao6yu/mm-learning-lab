@@ -54,6 +54,16 @@ class AiCallAllowance {
   });
 }
 
+class AiQuotaReservation {
+  final int usageEventId;
+  final AiQuotaCheckResult statusAfterReserve;
+
+  const AiQuotaReservation({
+    required this.usageEventId,
+    required this.statusAfterReserve,
+  });
+}
+
 class AIUsageLimitService {
   static const String _featureChatMessage = 'ai_chat_message';
   static const String _featureStoryGeneration = 'ai_story_generation';
@@ -147,6 +157,47 @@ class AIUsageLimitService {
     );
   }
 
+  Future<AiQuotaReservation?> reserveCountQuota({
+    required int profileId,
+    required bool isPremium,
+    required AiCountFeature feature,
+    int units = 1,
+    DateTime? now,
+  }) async {
+    final status = await getCountQuotaStatus(
+      profileId: profileId,
+      isPremium: isPremium,
+      feature: feature,
+      now: now,
+    );
+    if (!status.allowed) {
+      return null;
+    }
+
+    final eventId = await _databaseService.insertAiUsageEvent(
+      profileId: profileId,
+      feature: _featureToKey(feature),
+      units: units,
+      timestamp: now ?? DateTime.now(),
+    );
+
+    final statusAfter = await getCountQuotaStatus(
+      profileId: profileId,
+      isPremium: isPremium,
+      feature: feature,
+      now: now,
+    );
+
+    return AiQuotaReservation(
+      usageEventId: eventId,
+      statusAfterReserve: statusAfter,
+    );
+  }
+
+  Future<void> releaseCountQuotaReservation(int usageEventId) async {
+    await _databaseService.deleteAiUsageEventById(usageEventId);
+  }
+
   Future<AiCallAllowance> getVoiceCallAllowance({
     required int profileId,
     required bool isPremium,
@@ -172,11 +223,13 @@ class AIUsageLimitService {
         await _databaseService.getAiCallDurationSecondsSince(
       profileId: profileId,
       since: startOfDay,
+      until: current,
     );
     final usedThisWeekSeconds =
         await _databaseService.getAiCallDurationSecondsSince(
       profileId: profileId,
       since: startOfWeek,
+      until: current,
     );
 
     final remainingTodaySeconds = max(0, dailyLimitSeconds - usedTodaySeconds);

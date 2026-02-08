@@ -72,6 +72,7 @@ class OpenAIService {
   Future<Map<String, dynamic>?> generateStory({
     String? ageGroup = 'middle',
     String? prompt,
+    AiRequestContext? requestContext,
   }) async {
     final systemPrompt = """
 You are a creative children's story writer who creates age-appropriate stories that are positive, educational, and engaging.
@@ -111,6 +112,7 @@ Output ONLY in this exact JSON format:
         'response_format': {'type': 'json_object'},
       },
       purpose: 'generate story',
+      requestContext: requestContext,
     );
 
     if (response == null) return null;
@@ -128,6 +130,7 @@ Output ONLY in this exact JSON format:
     String? category,
     String? difficulty,
     String? ageGroup = 'middle',
+    AiRequestContext? requestContext,
   }) async {
     final systemPrompt = """
 You are a creative children's story writer who creates age-appropriate stories that are positive, educational, and engaging.
@@ -155,6 +158,7 @@ Absolutely NO scary, violent, upsetting or inappropriate content. Keep it educat
         'temperature': 0.7,
       },
       purpose: 'generate story from title',
+      requestContext: requestContext,
     );
 
     if (response == null) return null;
@@ -166,6 +170,7 @@ Absolutely NO scary, violent, upsetting or inappropriate content. Keep it educat
     required String theme,
     String? category,
     String? ageGroup = 'middle',
+    AiRequestContext? requestContext,
   }) async {
     final systemPrompt = """
 Generate a fun, catchy, and age-appropriate title for a children's story about: $theme
@@ -196,6 +201,7 @@ Return ONLY the title text with no explanation or other text.
         'max_tokens': 30,
       },
       purpose: 'generate title suggestion',
+      requestContext: requestContext,
     );
 
     if (response == null) return null;
@@ -208,6 +214,7 @@ Return ONLY the title text with no explanation or other text.
     required List<Map<String, String>> history,
     String? childName,
     int? childAge,
+    AiRequestContext? requestContext,
   }) async {
     final systemPrompt = """
 You are a friendly, educational AI assistant for children${childName != null ? ' named $childName' : ''}${childAge != null ? ' who is $childAge years old' : ''}.
@@ -245,6 +252,7 @@ NEVER provide any content that would be inappropriate for children.
         'max_tokens': 250,
       },
       purpose: 'generate chat response',
+      requestContext: requestContext,
     );
 
     if (response == null) return null;
@@ -258,9 +266,12 @@ NEVER provide any content that would be inappropriate for children.
   }
 
   Future<String?> transcribeAudio(List<int> audioBytes,
-      {String? language}) async {
-    final proxyResponse =
-        await _transcribeViaProxy(audioBytes: audioBytes, language: language);
+      {String? language, AiRequestContext? requestContext}) async {
+    final proxyResponse = await _transcribeViaProxy(
+      audioBytes: audioBytes,
+      language: language,
+      requestContext: requestContext,
+    );
     if (proxyResponse != null) {
       return proxyResponse;
     }
@@ -274,12 +285,13 @@ NEVER provide any content that would be inappropriate for children.
   Future<http.Response?> _postChatCompletions({
     required Map<String, dynamic> body,
     required String purpose,
+    AiRequestContext? requestContext,
   }) async {
     if (_proxyConfig.hasProxy) {
       try {
         final response = await http.post(
           _proxyConfig.proxyUri(_proxyChatCompletionsPath),
-          headers: _proxyConfig.proxyHeaders(),
+          headers: _proxyConfig.proxyHeaders(requestContext: requestContext),
           body: jsonEncode(body),
         );
         if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -320,6 +332,7 @@ NEVER provide any content that would be inappropriate for children.
   Future<String?> _transcribeViaProxy({
     required List<int> audioBytes,
     String? language,
+    AiRequestContext? requestContext,
   }) async {
     if (!_proxyConfig.hasProxy) {
       return null;
@@ -329,7 +342,12 @@ NEVER provide any content that would be inappropriate for children.
         'POST',
         _proxyConfig.proxyUri(_proxyAudioTranscriptionPath),
       );
-      request.headers.addAll(_proxyConfig.proxyHeaders(json: false));
+      request.headers.addAll(
+        _proxyConfig.proxyHeaders(
+          json: false,
+          requestContext: requestContext,
+        ),
+      );
       request.files.add(
         http.MultipartFile.fromBytes(
           'file',

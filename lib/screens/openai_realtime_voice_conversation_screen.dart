@@ -39,6 +39,7 @@ class _OpenAIRealtimeVoiceConversationScreenState
   WebSocket? _socket;
   RTCPeerConnection? _peerConnection;
   MediaStream? _localMediaStream;
+  MediaStream? _remoteMediaStream;
   RTCDataChannel? _dataChannel;
   bool _usingWebRtc = false;
   String _connectionModeLabel = 'Preparing';
@@ -267,13 +268,14 @@ class _OpenAIRealtimeVoiceConversationScreenState
         return;
       }
 
-      final sessionData = await AiProxyConfig.withRequestContext(
-        profileId: profileId,
-        isPremium: _isPremiumUser,
-        feature: 'voice_call',
-        units: 1,
-        callReserveSeconds: _maxAllowedCallSeconds,
-        action: _createRealtimeSession,
+      final sessionData = await _createRealtimeSession(
+        requestContext: AiRequestContext(
+          profileId: profileId,
+          isPremium: _isPremiumUser,
+          feature: 'voice_call',
+          units: 1,
+          callReserveSeconds: _maxAllowedCallSeconds,
+        ),
       );
       if (sessionData == null) {
         setState(() {
@@ -480,9 +482,11 @@ class _OpenAIRealtimeVoiceConversationScreenState
         ],
         'sdpSemantics': 'unified-plan',
       });
+      _peerConnection = pc;
 
       final localStream =
           await navigator.mediaDevices.getUserMedia({'audio': true});
+      _localMediaStream = localStream;
       for (final track in localStream.getTracks()) {
         await pc.addTrack(track, localStream);
       }
@@ -495,6 +499,21 @@ class _OpenAIRealtimeVoiceConversationScreenState
 
       pc.onDataChannel = (channel) {
         _bindDataChannelHandlers(channel);
+      };
+      pc.onTrack = (event) {
+        if (event.track.kind != 'audio') return;
+        final streams = event.streams;
+        if (streams.isNotEmpty) {
+          _remoteMediaStream = streams.first;
+        }
+        event.track.enabled = true;
+        if (mounted) {
+          setState(() {
+            _connectionModeLabel = 'WebRTC (audio)';
+          });
+        } else {
+          _connectionModeLabel = 'WebRTC (audio)';
+        }
       };
 
       pc.onConnectionState = (state) {
@@ -531,8 +550,7 @@ class _OpenAIRealtimeVoiceConversationScreenState
       await pc.setLocalDescription(offer);
       final localDescription = await pc.getLocalDescription();
       if (localDescription?.sdp == null) {
-        await localStream.dispose();
-        await pc.close();
+        await _disposeWebRtcResources();
         return false;
       }
 
@@ -546,23 +564,19 @@ class _OpenAIRealtimeVoiceConversationScreenState
         body: localDescription!.sdp!,
       );
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        await localStream.dispose();
-        await pc.close();
+        await _disposeWebRtcResources();
         return false;
       }
 
       final answerSdp = response.body;
       if (answerSdp.isEmpty) {
-        await localStream.dispose();
-        await pc.close();
+        await _disposeWebRtcResources();
         return false;
       }
       await pc.setRemoteDescription(
         RTCSessionDescription(answerSdp, 'answer'),
       );
 
-      _peerConnection = pc;
-      _localMediaStream = localStream;
       _dataChannel = dataChannel;
       if (mounted) {
         setState(() {
@@ -668,7 +682,9 @@ class _OpenAIRealtimeVoiceConversationScreenState
     return null;
   }
 
-  Future<Map<String, dynamic>?> _createRealtimeSession() async {
+  Future<Map<String, dynamic>?> _createRealtimeSession({
+    required AiRequestContext requestContext,
+  }) async {
     final payload = jsonEncode({
       'model': _realtimeModel,
     });
@@ -677,7 +693,7 @@ class _OpenAIRealtimeVoiceConversationScreenState
       try {
         final proxyResponse = await http.post(
           _proxyConfig.proxyUri('/openai/realtime/sessions'),
-          headers: _proxyConfig.proxyHeaders(),
+          headers: _proxyConfig.proxyHeaders(requestContext: requestContext),
           body: payload,
         );
         if (proxyResponse.statusCode >= 200 && proxyResponse.statusCode < 300) {
@@ -765,6 +781,19 @@ class _OpenAIRealtimeVoiceConversationScreenState
       } catch (_) {}
     }
 
+    final remoteStream = _remoteMediaStream;
+    _remoteMediaStream = null;
+    if (remoteStream != null) {
+      try {
+        for (final track in remoteStream.getTracks()) {
+          await track.stop();
+        }
+      } catch (_) {}
+      try {
+        await remoteStream.dispose();
+      } catch (_) {}
+    }
+
     final pc = _peerConnection;
     _peerConnection = null;
     if (pc != null) {
@@ -781,6 +810,7 @@ class _OpenAIRealtimeVoiceConversationScreenState
     if (_isClosing) return;
     _isClosing = true;
 
+    final wasUsingWebRtc = _usingWebRtc;
     _callTimer?.cancel();
     if (mounted) {
       setState(() {
@@ -804,7 +834,7 @@ class _OpenAIRealtimeVoiceConversationScreenState
 
       // Stop native audio stream
       try {
-        if (!_usingWebRtc) {
+        if (!wasUsingWebRtc) {
           debugPrint('Stopping native audio stream');
           await NativeAudioStream.stop();
         }

@@ -9,12 +9,8 @@ void main() {
     allowDirectFallback: false,
   );
 
-  setUp(() {
-    AiProxyConfig.clearRequestContext();
-  });
-
-  test('proxy headers include runtime request context', () {
-    AiProxyConfig.setRequestContext(
+  test('proxy headers include explicit request context', () {
+    const requestContext = AiRequestContext(
       profileId: 7,
       isPremium: false,
       feature: 'chat_message',
@@ -22,7 +18,7 @@ void main() {
       callReserveSeconds: 180,
     );
 
-    final headers = config.proxyHeaders();
+    final headers = config.proxyHeaders(requestContext: requestContext);
     expect(headers['X-Child-Profile-Id'], '7');
     expect(headers['X-User-Tier'], 'free');
     expect(headers['X-AI-Feature'], 'chat_message');
@@ -30,33 +26,12 @@ void main() {
     expect(headers['X-AI-Call-Reserve-Seconds'], '180');
   });
 
-  test('withRequestContext restores previous context after action', () async {
-    AiProxyConfig.setRequestContext(
-      profileId: 1,
-      isPremium: true,
-      feature: 'voice_call',
-      units: 1,
-      callReserveSeconds: 600,
-    );
-
-    await AiProxyConfig.withRequestContext(
-      profileId: 2,
-      isPremium: false,
-      feature: 'story_generation',
-      units: 3,
-      callReserveSeconds: 120,
-      action: () async {
-        final scopedHeaders = config.proxyHeaders();
-        expect(scopedHeaders['X-Child-Profile-Id'], '2');
-        expect(scopedHeaders['X-User-Tier'], 'free');
-        expect(scopedHeaders['X-AI-Feature'], 'story_generation');
-      },
-    );
-
-    final restoredHeaders = config.proxyHeaders();
-    expect(restoredHeaders['X-Child-Profile-Id'], '1');
-    expect(restoredHeaders['X-User-Tier'], 'premium');
-    expect(restoredHeaders['X-AI-Feature'], 'voice_call');
-    expect(restoredHeaders['X-AI-Call-Reserve-Seconds'], '600');
+  test('proxy headers do not include runtime ai context when omitted', () {
+    final headers = config.proxyHeaders();
+    expect(headers.containsKey('X-Child-Profile-Id'), isFalse);
+    expect(headers.containsKey('X-User-Tier'), isFalse);
+    expect(headers.containsKey('X-AI-Feature'), isFalse);
+    expect(headers.containsKey('X-AI-Units'), isFalse);
+    expect(headers.containsKey('X-AI-Call-Reserve-Seconds'), isFalse);
   });
 }

@@ -1279,7 +1279,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
     });
   }
 
-  Future<AiQuotaCheckResult?> _consumeStoryQuota() async {
+  Future<AiQuotaReservation?> _reserveStoryQuota() async {
     final profileId = _currentProfileId;
     if (profileId == null) {
       setState(() {
@@ -1288,25 +1288,30 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
       return null;
     }
 
-    final result = await _aiUsageLimitService.tryConsumeCountQuota(
+    final reservation = await _aiUsageLimitService.reserveCountQuota(
       profileId: profileId,
       isPremium: _isPremiumUser,
       feature: AiCountFeature.storyGeneration,
     );
 
-    if (!result.allowed) {
+    if (reservation == null) {
+      final status = await _aiUsageLimitService.getCountQuotaStatus(
+        profileId: profileId,
+        isPremium: _isPremiumUser,
+        feature: AiCountFeature.storyGeneration,
+      );
       _showQuotaBlockedDialog(
         title: 'Story limit reached',
-        message: result.buildBlockedMessage(isPremium: _isPremiumUser),
+        message: status.buildBlockedMessage(isPremium: _isPremiumUser),
       );
       return null;
     }
 
-    if (!mounted) return result;
+    if (!mounted) return reservation;
     setState(() {
-      _storyQuotaStatus = result;
+      _storyQuotaStatus = reservation.statusAfterReserve;
     });
-    return result;
+    return reservation;
   }
 
   void _showQuotaBlockedDialog({
@@ -1338,10 +1343,11 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
 
   // Generate a complete story with title and content using AI
   Future<void> _generateFullStory() async {
-    final quotaResult = await _consumeStoryQuota();
-    if (quotaResult == null) return;
+    final quotaReservation = await _reserveStoryQuota();
+    if (quotaReservation == null) return;
     final profileId = _currentProfileId;
     if (profileId == null) return;
+    var shouldReleaseReservation = true;
 
     setState(() {
       _isGenerating = true;
@@ -1369,14 +1375,14 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
             ' suitable for ${ageData['label']} (${ageData['description']})';
       }
 
-      final storyData = await AiProxyConfig.withRequestContext(
-        profileId: profileId,
-        isPremium: _isPremiumUser,
-        feature: 'story_generation',
-        units: 1,
-        action: () => _openAIService.generateStory(
-          ageGroup: _selectedAgeGroup,
-          prompt: prompt,
+      final storyData = await _openAIService.generateStory(
+        ageGroup: _selectedAgeGroup,
+        prompt: prompt,
+        requestContext: AiRequestContext(
+          profileId: profileId,
+          isPremium: _isPremiumUser,
+          feature: 'story_generation',
+          units: 1,
         ),
       );
 
@@ -1384,6 +1390,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
       if (storyData != null &&
           storyData['title'] != null &&
           storyData['content'] != null) {
+        shouldReleaseReservation = false;
         setState(() {
           // Always update both title and content
           _titleController.text = storyData['title'];
@@ -1427,11 +1434,17 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
             'Oops! Something went wrong. Please check your internet connection and try again!';
       });
     } finally {
+      if (shouldReleaseReservation) {
+        await _aiUsageLimitService.releaseCountQuotaReservation(
+          quotaReservation.usageEventId,
+        );
+      }
       if (mounted) {
         setState(() {
           _isGenerating = false;
         });
       }
+      await _refreshStoryQuota();
     }
   }
 

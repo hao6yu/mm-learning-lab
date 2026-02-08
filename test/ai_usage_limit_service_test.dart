@@ -174,4 +174,83 @@ void main() {
     expect(rows.single['duration_seconds'], 240);
     expect(rows.single['end_reason'], 'recovered_after_interrupt');
   });
+
+  test('voice usage counts overlap when call spans day boundary', () async {
+    final db = DatabaseService();
+    final service = AIUsageLimitService(databaseService: db);
+    final profileId = await createProfile('Boundary Kid');
+
+    final start = DateTime(2026, 2, 8, 23, 58, 0);
+    final end = DateTime(2026, 2, 9, 0, 3, 0);
+    final sessionId = await db.insertAiCallSession(
+      profileId: profileId,
+      tier: 'free',
+      model: 'gpt-realtime-mini',
+      startedAt: start,
+    );
+    await db.closeAiCallSession(
+      sessionId: sessionId,
+      endedAt: end,
+      durationSeconds: 300,
+      endReason: 'test_boundary',
+    );
+
+    final allowanceAtEndOfDay = await service.getVoiceCallAllowance(
+      profileId: profileId,
+      isPremium: false,
+      now: DateTime(2026, 2, 8, 23, 59, 0),
+    );
+    // 1 minute of call should count on Feb 8.
+    expect(allowanceAtEndOfDay.usedTodaySeconds, 60);
+
+    final allowanceAtNextDay = await service.getVoiceCallAllowance(
+      profileId: profileId,
+      isPremium: false,
+      now: DateTime(2026, 2, 9, 0, 4, 0),
+    );
+    // 3 minutes of call should count on Feb 9.
+    expect(allowanceAtNextDay.usedTodaySeconds, 180);
+  });
+
+  test('released quota reservation restores chat availability', () async {
+    final db = DatabaseService();
+    final service = AIUsageLimitService(databaseService: db);
+    final profileId = await createProfile('Reservation Kid');
+    final now = DateTime(2026, 2, 8, 10, 0);
+
+    for (int i = 0; i < 29; i++) {
+      await db.insertAiUsageEvent(
+        profileId: profileId,
+        feature: 'ai_chat_message',
+        timestamp: now.subtract(Duration(minutes: i + 1)),
+      );
+    }
+
+    final reservation = await service.reserveCountQuota(
+      profileId: profileId,
+      isPremium: false,
+      feature: AiCountFeature.chatMessage,
+      now: now,
+    );
+    expect(reservation, isNotNull);
+
+    var status = await service.getCountQuotaStatus(
+      profileId: profileId,
+      isPremium: false,
+      feature: AiCountFeature.chatMessage,
+      now: now,
+    );
+    expect(status.allowed, isFalse);
+
+    await service.releaseCountQuotaReservation(reservation!.usageEventId);
+
+    status = await service.getCountQuotaStatus(
+      profileId: profileId,
+      isPremium: false,
+      feature: AiCountFeature.chatMessage,
+      now: now,
+    );
+    expect(status.allowed, isTrue);
+    expect(status.usedToday, 29);
+  });
 }

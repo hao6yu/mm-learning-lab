@@ -1087,19 +1087,67 @@ class DatabaseService {
   Future<int> getAiCallDurationSecondsSince({
     required int profileId,
     required DateTime since,
+    DateTime? until,
   }) async {
     final db = await database;
-    final result = await db.rawQuery(
-      '''
-      SELECT COALESCE(SUM(duration_seconds), 0) AS total
-      FROM ai_call_sessions
-      WHERE profile_id = ? AND started_at >= ? AND ended_at IS NOT NULL
-      ''',
-      [profileId, since.toIso8601String()],
+    final windowEnd = until ?? DateTime.now();
+    if (!windowEnd.isAfter(since)) {
+      return 0;
+    }
+
+    final rows = await db.query(
+      'ai_call_sessions',
+      columns: ['started_at', 'ended_at', 'duration_seconds'],
+      where:
+          'profile_id = ? AND ended_at IS NOT NULL AND ended_at > ? AND started_at < ?',
+      whereArgs: [
+        profileId,
+        since.toIso8601String(),
+        windowEnd.toIso8601String(),
+      ],
     );
-    final total = result.first['total'];
-    if (total is num) return total.toInt();
-    return int.tryParse(total?.toString() ?? '') ?? 0;
+
+    var total = 0;
+    for (final row in rows) {
+      final startedAtRaw = row['started_at'] as String?;
+      final endedAtRaw = row['ended_at'] as String?;
+      final recordedDurationRaw = row['duration_seconds'];
+      if (startedAtRaw == null || endedAtRaw == null) continue;
+
+      final startedAt = DateTime.tryParse(startedAtRaw);
+      final endedAt = DateTime.tryParse(endedAtRaw);
+      if (startedAt == null || endedAt == null || !endedAt.isAfter(startedAt)) {
+        continue;
+      }
+
+      final overlapStart = startedAt.isAfter(since) ? startedAt : since;
+      final overlapEnd = endedAt.isBefore(windowEnd) ? endedAt : windowEnd;
+      if (!overlapEnd.isAfter(overlapStart)) {
+        continue;
+      }
+
+      final sessionWallSeconds = endedAt.difference(startedAt).inSeconds;
+      final overlapSeconds = overlapEnd.difference(overlapStart).inSeconds;
+      if (overlapSeconds <= 0) continue;
+
+      final recordedDuration = recordedDurationRaw is num
+          ? recordedDurationRaw.toInt()
+          : int.tryParse(recordedDurationRaw?.toString() ?? '') ?? 0;
+      if (recordedDuration <= 0 || sessionWallSeconds <= 0) {
+        total += overlapSeconds;
+        continue;
+      }
+
+      if (overlapSeconds >= sessionWallSeconds) {
+        total += recordedDuration;
+        continue;
+      }
+
+      total +=
+          ((recordedDuration * overlapSeconds) / sessionWallSeconds).round();
+    }
+
+    return total;
   }
 
   Future<List<Map<String, dynamic>>> getOpenAiCallSessions({
@@ -1111,6 +1159,15 @@ class DatabaseService {
       where: 'profile_id = ? AND ended_at IS NULL',
       whereArgs: [profileId],
       orderBy: 'started_at ASC',
+    );
+  }
+
+  Future<int> deleteAiUsageEventById(int eventId) async {
+    final db = await database;
+    return db.delete(
+      'ai_usage_events',
+      where: 'id = ?',
+      whereArgs: [eventId],
     );
   }
 

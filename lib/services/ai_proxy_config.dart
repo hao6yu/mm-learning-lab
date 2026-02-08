@@ -1,6 +1,22 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+class AiRequestContext {
+  final int profileId;
+  final bool isPremium;
+  final String feature;
+  final int units;
+  final int? callReserveSeconds;
+
+  const AiRequestContext({
+    required this.profileId,
+    required this.isPremium,
+    required this.feature,
+    this.units = 1,
+    this.callReserveSeconds,
+  });
+}
+
 class AiProxyConfig {
   final String? baseUrl;
   final String? token;
@@ -13,12 +29,6 @@ class AiProxyConfig {
     required this.requireProxy,
     required this.allowDirectFallback,
   });
-
-  static int? _runtimeProfileId;
-  static String? _runtimeTier;
-  static String? _runtimeFeature;
-  static int? _runtimeUnits;
-  static int? _runtimeCallReserveSeconds;
 
   factory AiProxyConfig.fromEnv() {
     final baseUrl = dotenv.env['AI_PROXY_BASE_URL']?.trim();
@@ -49,7 +59,10 @@ class AiProxyConfig {
     return Uri.parse('$normalizedBase$normalizedPath');
   }
 
-  Map<String, String> proxyHeaders({bool json = true}) {
+  Map<String, String> proxyHeaders({
+    bool json = true,
+    AiRequestContext? requestContext,
+  }) {
     final headers = <String, String>{};
     if (json) {
       headers['Content-Type'] = 'application/json';
@@ -59,78 +72,20 @@ class AiProxyConfig {
       headers['Authorization'] = 'Bearer $token';
       headers['X-Proxy-Token'] = token!;
     }
-    if (_runtimeProfileId != null) {
-      headers['X-Child-Profile-Id'] = _runtimeProfileId.toString();
-    }
-    if (_runtimeTier != null && _runtimeTier!.isNotEmpty) {
-      headers['X-User-Tier'] = _runtimeTier!;
-    }
-    if (_runtimeFeature != null && _runtimeFeature!.isNotEmpty) {
-      headers['X-AI-Feature'] = _runtimeFeature!;
-    }
-    if (_runtimeUnits != null && _runtimeUnits! > 0) {
-      headers['X-AI-Units'] = _runtimeUnits.toString();
-    }
-    if (_runtimeCallReserveSeconds != null && _runtimeCallReserveSeconds! > 0) {
-      headers['X-AI-Call-Reserve-Seconds'] =
-          _runtimeCallReserveSeconds.toString();
+    if (requestContext != null) {
+      headers['X-Child-Profile-Id'] = requestContext.profileId.toString();
+      headers['X-User-Tier'] = requestContext.isPremium ? 'premium' : 'free';
+      headers['X-AI-Feature'] = requestContext.feature;
+      if (requestContext.units > 0) {
+        headers['X-AI-Units'] = requestContext.units.toString();
+      }
+      if (requestContext.callReserveSeconds != null &&
+          requestContext.callReserveSeconds! > 0) {
+        headers['X-AI-Call-Reserve-Seconds'] =
+            requestContext.callReserveSeconds.toString();
+      }
     }
     return headers;
-  }
-
-  static void setRequestContext({
-    required int profileId,
-    required bool isPremium,
-    required String feature,
-    int units = 1,
-    int? callReserveSeconds,
-  }) {
-    _runtimeProfileId = profileId;
-    _runtimeTier = isPremium ? 'premium' : 'free';
-    _runtimeFeature = feature;
-    _runtimeUnits = units;
-    _runtimeCallReserveSeconds = callReserveSeconds;
-  }
-
-  static void clearRequestContext() {
-    _runtimeProfileId = null;
-    _runtimeTier = null;
-    _runtimeFeature = null;
-    _runtimeUnits = null;
-    _runtimeCallReserveSeconds = null;
-  }
-
-  static Future<T> withRequestContext<T>({
-    required int profileId,
-    required bool isPremium,
-    required String feature,
-    int units = 1,
-    int? callReserveSeconds,
-    required Future<T> Function() action,
-  }) async {
-    final previousProfileId = _runtimeProfileId;
-    final previousTier = _runtimeTier;
-    final previousFeature = _runtimeFeature;
-    final previousUnits = _runtimeUnits;
-    final previousCallReserveSeconds = _runtimeCallReserveSeconds;
-
-    setRequestContext(
-      profileId: profileId,
-      isPremium: isPremium,
-      feature: feature,
-      units: units,
-      callReserveSeconds: callReserveSeconds,
-    );
-
-    try {
-      return await action();
-    } finally {
-      _runtimeProfileId = previousProfileId;
-      _runtimeTier = previousTier;
-      _runtimeFeature = previousFeature;
-      _runtimeUnits = previousUnits;
-      _runtimeCallReserveSeconds = previousCallReserveSeconds;
-    }
   }
 
   static bool _parseBool(String? raw, {required bool defaultValue}) {
