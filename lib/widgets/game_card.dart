@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 
 class GameCard extends StatefulWidget {
   final String title;
@@ -42,7 +41,9 @@ class _GameCardState extends State<GameCard> {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: widget.isSpecial ? BorderSide(color: widget.color.withOpacity(0.4), width: 1) : BorderSide.none,
+        side: widget.isSpecial
+            ? BorderSide(color: widget.color.withValues(alpha: 0.4), width: 1)
+            : BorderSide.none,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
@@ -131,7 +132,7 @@ class _GameCardState extends State<GameCard> {
             width: iconSize,
             height: iconSize,
             decoration: BoxDecoration(
-              color: widget.color.withOpacity(_isHovered ? 0.15 : 0.08),
+              color: widget.color.withValues(alpha: _isHovered ? 0.15 : 0.08),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
@@ -199,7 +200,7 @@ class _GameCardState extends State<GameCard> {
             width: iconSize,
             height: iconSize,
             decoration: BoxDecoration(
-              color: widget.color.withOpacity(_isHovered ? 0.15 : 0.08),
+              color: widget.color.withValues(alpha: _isHovered ? 0.15 : 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(

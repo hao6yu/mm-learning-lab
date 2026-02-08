@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math' as math;
 import 'dart:io';
 import '../providers/profile_provider.dart';
@@ -10,11 +9,11 @@ import '../widgets/profile_card.dart';
 import '../widgets/add_profile_modal.dart';
 import '../widgets/quick_avatar_update_modal.dart';
 import '../services/subscription_service.dart';
+import '../services/activity_progress_service.dart';
 import '../models/profile.dart';
-import 'math_challenge_selection_screen.dart';
+import '../utils/activity_launcher.dart';
 import 'math_game_selection_screen.dart';
 import 'puzzle_game_selection_screen.dart';
-import 'openai_realtime_voice_conversation_screen.dart';
 
 class ProfileSelectionScreen extends StatefulWidget {
   const ProfileSelectionScreen({super.key});
@@ -24,57 +23,84 @@ class ProfileSelectionScreen extends StatefulWidget {
 }
 
 class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
-  // Track the first time the app is used for free trial
-  static const String _firstLaunchTimeKey = 'first_launch_time';
-  static const int _freeTrialDurationDays = 14;
+  final ActivityProgressService _activityProgressService =
+      ActivityProgressService();
+  static const AssetImage _homeBackgroundImage =
+      AssetImage('assets/images/homepage-background.png');
+  final Map<int, Future<ActivityProgress?>> _lastActivityFutures = {};
+  Future<int>? _trialDaysFuture;
+  SubscriptionService? _subscriptionService;
+  bool _didPrecacheBackground = false;
 
   @override
   void initState() {
     super.initState();
-    // Load profiles when the screen is first built
-    Future.microtask(() => context.read<ProfileProvider>().loadProfiles());
+    // Load profiles as soon as this screen is initialized.
+    context.read<ProfileProvider>().loadProfiles();
+  }
 
-    // Check subscription status and navigate to subscription if necessary
-    Future.microtask(() async {
-      final subscriptionService = context.read<SubscriptionService>();
-      final isSubscribed = await subscriptionService.checkSubscriptionStatus();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didPrecacheBackground) {
+      _didPrecacheBackground = true;
+      // ignore: discarded_futures
+      precacheImage(_homeBackgroundImage, context);
+    }
 
-      if (!isSubscribed) {
-        // Delay slightly to ensure screen is fully built
-        await Future.delayed(const Duration(milliseconds: 300));
-        if (mounted) {
-          Navigator.pushNamed(context, '/subscription');
-        }
-      }
+    final nextSubscriptionService = context.read<SubscriptionService>();
+    if (!identical(_subscriptionService, nextSubscriptionService)) {
+      _subscriptionService?.removeListener(_handleSubscriptionChanged);
+      _subscriptionService = nextSubscriptionService;
+      _subscriptionService?.addListener(_handleSubscriptionChanged);
+      _refreshTrialDaysFuture();
+    }
+  }
+
+  @override
+  void dispose() {
+    _subscriptionService?.removeListener(_handleSubscriptionChanged);
+    super.dispose();
+  }
+
+  Future<ActivityProgress?> _lastActivityFutureFor(int profileId) {
+    return _lastActivityFutures.putIfAbsent(
+      profileId,
+      () => _activityProgressService.getLastActivity(profileId),
+    );
+  }
+
+  void _refreshLastActivityFuture(int profileId) {
+    _lastActivityFutures[profileId] =
+        _activityProgressService.getLastActivity(profileId);
+  }
+
+  void _refreshTrialDaysFuture() {
+    final service = _subscriptionService;
+    if (service == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _trialDaysFuture = service.getDaysLeftInTrial();
     });
   }
 
-  // Calculate days left in trial
-  Future<int> _getDaysLeftInTrial() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    // Get the first launch time, or set it if it doesn't exist
-    int? firstLaunchTime = prefs.getInt(_firstLaunchTimeKey);
-    if (firstLaunchTime == null) {
-      // If first time launching, set current time and return full trial period
-      firstLaunchTime = DateTime.now().millisecondsSinceEpoch;
-      await prefs.setInt(_firstLaunchTimeKey, firstLaunchTime);
-      return _freeTrialDurationDays;
+  void _handleSubscriptionChanged() {
+    if (!mounted) {
+      return;
     }
 
-    // Calculate how many days since first launch
-    final firstLaunchDate = DateTime.fromMillisecondsSinceEpoch(firstLaunchTime);
-    final today = DateTime.now();
-    final difference = today.difference(firstLaunchDate).inDays;
+    final service = _subscriptionService;
+    if (service == null || service.isSubscribed) {
+      return;
+    }
 
-    // Print for debugging
-    print('Days since first launch: $difference');
+    _refreshTrialDaysFuture();
+  }
 
-    // Calculate days remaining
-    final daysRemaining = _freeTrialDurationDays - difference;
-
-    // Return days left (minimum 0)
-    return daysRemaining > 0 ? daysRemaining : 0;
+  void _openProgressScreen() {
+    Navigator.pushNamed(context, '/progress');
   }
 
   // Helper method to get avatar color
@@ -89,6 +115,186 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
     }
   }
 
+  String _formatLastPlayed(DateTime playedAt) {
+    final now = DateTime.now();
+    final difference = now.difference(playedAt);
+
+    if (difference.inDays >= 1) {
+      return difference.inDays == 1
+          ? 'Played yesterday'
+          : 'Played ${difference.inDays} days ago';
+    }
+
+    if (difference.inHours >= 1) {
+      return 'Played ${difference.inHours}h ago';
+    }
+
+    return 'Played just now';
+  }
+
+  Widget _buildQuickResumeCard(
+    Profile selected, {
+    required bool isTablet,
+    required bool isLandscape,
+  }) {
+    final profileId = selected.id;
+    if (profileId == null) {
+      return const SizedBox.shrink();
+    }
+
+    return FutureBuilder<ActivityProgress?>(
+      key: ValueKey<int>(profileId),
+      future: _lastActivityFutureFor(profileId),
+      builder: (context, snapshot) {
+        final activity = snapshot.data;
+        final cardPadding = isTablet ? 16.0 : (isLandscape ? 10.0 : 12.0);
+        final iconSize = isTablet ? 28.0 : 24.0;
+        final titleSize = isTablet ? 18.0 : 16.0;
+        final subtitleSize = isTablet ? 14.0 : 12.0;
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            padding: EdgeInsets.symmetric(
+              vertical: cardPadding,
+              horizontal: cardPadding,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const SizedBox(
+              height: 20,
+              width: 20,
+              child: Center(
+                child: CircularProgressIndicator(strokeWidth: 2.0),
+              ),
+            ),
+          );
+        }
+
+        if (activity == null) {
+          return Container(
+            width: isLandscape ? 240.0 : double.infinity,
+            padding: EdgeInsets.symmetric(
+              vertical: cardPadding,
+              horizontal: cardPadding,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF8FD6FF), width: 1.4),
+            ),
+            child: Text(
+              'Pick any game to start quick resume.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.baloo2(
+                fontSize: subtitleSize,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF4B6584),
+              ),
+            ),
+          );
+        }
+
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: isLandscape ? 320.0 : (isTablet ? 460.0 : 360.0),
+          ),
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              vertical: cardPadding,
+              horizontal: cardPadding,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.95),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFF8FD6FF), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      activityIcon(activity.activityId),
+                      size: iconSize,
+                      color: const Color(0xFF8E6CFF),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Continue ${activity.activityTitle}',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.baloo2(
+                          fontSize: titleSize,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF3E3E3E),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _formatLastPlayed(activity.playedAt),
+                  style: GoogleFonts.baloo2(
+                    fontSize: subtitleSize,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF6C7A89),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF43C465),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: () async {
+                    await _activityProgressService.saveLastActivity(
+                      profileId: profileId,
+                      activityId: activity.activityId,
+                      activityTitle: activity.activityTitle,
+                    );
+                    if (mounted) {
+                      setState(() {
+                        _refreshLastActivityFuture(profileId);
+                      });
+                    }
+                    if (!context.mounted) return;
+                    await launchActivity(
+                      context,
+                      activity.activityId,
+                      profileName: selected.name,
+                    );
+                  },
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: Text(
+                    'Resume',
+                    style: GoogleFonts.baloo2(
+                      fontWeight: FontWeight.w800,
+                      fontSize: subtitleSize + 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // Helper method to show avatar update modal
   void _showAvatarUpdateModal(Profile profile) {
     showCupertinoModalPopup(
@@ -98,7 +304,8 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
   }
 
   // Helper method to build tappable avatar
-  Widget _buildTappableAvatar(Profile profile, double avatarRadius, double avatarFontSize, bool isLandscape, bool isTablet) {
+  Widget _buildTappableAvatar(Profile profile, double avatarRadius,
+      double avatarFontSize, bool isLandscape, bool isTablet) {
     return GestureDetector(
       onTap: () => _showAvatarUpdateModal(profile),
       child: Stack(
@@ -107,13 +314,17 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
             width: avatarRadius * 2,
             height: avatarRadius * 2,
             decoration: BoxDecoration(
-              color: profile.avatarType == 'photo' ? Colors.transparent : _getAvatarColor(profile.avatar),
+              color: profile.avatarType == 'photo'
+                  ? Colors.transparent
+                  : _getAvatarColor(profile.avatar),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
+                  color: Colors.black.withValues(alpha: 0.15),
                   blurRadius: isLandscape ? 6.0 : (isTablet ? 20.0 : 15.0),
-                  offset: isLandscape ? const Offset(0, 2.0) : Offset(0, isTablet ? 8.0 : 6.0),
+                  offset: isLandscape
+                      ? const Offset(0, 2.0)
+                      : Offset(0, isTablet ? 8.0 : 6.0),
                 ),
               ],
             ),
@@ -171,7 +382,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withValues(alpha: 0.2),
                     blurRadius: 4.0,
                     offset: const Offset(0, 2.0),
                   ),
@@ -192,18 +403,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Consumer<SubscriptionService>(
-        builder: (context, subscriptionService, child) {
-          // If not subscribed, show a blocking overlay
-          if (!subscriptionService.isSubscribed) {
-            // Show nothing, as navigation will occur immediately
-            return const SizedBox.shrink();
-          }
-
-          // Normal app content
-          return _buildMainContent();
-        },
-      ),
+      body: _buildMainContent(),
     );
   }
 
@@ -212,8 +412,8 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
       children: [
         // Background image
         Positioned.fill(
-          child: Image.asset(
-            'assets/images/homepage-background.png',
+          child: Image(
+            image: _homeBackgroundImage,
             fit: BoxFit.cover,
           ),
         ),
@@ -223,18 +423,17 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
           child: Consumer<ProfileProvider>(
             builder: (context, profileProvider, child) {
               Profile? selected;
-              if (profileProvider.profiles.isNotEmpty && profileProvider.selectedProfileId != null) {
+              if (profileProvider.profiles.isNotEmpty &&
+                  profileProvider.selectedProfileId != null) {
                 selected = profileProvider.profiles.firstWhere(
                   (p) => p.id == profileProvider.selectedProfileId,
                   orElse: () => profileProvider.profiles.first,
                 );
-              } else {
-                selected = null;
               }
-              final hasSelected = selected != null;
-              if (hasSelected) {
+
+              if (selected != null) {
                 // Show welcome screen
-                return _buildWelcomeScreen(selected!);
+                return _buildWelcomeScreen(selected);
               } else {
                 // Show profile selection
                 return _buildProfileSelection(profileProvider);
@@ -253,16 +452,19 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
 
     // Better tablet detection: consider both dimensions and pixel density
     final shortestSide = math.min(screenWidth, screenHeight);
-    final longestSide = math.max(screenWidth, screenHeight);
-    final isTablet = shortestSide > 600 || (shortestSide > 500 && devicePixelRatio < 2.5);
+    final isTablet =
+        shortestSide > 600 || (shortestSide > 500 && devicePixelRatio < 2.5);
 
     final isLandscape = screenWidth > screenHeight;
     final isSmallScreen = screenWidth < 400;
 
     // Enhanced responsive sizing for landscape - better phone landscape support
-    final avatarRadius = isTablet ? 70.0 : (isLandscape ? 35.0 : (isSmallScreen ? 45.0 : 56.0));
-    final avatarFontSize = isTablet ? 70.0 : (isLandscape ? 45.0 : (isSmallScreen ? 45.0 : 56.0));
-    final welcomeFontSize = isTablet ? 48.0 : (isLandscape ? 28.0 : (isSmallScreen ? 28.0 : 36.0));
+    final avatarRadius =
+        isTablet ? 70.0 : (isLandscape ? 35.0 : (isSmallScreen ? 45.0 : 56.0));
+    final avatarFontSize =
+        isTablet ? 70.0 : (isLandscape ? 45.0 : (isSmallScreen ? 45.0 : 56.0));
+    final welcomeFontSize =
+        isTablet ? 48.0 : (isLandscape ? 28.0 : (isSmallScreen ? 28.0 : 36.0));
     final backButtonPadding = isTablet ? 12.0 : (isLandscape ? 6.0 : 10.0);
     final backButtonIconSize = isTablet ? 28.0 : (isLandscape ? 24.0 : 24.0);
     final topPadding = isTablet ? 20.0 : (isLandscape ? 4.0 : 12.0);
@@ -317,26 +519,34 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                         final isSubscribed = subscriptionService.isSubscribed;
 
                         return GestureDetector(
-                          onTap: () => Navigator.pushNamed(context, '/subscription'),
+                          onTap: () =>
+                              Navigator.pushNamed(context, '/subscription'),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: isSubscribed ? Colors.green : const Color(0xFF8E6CFF),
+                              color: isSubscribed
+                                  ? Colors.green
+                                  : const Color(0xFF8E6CFF),
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: isSubscribed ? Colors.green.withOpacity(0.3) : const Color(0x668E6CFF),
+                                  color: isSubscribed
+                                      ? Colors.green.withValues(alpha: 0.3)
+                                      : const Color(0x668E6CFF),
                                   blurRadius: 12,
                                   offset: const Offset(0, 4),
                                   spreadRadius: 1,
                                 ),
                               ],
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  isSubscribed ? Icons.check_circle : Icons.workspace_premium,
+                                  isSubscribed
+                                      ? Icons.check_circle
+                                      : Icons.workspace_premium,
                                   color: Colors.white,
                                   size: 18,
                                 ),
@@ -376,10 +586,13 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 // Avatar
-                                _buildTappableAvatar(selected, avatarRadius, avatarFontSize, isLandscape, isTablet),
+                                _buildTappableAvatar(selected, avatarRadius,
+                                    avatarFontSize, isLandscape, isTablet),
                                 SizedBox(height: verticalSpacing),
                                 Text(
-                                  isLandscape ? 'Welcome, ${selected.name}' : 'Welcome,\n${selected.name}',
+                                  isLandscape
+                                      ? 'Welcome, ${selected.name}'
+                                      : 'Welcome,\n${selected.name}',
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.baloo2(
                                     fontSize: welcomeFontSize,
@@ -387,12 +600,24 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                     color: Colors.white,
                                     shadows: [
                                       Shadow(
-                                        color: Colors.black.withOpacity(0.15),
+                                        color: Colors.black
+                                            .withValues(alpha: 0.15),
                                         blurRadius: 4.0,
                                         offset: const Offset(0, 2.0),
                                       ),
                                     ],
                                   ),
+                                ),
+                                SizedBox(height: isTablet ? 20.0 : 12.0),
+                                _buildQuickResumeCard(
+                                  selected,
+                                  isTablet: isTablet,
+                                  isLandscape: isLandscape,
+                                ),
+                                SizedBox(height: isTablet ? 14.0 : 10.0),
+                                _buildProgressButton(
+                                  isTablet: isTablet,
+                                  isLandscape: isLandscape,
                                 ),
                               ],
                             ),
@@ -408,7 +633,8 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                 _HomeButton(
                                   label: 'ABC',
                                   color: const Color(0xFFFF9F43),
-                                  onTap: () => Navigator.pushNamed(context, '/games'),
+                                  onTap: () =>
+                                      Navigator.pushNamed(context, '/games'),
                                   isTablet: isTablet,
                                   isLandscape: isLandscape,
                                 ),
@@ -418,7 +644,10 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                   color: const Color(0xFF43C465),
                                   onTap: () => Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (context) => MathGameSelectionScreen(profileName: selected.name)),
+                                    MaterialPageRoute(
+                                        builder: (context) =>
+                                            MathGameSelectionScreen(
+                                                profileName: selected.name)),
                                   ),
                                   isTablet: isTablet,
                                   isLandscape: isLandscape,
@@ -429,7 +658,9 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                   color: const Color(0xFF8E6CFF),
                                   onTap: () => Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (context) => const PuzzleGameSelectionScreen()),
+                                    MaterialPageRoute(
+                                        builder: (context) =>
+                                            const PuzzleGameSelectionScreen()),
                                   ),
                                   isTablet: isTablet,
                                   isLandscape: isLandscape,
@@ -443,10 +674,13 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           // Avatar
-                          _buildTappableAvatar(selected, avatarRadius, avatarFontSize, isLandscape, isTablet),
+                          _buildTappableAvatar(selected, avatarRadius,
+                              avatarFontSize, isLandscape, isTablet),
                           SizedBox(height: verticalSpacing),
                           Text(
-                            isLandscape ? 'Welcome, ${selected.name}' : 'Welcome,\n${selected.name}',
+                            isLandscape
+                                ? 'Welcome, ${selected.name}'
+                                : 'Welcome,\n${selected.name}',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.baloo2(
                               fontSize: welcomeFontSize,
@@ -454,14 +688,25 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                               color: Colors.white,
                               shadows: [
                                 Shadow(
-                                  color: Colors.black.withOpacity(0.15),
+                                  color: Colors.black.withValues(alpha: 0.15),
                                   blurRadius: 4.0,
                                   offset: const Offset(0, 2.0),
                                 ),
                               ],
                             ),
                           ),
-                          SizedBox(height: buttonSpacing),
+                          SizedBox(height: isTablet ? 18.0 : 12.0),
+                          _buildQuickResumeCard(
+                            selected,
+                            isTablet: isTablet,
+                            isLandscape: isLandscape,
+                          ),
+                          SizedBox(height: isTablet ? 14.0 : 10.0),
+                          _buildProgressButton(
+                            isTablet: isTablet,
+                            isLandscape: isLandscape,
+                          ),
+                          SizedBox(height: buttonSpacing * 0.65),
                           // Buttons with responsive layout
                           isTablet
                               ? Row(
@@ -470,7 +715,8 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                     _HomeButton(
                                       label: 'ABC',
                                       color: const Color(0xFFFF9F43),
-                                      onTap: () => Navigator.pushNamed(context, '/games'),
+                                      onTap: () => Navigator.pushNamed(
+                                          context, '/games'),
                                       isTablet: isTablet,
                                     ),
                                     const SizedBox(width: 32),
@@ -479,7 +725,11 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                       color: const Color(0xFF43C465),
                                       onTap: () => Navigator.push(
                                         context,
-                                        MaterialPageRoute(builder: (context) => MathGameSelectionScreen(profileName: selected.name)),
+                                        MaterialPageRoute(
+                                            builder: (context) =>
+                                                MathGameSelectionScreen(
+                                                    profileName:
+                                                        selected.name)),
                                       ),
                                       isTablet: isTablet,
                                     ),
@@ -489,7 +739,9 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                       color: const Color(0xFF8E6CFF),
                                       onTap: () => Navigator.push(
                                         context,
-                                        MaterialPageRoute(builder: (context) => const PuzzleGameSelectionScreen()),
+                                        MaterialPageRoute(
+                                            builder: (context) =>
+                                                const PuzzleGameSelectionScreen()),
                                       ),
                                       isTablet: isTablet,
                                     ),
@@ -498,12 +750,14 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                               : Column(
                                   children: [
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         _HomeButton(
                                           label: 'ABC',
                                           color: const Color(0xFFFF9F43),
-                                          onTap: () => Navigator.pushNamed(context, '/games'),
+                                          onTap: () => Navigator.pushNamed(
+                                              context, '/games'),
                                           isTablet: isTablet,
                                         ),
                                         const SizedBox(width: 20),
@@ -512,7 +766,11 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                           color: const Color(0xFF43C465),
                                           onTap: () => Navigator.push(
                                             context,
-                                            MaterialPageRoute(builder: (context) => MathGameSelectionScreen(profileName: selected.name)),
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    MathGameSelectionScreen(
+                                                        profileName:
+                                                            selected.name)),
                                           ),
                                           isTablet: isTablet,
                                         ),
@@ -524,7 +782,9 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                       color: const Color(0xFF8E6CFF),
                                       onTap: () => Navigator.push(
                                         context,
-                                        MaterialPageRoute(builder: (context) => const PuzzleGameSelectionScreen()),
+                                        MaterialPageRoute(
+                                            builder: (context) =>
+                                                const PuzzleGameSelectionScreen()),
                                       ),
                                       isTablet: isTablet,
                                     ),
@@ -550,8 +810,12 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                 return const SizedBox.shrink();
               }
 
+              final trialDaysFuture =
+                  _trialDaysFuture ?? subscriptionService.getDaysLeftInTrial();
+              _trialDaysFuture ??= trialDaysFuture;
+
               return FutureBuilder<int>(
-                future: _getDaysLeftInTrial(),
+                future: trialDaysFuture,
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
                     return const SizedBox.shrink();
@@ -562,8 +826,9 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                   if (daysLeft <= 0) {
                     return Container(
                       width: double.infinity,
-                      color: Colors.red.withOpacity(0.8),
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                      color: Colors.red.withValues(alpha: 0.8),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 6, horizontal: 16),
                       child: const Text(
                         'Your free trial has ended. Subscribe to continue learning!',
                         textAlign: TextAlign.center,
@@ -577,8 +842,9 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                   } else if (daysLeft <= 3) {
                     return Container(
                       width: double.infinity,
-                      color: Colors.orange.withOpacity(0.8),
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                      color: Colors.orange.withValues(alpha: 0.8),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 6, horizontal: 16),
                       child: Text(
                         'Only $daysLeft ${daysLeft == 1 ? 'day' : 'days'} left in your free trial!',
                         textAlign: TextAlign.center,
@@ -592,10 +858,13 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                   } else {
                     return Container(
                       width: double.infinity,
-                      color: Colors.blue.withOpacity(0.7),
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                      color: Colors.blue.withValues(alpha: 0.7),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 6, horizontal: 16),
                       child: Text(
-                        daysLeft == 14 ? 'Free trial started! 14 days of unlimited learning.' : 'Free trial: $daysLeft days remaining',
+                        daysLeft == 14
+                            ? 'Free trial started! 14 days of unlimited learning.'
+                            : 'Free trial: $daysLeft days remaining',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: Colors.white,
@@ -614,6 +883,34 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
     );
   }
 
+  Widget _buildProgressButton({
+    required bool isTablet,
+    required bool isLandscape,
+  }) {
+    return FilledButton.icon(
+      onPressed: _openProgressScreen,
+      style: FilledButton.styleFrom(
+        backgroundColor: const Color(0xFF5AA9FF),
+        foregroundColor: Colors.white,
+        padding: EdgeInsets.symmetric(
+          horizontal: isTablet ? 18 : (isLandscape ? 14 : 16),
+          vertical: isTablet ? 12 : 10,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+      ),
+      icon: const Icon(Icons.auto_awesome_rounded),
+      label: Text(
+        'My Progress',
+        style: GoogleFonts.baloo2(
+          fontWeight: FontWeight.w800,
+          fontSize: isTablet ? 17 : 15,
+        ),
+      ),
+    );
+  }
+
   Widget _buildProfileSelection(ProfileProvider profileProvider) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
@@ -621,15 +918,17 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
 
     // Better tablet detection: consider both dimensions and pixel density
     final shortestSide = math.min(screenWidth, screenHeight);
-    final longestSide = math.max(screenWidth, screenHeight);
-    final isTablet = shortestSide > 600 || (shortestSide > 500 && devicePixelRatio < 2.5);
+    final isTablet =
+        shortestSide > 600 || (shortestSide > 500 && devicePixelRatio < 2.5);
 
     final isLandscape = screenWidth > screenHeight;
     final isSmallScreen = screenWidth < 400;
 
     // Enhanced responsive sizing for landscape
-    final titleFontSize = isTablet ? 48.0 : (isLandscape ? 28.0 : (isSmallScreen ? 24.0 : 36.0));
-    final descFontSize = isTablet ? 18.0 : (isLandscape ? 14.0 : (isSmallScreen ? 14.0 : 16.0));
+    final titleFontSize =
+        isTablet ? 48.0 : (isLandscape ? 28.0 : (isSmallScreen ? 24.0 : 36.0));
+    final descFontSize =
+        isTablet ? 18.0 : (isLandscape ? 14.0 : (isSmallScreen ? 14.0 : 16.0));
     final maxContentWidth = isTablet ? 800.0 : (isLandscape ? 700.0 : 500.0);
     final topPadding = isLandscape ? 10.0 : 20.0;
 
@@ -644,11 +943,14 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                 minHeight: MediaQuery.of(context).size.height,
               ),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: isTablet ? 24.0 : 16.0, vertical: 26.0),
+                padding: EdgeInsets.symmetric(
+                    horizontal: isTablet ? 24.0 : 16.0, vertical: 26.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
-                    SizedBox(height: MediaQuery.of(context).padding.top + topPadding),
+                    SizedBox(
+                        height:
+                            MediaQuery.of(context).padding.top + topPadding),
 
                     // Title
                     FittedBox(
@@ -668,7 +970,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                               offset: const Offset(0, 2),
                             ),
                             Shadow(
-                              color: Colors.black.withOpacity(0.10),
+                              color: Colors.black.withValues(alpha: 0.10),
                               blurRadius: 8,
                               offset: const Offset(0, 4),
                             ),
@@ -681,9 +983,10 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
 
                     // Subtitle
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.85),
+                        color: Colors.white.withValues(alpha: 0.85),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
@@ -709,22 +1012,27 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                     // Profile cards with responsive grid
                     LayoutBuilder(
                       builder: (context, constraints) {
-                        final cardWidth = isTablet ? 180.0 : (isLandscape ? 140.0 : 160.0);
-                        final spacing = isTablet ? 20.0 : (isLandscape ? 12.0 : 14.0);
+                        final cardWidth =
+                            isTablet ? 180.0 : (isLandscape ? 140.0 : 160.0);
+                        final spacing =
+                            isTablet ? 20.0 : (isLandscape ? 12.0 : 14.0);
 
                         return Wrap(
                           spacing: spacing,
                           runSpacing: spacing,
                           alignment: WrapAlignment.center,
                           children: [
-                            ...profileProvider.profiles.map((profile) => SizedBox(
-                                  width: cardWidth,
-                                  child: ProfileCard(
-                                    profile: profile,
-                                    isSelected: profile.id == profileProvider.selectedProfileId,
-                                    onTap: () => profileProvider.selectProfile(profile.id!),
-                                  ),
-                                )),
+                            ...profileProvider.profiles
+                                .map((profile) => SizedBox(
+                                      width: cardWidth,
+                                      child: ProfileCard(
+                                        profile: profile,
+                                        isSelected: profile.id ==
+                                            profileProvider.selectedProfileId,
+                                        onTap: () => profileProvider
+                                            .selectProfile(profile.id!),
+                                      ),
+                                    )),
                             SizedBox(
                               width: cardWidth,
                               child: AddProfileCard(
@@ -758,23 +1066,29 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                 onTap: () => Navigator.pushNamed(context, '/subscription'),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: isSubscribed ? Colors.green : const Color(0xFF8E6CFF),
+                    color:
+                        isSubscribed ? Colors.green : const Color(0xFF8E6CFF),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: isSubscribed ? Colors.green.withOpacity(0.3) : const Color(0x668E6CFF),
+                        color: isSubscribed
+                            ? Colors.green.withValues(alpha: 0.3)
+                            : const Color(0x668E6CFF),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                         spreadRadius: 1,
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        isSubscribed ? Icons.check_circle : Icons.workspace_premium,
+                        isSubscribed
+                            ? Icons.check_circle
+                            : Icons.workspace_premium,
                         color: Colors.white,
                         size: 18,
                       ),
@@ -806,8 +1120,12 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                 return const SizedBox.shrink();
               }
 
+              final trialDaysFuture =
+                  _trialDaysFuture ?? subscriptionService.getDaysLeftInTrial();
+              _trialDaysFuture ??= trialDaysFuture;
+
               return FutureBuilder<int>(
-                future: _getDaysLeftInTrial(),
+                future: trialDaysFuture,
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
                     return const SizedBox.shrink();
@@ -818,8 +1136,9 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                   if (daysLeft <= 0) {
                     return Container(
                       width: double.infinity,
-                      color: Colors.red.withOpacity(0.8),
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                      color: Colors.red.withValues(alpha: 0.8),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 6, horizontal: 16),
                       child: const Text(
                         'Your free trial has ended. Subscribe to continue learning!',
                         textAlign: TextAlign.center,
@@ -833,8 +1152,9 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                   } else if (daysLeft <= 3) {
                     return Container(
                       width: double.infinity,
-                      color: Colors.orange.withOpacity(0.8),
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                      color: Colors.orange.withValues(alpha: 0.8),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 6, horizontal: 16),
                       child: Text(
                         'Only $daysLeft ${daysLeft == 1 ? 'day' : 'days'} left in your free trial!',
                         textAlign: TextAlign.center,
@@ -848,10 +1168,13 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                   } else {
                     return Container(
                       width: double.infinity,
-                      color: Colors.blue.withOpacity(0.7),
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                      color: Colors.blue.withValues(alpha: 0.7),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 6, horizontal: 16),
                       child: Text(
-                        daysLeft == 14 ? 'Free trial started! 14 days of unlimited learning.' : 'Free trial: $daysLeft days remaining',
+                        daysLeft == 14
+                            ? 'Free trial started! 14 days of unlimited learning.'
+                            : 'Free trial: $daysLeft days remaining',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: Colors.white,
@@ -897,13 +1220,14 @@ class _HomeButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+        padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding, vertical: verticalPadding),
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(borderRadius),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.25),
+              color: color.withValues(alpha: 0.25),
               blurRadius: isTablet ? 16.0 : 12.0,
               offset: Offset(0, isTablet ? 6.0 : 4.0),
             ),

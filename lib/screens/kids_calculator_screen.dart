@@ -12,7 +12,6 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
   String _display = '';
   String _explanation = '';
   String _emoji = '🤔';
-  double? _lastResult;
 
   void _onButton(String value) {
     setState(() {
@@ -20,7 +19,6 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
         _display = '';
         _explanation = '';
         _emoji = '🤔';
-        _lastResult = null;
       } else if (value == '⌫') {
         if (_display.isNotEmpty) {
           _display = _display.substring(0, _display.length - 1);
@@ -45,7 +43,6 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
     try {
       final exp = _display.replaceAll('×', '*').replaceAll('÷', '/');
       final result = _eval(exp);
-      _lastResult = result;
       _emoji = '🎉';
       _explanation = _explain(_display);
       _display = result.toString();
@@ -103,7 +100,8 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
               int value = a < b ? b : a;
               String repeated;
               if (count <= 5) {
-                repeated = List.filled(count, value).join(' + ') + ' = ${a * b}.';
+                repeated =
+                    '${List.filled(count, value).join(' + ')} = ${a * b}.';
               } else {
                 repeated = '$value + $value';
                 if (count > 2) repeated += ' + ... ($count times)';
@@ -127,21 +125,43 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
 
     // Enhanced device detection (same as other screens)
     final shortestSide = math.min(screenWidth, screenHeight);
-    final isTablet = shortestSide > 600 || (shortestSide > 500 && devicePixelRatio < 2.5);
+    final isTablet =
+        shortestSide > 600 || (shortestSide > 500 && devicePixelRatio < 2.5);
     final isLandscape = screenWidth > screenHeight;
-    final isSmallPhoneLandscape = isLandscape && !isTablet && screenHeight < 380;
+    final isSmallPhoneLandscape =
+        isLandscape && !isTablet && screenHeight < 380;
 
     // Enhanced responsive sizing with three-tier system - more aggressive landscape reduction
-    final horizontalPadding = isTablet ? 24.0 : (isSmallPhoneLandscape ? 8.0 : (isLandscape ? 8.0 : 16.0));
-    final verticalPadding = isTablet ? 16.0 : (isSmallPhoneLandscape ? 3.0 : (isLandscape ? 4.0 : 12.0));
-    final borderRadius = isTablet ? 24.0 : (isSmallPhoneLandscape ? 12.0 : (isLandscape ? 14.0 : 20.0));
-    final iconSize = isTablet ? 32.0 : (isSmallPhoneLandscape ? 18.0 : (isLandscape ? 22.0 : 28.0));
-    final titleFontSize = isTablet ? 32.0 : (isSmallPhoneLandscape ? 18.0 : (isLandscape ? 22.0 : 28.0));
-    final displayFontSize = isTablet ? 36.0 : (isSmallPhoneLandscape ? 22.0 : (isLandscape ? 26.0 : 32.0));
-    final buttonSize = isTablet ? 64.0 : (isSmallPhoneLandscape ? 38.0 : (isLandscape ? 44.0 : 56.0));
-    final buttonFontSize = isTablet ? 28.0 : (isSmallPhoneLandscape ? 16.0 : (isLandscape ? 18.0 : 24.0));
-    final spacing = isTablet ? 8.0 : (isSmallPhoneLandscape ? 2.0 : (isLandscape ? 3.0 : 6.0));
-    final explanationFontSize = isTablet ? 18.0 : (isSmallPhoneLandscape ? 11.0 : (isLandscape ? 13.0 : 16.0));
+    final horizontalPadding = isTablet
+        ? 24.0
+        : (isSmallPhoneLandscape ? 8.0 : (isLandscape ? 8.0 : 16.0));
+    final verticalPadding = isTablet
+        ? 16.0
+        : (isSmallPhoneLandscape ? 3.0 : (isLandscape ? 4.0 : 12.0));
+    final borderRadius = isTablet
+        ? 24.0
+        : (isSmallPhoneLandscape ? 12.0 : (isLandscape ? 14.0 : 20.0));
+    final iconSize = isTablet
+        ? 32.0
+        : (isSmallPhoneLandscape ? 18.0 : (isLandscape ? 22.0 : 28.0));
+    final titleFontSize = isTablet
+        ? 32.0
+        : (isSmallPhoneLandscape ? 18.0 : (isLandscape ? 22.0 : 28.0));
+    final displayFontSize = isTablet
+        ? 36.0
+        : (isSmallPhoneLandscape ? 22.0 : (isLandscape ? 26.0 : 32.0));
+    final buttonSize = isTablet
+        ? 64.0
+        : (isSmallPhoneLandscape ? 38.0 : (isLandscape ? 44.0 : 56.0));
+    final buttonFontSize = isTablet
+        ? 28.0
+        : (isSmallPhoneLandscape ? 16.0 : (isLandscape ? 18.0 : 24.0));
+    final spacing = isTablet
+        ? 8.0
+        : (isSmallPhoneLandscape ? 2.0 : (isLandscape ? 3.0 : 6.0));
+    final explanationFontSize = isTablet
+        ? 18.0
+        : (isSmallPhoneLandscape ? 11.0 : (isLandscape ? 13.0 : 16.0));
 
     // Redesigned layout
     final numButtons = [
@@ -150,7 +170,6 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
       ['1', '2', '3'],
     ];
     final opButtons = ['÷', '×', '-', '+'];
-    final bottomButtons = ['0', '.', 'C', '⌫'];
     final opColors = {
       '+': const Color(0xFFFF9F43),
       '-': const Color(0xFF43C465),
@@ -191,7 +210,8 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
                         ],
                       ),
                       padding: EdgeInsets.all(isTablet ? 14.0 : 12.0),
-                      child: Icon(Icons.arrow_back_rounded, color: Colors.white, size: iconSize),
+                      child: Icon(Icons.arrow_back_rounded,
+                          color: Colors.white, size: iconSize),
                     ),
                   ),
                   const Spacer(),
@@ -213,13 +233,14 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
               // Display
               Container(
                 margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: horizontalPadding),
+                padding: EdgeInsets.symmetric(
+                    vertical: verticalPadding, horizontal: horizontalPadding),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(borderRadius),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
+                      color: Colors.black.withValues(alpha: 0.06),
                       blurRadius: isTablet ? 8.0 : 6.0,
                       offset: Offset(0, isTablet ? 3.0 : 2.0),
                     ),
@@ -234,7 +255,11 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
                       child: Text(
                         _display.isEmpty ? '...' : _display,
                         textAlign: TextAlign.right,
-                        style: TextStyle(fontSize: displayFontSize, fontWeight: FontWeight.bold, color: const Color(0xFF8E6CFF), fontFamily: 'Baloo2'),
+                        style: TextStyle(
+                            fontSize: displayFontSize,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF8E6CFF),
+                            fontFamily: 'Baloo2'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -267,24 +292,35 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
                                         child: GestureDetector(
                                           onTap: () => _onButton(n),
                                           child: AnimatedContainer(
-                                            duration: const Duration(milliseconds: 100),
+                                            duration: const Duration(
+                                                milliseconds: 100),
                                             width: buttonSize,
                                             height: buttonSize,
                                             decoration: BoxDecoration(
                                               color: Colors.white,
-                                              borderRadius: BorderRadius.circular(borderRadius * 0.8),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                      borderRadius * 0.8),
                                               boxShadow: [
                                                 BoxShadow(
-                                                  color: Colors.black.withOpacity(0.04),
-                                                  blurRadius: isTablet ? 5.0 : 4.0,
-                                                  offset: Offset(0, isTablet ? 3.0 : 2.0),
+                                                  color: Colors.black
+                                                      .withValues(alpha: 0.04),
+                                                  blurRadius:
+                                                      isTablet ? 5.0 : 4.0,
+                                                  offset: Offset(
+                                                      0, isTablet ? 3.0 : 2.0),
                                                 ),
                                               ],
                                             ),
                                             child: Center(
                                               child: Text(
                                                 n,
-                                                style: TextStyle(fontSize: buttonFontSize, fontWeight: FontWeight.bold, color: const Color(0xFF8E6CFF), fontFamily: 'Baloo2'),
+                                                style: TextStyle(
+                                                    fontSize: buttonFontSize,
+                                                    fontWeight: FontWeight.bold,
+                                                    color:
+                                                        const Color(0xFF8E6CFF),
+                                                    fontFamily: 'Baloo2'),
                                               ),
                                             ),
                                           ),
@@ -300,22 +336,32 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
                                     child: GestureDetector(
                                       onTap: () => _onButton('0'),
                                       child: AnimatedContainer(
-                                        duration: const Duration(milliseconds: 100),
+                                        duration:
+                                            const Duration(milliseconds: 100),
                                         width: buttonSize,
                                         height: buttonSize,
                                         decoration: BoxDecoration(
                                           color: Colors.white,
-                                          borderRadius: BorderRadius.circular(borderRadius * 0.8),
+                                          borderRadius: BorderRadius.circular(
+                                              borderRadius * 0.8),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.black.withOpacity(0.04),
+                                              color: Colors.black
+                                                  .withValues(alpha: 0.04),
                                               blurRadius: isTablet ? 5.0 : 4.0,
-                                              offset: Offset(0, isTablet ? 3.0 : 2.0),
+                                              offset: Offset(
+                                                  0, isTablet ? 3.0 : 2.0),
                                             ),
                                           ],
                                         ),
                                         child: Center(
-                                          child: Text('0', style: TextStyle(fontSize: buttonFontSize, fontWeight: FontWeight.bold, color: const Color(0xFF8E6CFF), fontFamily: 'Baloo2')),
+                                          child: Text('0',
+                                              style: TextStyle(
+                                                  fontSize: buttonFontSize,
+                                                  fontWeight: FontWeight.bold,
+                                                  color:
+                                                      const Color(0xFF8E6CFF),
+                                                  fontFamily: 'Baloo2')),
                                         ),
                                       ),
                                     ),
@@ -325,22 +371,32 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
                                     child: GestureDetector(
                                       onTap: () => _onButton('.'),
                                       child: AnimatedContainer(
-                                        duration: const Duration(milliseconds: 100),
+                                        duration:
+                                            const Duration(milliseconds: 100),
                                         width: buttonSize,
                                         height: buttonSize,
                                         decoration: BoxDecoration(
                                           color: Colors.white,
-                                          borderRadius: BorderRadius.circular(borderRadius * 0.8),
+                                          borderRadius: BorderRadius.circular(
+                                              borderRadius * 0.8),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.black.withOpacity(0.04),
+                                              color: Colors.black
+                                                  .withValues(alpha: 0.04),
                                               blurRadius: isTablet ? 5.0 : 4.0,
-                                              offset: Offset(0, isTablet ? 3.0 : 2.0),
+                                              offset: Offset(
+                                                  0, isTablet ? 3.0 : 2.0),
                                             ),
                                           ],
                                         ),
                                         child: Center(
-                                          child: Text('.', style: TextStyle(fontSize: buttonFontSize, fontWeight: FontWeight.bold, color: const Color(0xFF8E6CFF), fontFamily: 'Baloo2')),
+                                          child: Text('.',
+                                              style: TextStyle(
+                                                  fontSize: buttonFontSize,
+                                                  fontWeight: FontWeight.bold,
+                                                  color:
+                                                      const Color(0xFF8E6CFF),
+                                                  fontFamily: 'Baloo2')),
                                         ),
                                       ),
                                     ),
@@ -350,22 +406,29 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
                                     child: GestureDetector(
                                       onTap: () => _onButton('C'),
                                       child: AnimatedContainer(
-                                        duration: const Duration(milliseconds: 100),
+                                        duration:
+                                            const Duration(milliseconds: 100),
                                         width: buttonSize,
                                         height: buttonSize,
                                         decoration: BoxDecoration(
                                           color: opColors['C'],
-                                          borderRadius: BorderRadius.circular(borderRadius * 0.8),
+                                          borderRadius: BorderRadius.circular(
+                                              borderRadius * 0.8),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: opColors['C']!.withOpacity(0.13),
+                                              color: opColors['C']!
+                                                  .withValues(alpha: 0.13),
                                               blurRadius: isTablet ? 8.0 : 6.0,
-                                              offset: Offset(0, isTablet ? 3.0 : 2.0),
+                                              offset: Offset(
+                                                  0, isTablet ? 3.0 : 2.0),
                                             ),
                                           ],
                                         ),
                                         child: Center(
-                                          child: Icon(Icons.cleaning_services_rounded, color: const Color(0xFF8E6CFF), size: buttonFontSize),
+                                          child: Icon(
+                                              Icons.cleaning_services_rounded,
+                                              color: const Color(0xFF8E6CFF),
+                                              size: buttonFontSize),
                                         ),
                                       ),
                                     ),
@@ -376,7 +439,9 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
                           ),
                           // Operations column
                           Padding(
-                            padding: EdgeInsets.only(left: isLandscape ? spacing : spacing + 2.0, top: 0),
+                            padding: EdgeInsets.only(
+                                left: isLandscape ? spacing : spacing + 2.0,
+                                top: 0),
                             child: Column(
                               children: [
                                 for (var op in opButtons)
@@ -385,24 +450,32 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
                                     child: GestureDetector(
                                       onTap: () => _onButton(op),
                                       child: AnimatedContainer(
-                                        duration: const Duration(milliseconds: 100),
+                                        duration:
+                                            const Duration(milliseconds: 100),
                                         width: buttonSize,
                                         height: buttonSize,
                                         decoration: BoxDecoration(
                                           color: opColors[op],
-                                          borderRadius: BorderRadius.circular(borderRadius * 0.8),
+                                          borderRadius: BorderRadius.circular(
+                                              borderRadius * 0.8),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: opColors[op]!.withOpacity(0.13),
+                                              color: opColors[op]!
+                                                  .withValues(alpha: 0.13),
                                               blurRadius: isTablet ? 8.0 : 6.0,
-                                              offset: Offset(0, isTablet ? 3.0 : 2.0),
+                                              offset: Offset(
+                                                  0, isTablet ? 3.0 : 2.0),
                                             ),
                                           ],
                                         ),
                                         child: Center(
                                           child: Text(
                                             op,
-                                            style: TextStyle(fontSize: buttonFontSize, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Baloo2'),
+                                            style: TextStyle(
+                                                fontSize: buttonFontSize,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                                fontFamily: 'Baloo2'),
                                           ),
                                         ),
                                       ),
@@ -415,26 +488,48 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
                       ),
                       // Big = button
                       Padding(
-                        padding: EdgeInsets.only(top: isLandscape ? spacing : spacing + 2.0),
+                        padding: EdgeInsets.only(
+                            top: isLandscape ? spacing : spacing + 2.0),
                         child: GestureDetector(
                           onTap: () => _onButton('='),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 100),
-                            width: isTablet ? 320.0 : (isSmallPhoneLandscape ? 180.0 : (isLandscape ? 220.0 : 280.0)),
-                            height: isTablet ? 64.0 : (isSmallPhoneLandscape ? 38.0 : (isLandscape ? 44.0 : 56.0)),
+                            width: isTablet
+                                ? 320.0
+                                : (isSmallPhoneLandscape
+                                    ? 180.0
+                                    : (isLandscape ? 220.0 : 280.0)),
+                            height: isTablet
+                                ? 64.0
+                                : (isSmallPhoneLandscape
+                                    ? 38.0
+                                    : (isLandscape ? 44.0 : 56.0)),
                             decoration: BoxDecoration(
                               color: opColors['='],
-                              borderRadius: BorderRadius.circular(isTablet ? 32.0 : (isSmallPhoneLandscape ? 19.0 : (isLandscape ? 22.0 : 28.0))),
+                              borderRadius: BorderRadius.circular(isTablet
+                                  ? 32.0
+                                  : (isSmallPhoneLandscape
+                                      ? 19.0
+                                      : (isLandscape ? 22.0 : 28.0))),
                               boxShadow: [
                                 BoxShadow(
-                                  color: opColors['=']!.withOpacity(0.13),
+                                  color: opColors['=']!.withValues(alpha: 0.13),
                                   blurRadius: isTablet ? 8.0 : 6.0,
                                   offset: Offset(0, isTablet ? 3.0 : 2.0),
                                 ),
                               ],
                             ),
                             child: Center(
-                              child: Text('=', style: TextStyle(fontSize: isTablet ? 30.0 : (isSmallPhoneLandscape ? 16.0 : (isLandscape ? 20.0 : 26.0)), fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Baloo2')),
+                              child: Text('=',
+                                  style: TextStyle(
+                                      fontSize: isTablet
+                                          ? 30.0
+                                          : (isSmallPhoneLandscape
+                                              ? 16.0
+                                              : (isLandscape ? 20.0 : 26.0)),
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      fontFamily: 'Baloo2')),
                             ),
                           ),
                         ),
@@ -446,21 +541,41 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
               // Explanation
               if (_explanation.isNotEmpty)
                 Container(
-                  margin: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: isLandscape ? verticalPadding * 0.25 : verticalPadding * 0.75),
-                  padding: EdgeInsets.symmetric(horizontal: verticalPadding, vertical: isLandscape ? verticalPadding * 0.25 : verticalPadding * 0.75),
+                  margin: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding,
+                      vertical: isLandscape
+                          ? verticalPadding * 0.25
+                          : verticalPadding * 0.75),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: verticalPadding,
+                      vertical: isLandscape
+                          ? verticalPadding * 0.25
+                          : verticalPadding * 0.75),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFFBEA),
                     borderRadius: BorderRadius.circular(borderRadius * 0.75),
-                    border: Border.all(color: const Color(0xFFFF9F43), width: isTablet ? 2.5 : 2.0),
+                    border: Border.all(
+                        color: const Color(0xFFFF9F43),
+                        width: isTablet ? 2.5 : 2.0),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('💡 ', style: TextStyle(fontSize: isTablet ? 20.0 : (isSmallPhoneLandscape ? 14.0 : (isLandscape ? 16.0 : 18.0)))),
+                      Text('💡 ',
+                          style: TextStyle(
+                              fontSize: isTablet
+                                  ? 20.0
+                                  : (isSmallPhoneLandscape
+                                      ? 14.0
+                                      : (isLandscape ? 16.0 : 18.0)))),
                       Expanded(
                         child: Text(
                           _explanation,
-                          style: TextStyle(fontSize: explanationFontSize, color: const Color(0xFFFF9800), fontFamily: 'Baloo2', fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              fontSize: explanationFontSize,
+                              color: const Color(0xFFFF9800),
+                              fontFamily: 'Baloo2',
+                              fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],

@@ -4,7 +4,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as path;
 
 class AvatarSelector extends StatefulWidget {
   final String currentAvatar;
@@ -28,7 +27,40 @@ class _AvatarSelectorState extends State<AvatarSelector> {
   final ImagePicker _picker = ImagePicker();
 
   // All available avatars organized for horizontal scrolling
-  final List<String> _allAvatars = ['👦', '👧', '🧒', '👶', '🐶', '🐱', '🐰', '🦁', '🐸', '🐧', '🦄', '🌟', '🎈', '🚀', '⚽', '🎨', '🐻', '🐨', '🐯', '🦊', '🐼', '🐵', '🦝', '🐹', '🌈', '⭐', '🎯', '🎪', '🎭', '📚', '🎮', '🚗'];
+  final List<String> _allAvatars = [
+    '👦',
+    '👧',
+    '🧒',
+    '👶',
+    '🐶',
+    '🐱',
+    '🐰',
+    '🦁',
+    '🐸',
+    '🐧',
+    '🦄',
+    '🌟',
+    '🎈',
+    '🚀',
+    '⚽',
+    '🎨',
+    '🐻',
+    '🐨',
+    '🐯',
+    '🦊',
+    '🐼',
+    '🐵',
+    '🦝',
+    '🐹',
+    '🌈',
+    '⭐',
+    '🎯',
+    '🎪',
+    '🎭',
+    '📚',
+    '🎮',
+    '🚗'
+  ];
 
   // Organize avatars into columns for horizontal scrolling (3 rows per column)
   List<List<String>> get _avatarColumns {
@@ -67,7 +99,7 @@ class _AvatarSelectorState extends State<AvatarSelector> {
         }
       }
     } catch (e) {
-      print('Error picking image: $e');
+      debugPrint('Error picking image: $e');
       // Show error to user
       if (mounted) {
         showCupertinoDialog(
@@ -212,11 +244,16 @@ class _AvatarSelectorState extends State<AvatarSelector> {
           width: double.infinity,
           margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
           child: Semantics(
-            label: _selectedAvatarType == 'photo' ? 'Change profile photo' : 'Use your own photo as avatar',
+            label: _selectedAvatarType == 'photo'
+                ? 'Change profile photo'
+                : 'Use your own photo as avatar',
             button: true,
             child: CupertinoButton(
-              padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: horizontalPadding),
-              color: _selectedAvatarType == 'photo' ? const Color(0xFF43C465).withOpacity(0.1) : const Color(0xFFE3F2FD),
+              padding: EdgeInsets.symmetric(
+                  vertical: verticalPadding, horizontal: horizontalPadding),
+              color: _selectedAvatarType == 'photo'
+                  ? const Color(0xFF43C465).withValues(alpha: 0.1)
+                  : const Color(0xFFE3F2FD),
               borderRadius: BorderRadius.circular(borderRadius),
               onPressed: _showImageSourceDialog,
               child: Row(
@@ -225,15 +262,21 @@ class _AvatarSelectorState extends State<AvatarSelector> {
                   Icon(
                     CupertinoIcons.camera_fill,
                     size: iconSize,
-                    color: _selectedAvatarType == 'photo' ? const Color(0xFF43C465) : const Color(0xFF007AFF),
+                    color: _selectedAvatarType == 'photo'
+                        ? const Color(0xFF43C465)
+                        : const Color(0xFF007AFF),
                     semanticLabel: 'Camera icon',
                   ),
                   SizedBox(width: isTablet ? 10.0 : 8.0),
                   Text(
-                    _selectedAvatarType == 'photo' ? 'Change Photo' : 'Use Your Photo',
+                    _selectedAvatarType == 'photo'
+                        ? 'Change Photo'
+                        : 'Use Your Photo',
                     style: TextStyle(
                       fontSize: buttonFontSize,
-                      color: _selectedAvatarType == 'photo' ? const Color(0xFF43C465) : const Color(0xFF007AFF),
+                      color: _selectedAvatarType == 'photo'
+                          ? const Color(0xFF43C465)
+                          : const Color(0xFF007AFF),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -258,7 +301,7 @@ class _AvatarSelectorState extends State<AvatarSelector> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF43C465).withOpacity(0.3),
+                  color: const Color(0xFF43C465).withValues(alpha: 0.3),
                   blurRadius: isTablet ? 10.0 : 8.0,
                   offset: Offset(0, isTablet ? 3.0 : 2.0),
                 ),
@@ -357,17 +400,21 @@ class _AvatarSelectorState extends State<AvatarSelector> {
                         String avatar = entry.value;
                         return Padding(
                           padding: EdgeInsets.only(
-                            bottom: index < column.length - 1 ? (isTablet ? 6.0 : 4.0) : 0, // Further reduced spacing
+                            bottom: index < column.length - 1
+                                ? (isTablet ? 6.0 : 4.0)
+                                : 0, // Further reduced spacing
                           ),
                           child: _AvatarChoice(
                             avatar: avatar,
-                            isSelected: _selectedAvatarType == 'emoji' && _selectedAvatar == avatar,
+                            isSelected: _selectedAvatarType == 'emoji' &&
+                                _selectedAvatar == avatar,
                             onTap: () {
                               setState(() {
                                 _selectedAvatar = avatar;
                                 _selectedAvatarType = 'emoji';
                               });
-                              widget.onAvatarSelected(_selectedAvatar, _selectedAvatarType);
+                              widget.onAvatarSelected(
+                                  _selectedAvatar, _selectedAvatarType);
                             },
                             isTablet: isTablet,
                           ),
@@ -425,7 +472,7 @@ class _AvatarChoice extends StatelessWidget {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF43C465).withOpacity(0.3),
+                      color: const Color(0xFF43C465).withValues(alpha: 0.3),
                       blurRadius: blurRadius,
                       offset: Offset(0, offset),
                     ),

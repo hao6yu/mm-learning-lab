@@ -1,20 +1,38 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
+
+import 'ai_proxy_config.dart';
 
 class OpenAIService {
-  static const String _baseUrl = 'https://api.openai.com/v1/chat/completions';
-  static const String _audioTranscriptionUrl = 'https://api.openai.com/v1/audio/transcriptions';
-  static String? _apiKey;
-  static String _chatModel = 'gpt-4o'; // Default value
-  static String _chatMiniModel = 'gpt-4o'; // Default value
+  static const String _directChatCompletionsUrl =
+      'https://api.openai.com/v1/chat/completions';
+  static const String _directAudioTranscriptionUrl =
+      'https://api.openai.com/v1/audio/transcriptions';
 
-  // Age-appropriate story tones for different age groups
+  static const String _proxyChatCompletionsPath = '/openai/chat/completions';
+  static const String _proxyAudioTranscriptionPath =
+      '/openai/audio/transcriptions';
+
+  static String? _apiKey;
+  static String _chatModel = 'gpt-4o';
+  static String _chatMiniModel = 'gpt-4o';
+  static AiProxyConfig _proxyConfig = AiProxyConfig(
+    baseUrl: null,
+    token: null,
+    requireProxy: kReleaseMode,
+    allowDirectFallback: !kReleaseMode,
+  );
+
   static const Map<String, String> agePrompts = {
-    'young': 'Write a very short, simple story for a 3-6 year old child with basic vocabulary and short sentences. The story should be educational, positive, and engaging for very young children.',
-    'middle': 'Write a short story for a 7-9 year old child with age-appropriate vocabulary. Include a small challenge or lesson that is resolved positively.',
-    'older': 'Write a story for a 10-12 year old that is engaging and includes more complex vocabulary but is still age-appropriate. The story can have a bit more complexity in plot.'
+    'young':
+        'Write a very short, simple story for a 3-6 year old child with basic vocabulary and short sentences. The story should be educational, positive, and engaging for very young children.',
+    'middle':
+        'Write a short story for a 7-9 year old child with age-appropriate vocabulary. Include a small challenge or lesson that is resolved positively.',
+    'older':
+        'Write a story for a 10-12 year old that is engaging and includes more complex vocabulary but is still age-appropriate. The story can have a bit more complexity in plot.',
   };
 
   static const Map<String, String> categoryPrompts = {
@@ -22,40 +40,40 @@ class OpenAIService {
     'Animals': 'a story featuring friendly animals as main characters',
     'Space': 'a story about space, planets, or astronauts',
     'Fantasy': 'a magical fantasy story with light fantasy elements',
-    'Nature': 'a story about nature, plants, weather, or the environment'
+    'Nature': 'a story about nature, plants, weather, or the environment',
   };
 
   static const Map<String, String> difficultyPrompts = {
     'Easy': 'Use simple words and short sentences for early readers.',
-    'Medium': 'Use moderate vocabulary with some challenging words but mostly straightforward language.',
-    'Hard': 'Include some advanced vocabulary words that help build reading skills, but still keep the content age-appropriate.'
+    'Medium':
+        'Use moderate vocabulary with some challenging words but mostly straightforward language.',
+    'Hard':
+        'Include some advanced vocabulary words that help build reading skills, but still keep the content age-appropriate.',
   };
 
-  // Initialize with env variables or direct values
   static Future<void> initialize({String? apiKey}) async {
     _apiKey = apiKey ?? dotenv.env['OPENAI_API_KEY'];
-    if (_apiKey == null) {
-      print('Warning: OpenAI API key not set');
-    }
-
-    // Initialize model names from .env
     _chatModel = dotenv.env['OPENAI_CHAT_MODEL'] ?? 'gpt-4o';
     _chatMiniModel = dotenv.env['OPENAI_CHAT_MINI_MODEL'] ?? 'gpt-4o';
+    _proxyConfig = AiProxyConfig.fromEnv();
 
-    print('OpenAI models initialized: chat=${_chatModel}, mini=${_chatMiniModel}');
+    if (_proxyConfig.hasProxy) {
+      debugPrint('OpenAIService configured for proxy: ${_proxyConfig.baseUrl}');
+    } else {
+      debugPrint('OpenAIService proxy is not configured.');
+    }
+
+    if (!_canCallDirectProvider) {
+      debugPrint(
+          'OpenAIService direct-provider fallback is disabled or unavailable.');
+    }
   }
 
-  // Generate a complete story with title, category, etc.
   Future<Map<String, dynamic>?> generateStory({
     String? ageGroup = 'middle',
     String? prompt,
   }) async {
-    if (_apiKey == null) {
-      print('Error: OpenAI API key not found');
-      return null;
-    }
-
-    String systemPrompt = """
+    final systemPrompt = """
 You are a creative children's story writer who creates age-appropriate stories that are positive, educational, and engaging.
 Create a story with the following structure:
 1. Title: Should be fun and catchy
@@ -79,62 +97,39 @@ Output ONLY in this exact JSON format:
 }
 """;
 
-    String userPrompt = prompt ?? 'Please create a fun, educational story for children.';
+    final userPrompt =
+        prompt ?? 'Please create a fun, educational story for children.';
 
+    final response = await _postChatCompletions(
+      body: {
+        'model': _chatModel,
+        'messages': [
+          {'role': 'system', 'content': systemPrompt},
+          {'role': 'user', 'content': userPrompt}
+        ],
+        'temperature': 0.7,
+        'response_format': {'type': 'json_object'},
+      },
+      purpose: 'generate story',
+    );
+
+    if (response == null) return null;
+    final data = jsonDecode(response.body);
+    final content = data['choices'][0]['message']['content'];
     try {
-      print('Sending request to OpenAI API to generate a story');
-      final response = await http.post(
-        Uri.parse(_baseUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_apiKey',
-        },
-        body: jsonEncode({
-          'model': _chatMiniModel,
-          'messages': [
-            {'role': 'system', 'content': systemPrompt},
-            {'role': 'user', 'content': userPrompt}
-          ],
-          'temperature': 0.7,
-          'response_format': {'type': 'json_object'},
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final content = data['choices'][0]['message']['content'];
-        print('Received story from OpenAI: ${content.substring(0, min(100, content.length))}...');
-
-        try {
-          final storyData = jsonDecode(content);
-          return storyData;
-        } catch (e) {
-          print('Error parsing OpenAI JSON response: $e');
-          return null;
-        }
-      } else {
-        print('Error from OpenAI API: ${response.statusCode} - ${response.body}');
-        return null;
-      }
-    } catch (e) {
-      print('Exception in OpenAI API call: $e');
+      return jsonDecode(content) as Map<String, dynamic>;
+    } catch (_) {
       return null;
     }
   }
 
-  // Generate just a story based on a title and category
   Future<String?> generateStoryFromTitle({
     required String title,
     String? category,
     String? difficulty,
     String? ageGroup = 'middle',
   }) async {
-    if (_apiKey == null) {
-      print('Error: OpenAI API key not found');
-      return null;
-    }
-
-    String systemPrompt = """
+    final systemPrompt = """
 You are a creative children's story writer who creates age-appropriate stories that are positive, educational, and engaging.
 ${agePrompts[ageGroup ?? 'middle']}
 ${category != null ? 'The story should be ${categoryPrompts[category] ?? "engaging and creative"}.' : ''}
@@ -146,53 +141,35 @@ The story should be under 500 words, have a clear beginning, middle, and end, an
 Absolutely NO scary, violent, upsetting or inappropriate content. Keep it educational and wholesome.
 """;
 
-    try {
-      print('Sending request to OpenAI API to generate a story for title: $title');
-      final response = await http.post(
-        Uri.parse(_baseUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_apiKey',
-        },
-        body: jsonEncode({
-          'model': _chatMiniModel,
-          'messages': [
-            {'role': 'system', 'content': systemPrompt},
-            {'role': 'user', 'content': 'Please create a story titled "$title" that is fun and educational for children.'}
-          ],
-          'temperature': 0.7,
-        }),
-      );
+    final response = await _postChatCompletions(
+      body: {
+        'model': _chatMiniModel,
+        'messages': [
+          {'role': 'system', 'content': systemPrompt},
+          {
+            'role': 'user',
+            'content':
+                'Please create a story titled "$title" that is fun and educational for children.'
+          }
+        ],
+        'temperature': 0.7,
+      },
+      purpose: 'generate story from title',
+    );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final content = data['choices'][0]['message']['content'];
-        print('Received story from OpenAI: ${content.substring(0, min(100, content.length))}...');
-        return content;
-      } else {
-        print('Error from OpenAI API: ${response.statusCode} - ${response.body}');
-        return null;
-      }
-    } catch (e) {
-      print('Exception in OpenAI API call: $e');
-      return null;
-    }
+    if (response == null) return null;
+    final data = jsonDecode(response.body);
+    return data['choices'][0]['message']['content'];
   }
 
-  // Generate a title suggestion based on a theme or idea
   Future<String?> generateTitleSuggestion({
     required String theme,
     String? category,
     String? ageGroup = 'middle',
   }) async {
-    if (_apiKey == null) {
-      print('Error: OpenAI API key not found');
-      return null;
-    }
-
-    String systemPrompt = """
+    final systemPrompt = """
 Generate a fun, catchy, and age-appropriate title for a children's story about: $theme
-${category != null ? 'The story is in the ${category} category.' : ''}
+${category != null ? 'The story is in the $category category.' : ''}
 ${agePrompts[ageGroup ?? 'middle']}
 
 The title should be:
@@ -204,60 +181,35 @@ The title should be:
 Return ONLY the title text with no explanation or other text.
 """;
 
-    try {
-      print('Sending request to OpenAI API to generate a title about: $theme');
-      final response = await http.post(
-        Uri.parse(_baseUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_apiKey',
-        },
-        body: jsonEncode({
-          'model': _chatMiniModel,
-          'messages': [
-            {'role': 'system', 'content': systemPrompt},
-            {'role': 'user', 'content': 'Generate a catchy title for a children\'s story about: $theme'}
-          ],
-          'temperature': 0.8,
-          'max_tokens': 30,
-        }),
-      );
+    final response = await _postChatCompletions(
+      body: {
+        'model': _chatMiniModel,
+        'messages': [
+          {'role': 'system', 'content': systemPrompt},
+          {
+            'role': 'user',
+            'content':
+                "Generate a catchy title for a children's story about: $theme"
+          }
+        ],
+        'temperature': 0.8,
+        'max_tokens': 30,
+      },
+      purpose: 'generate title suggestion',
+    );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final title = data['choices'][0]['message']['content'].trim();
-        print('Received title from OpenAI: $title');
-        return title;
-      } else {
-        print('Error from OpenAI API: ${response.statusCode} - ${response.body}');
-        return null;
-      }
-    } catch (e) {
-      print('Exception in OpenAI API call: $e');
-      return null;
-    }
+    if (response == null) return null;
+    final data = jsonDecode(response.body);
+    return (data['choices'][0]['message']['content'] as String).trim();
   }
 
-  // New method for AI chat responses
   Future<String?> generateChatResponse({
     required String message,
     required List<Map<String, String>> history,
     String? childName,
     int? childAge,
   }) async {
-    print('======== OPENAI SERVICE: GENERATE CHAT RESPONSE ========');
-    print('Message: ${message.substring(0, min(50, message.length))}${message.length > 50 ? '...' : ''}');
-    print('History length: ${history.length} messages');
-    print('Child name: $childName');
-    print('Child age: $childAge');
-    print('Using model: $_chatMiniModel');
-
-    if (_apiKey == null) {
-      print('❌ Error: OpenAI API key not found');
-      return null;
-    }
-
-    String systemPrompt = """
+    final systemPrompt = """
 You are a friendly, educational AI assistant for children${childName != null ? ' named $childName' : ''}${childAge != null ? ' who is $childAge years old' : ''}.
 
 Your responses should be:
@@ -279,159 +231,168 @@ Avoid scary, violent, or overly complex explanations.
 NEVER provide any content that would be inappropriate for children.
 """;
 
-    final messages = [
+    final messages = <Map<String, String>>[
       {'role': 'system', 'content': systemPrompt},
+      ...history,
+      {'role': 'user', 'content': message},
     ];
 
-    // Add conversation history
-    for (var entry in history) {
-      messages.add(entry);
+    final response = await _postChatCompletions(
+      body: {
+        'model': _chatMiniModel,
+        'messages': messages,
+        'temperature': 0.7,
+        'max_tokens': 250,
+      },
+      purpose: 'generate chat response',
+    );
+
+    if (response == null) return null;
+    final data = jsonDecode(response.body);
+    if (data.containsKey('choices') &&
+        data['choices'] is List &&
+        (data['choices'] as List).isNotEmpty) {
+      return data['choices'][0]['message']['content'];
+    }
+    return null;
+  }
+
+  Future<String?> transcribeAudio(List<int> audioBytes,
+      {String? language}) async {
+    final proxyResponse =
+        await _transcribeViaProxy(audioBytes: audioBytes, language: language);
+    if (proxyResponse != null) {
+      return proxyResponse;
     }
 
-    // Add the current message
-    messages.add({'role': 'user', 'content': message});
+    if (!_canCallDirectProvider) {
+      return null;
+    }
+    return _transcribeViaDirect(audioBytes: audioBytes, language: language);
+  }
 
-    print('Total message count (including system and current): ${messages.length}');
+  Future<http.Response?> _postChatCompletions({
+    required Map<String, dynamic> body,
+    required String purpose,
+  }) async {
+    if (_proxyConfig.hasProxy) {
+      try {
+        final response = await http.post(
+          _proxyConfig.proxyUri(_proxyChatCompletionsPath),
+          headers: _proxyConfig.proxyHeaders(),
+          body: jsonEncode(body),
+        );
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return response;
+        }
+      } catch (_) {}
+
+      if (!_canCallDirectProvider) {
+        return null;
+      }
+    } else {
+      if (_proxyConfig.requireProxy && !_canCallDirectProvider) {
+        debugPrint(
+            'OpenAIService blocked for "$purpose": proxy required but not configured.');
+        return null;
+      }
+      if (!_canCallDirectProvider) {
+        return null;
+      }
+    }
 
     try {
-      print('🔄 Sending chat request to OpenAI API endpoint: $_baseUrl');
-      print('Request parameters:');
-      print('  - Model: $_chatMiniModel');
-      print('  - Temperature: 0.7');
-      print('  - Max tokens: 250');
-
-      final stopwatch = Stopwatch()..start();
-
       final response = await http.post(
-        Uri.parse(_baseUrl),
+        Uri.parse(_directChatCompletionsUrl),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $_apiKey',
         },
-        body: jsonEncode({
-          'model': _chatMiniModel,
-          'messages': messages,
-          'temperature': 0.7,
-          'max_tokens': 250,
-        }),
+        body: jsonEncode(body),
       );
-
-      final elapsed = stopwatch.elapsedMilliseconds;
-      print('Response received in ${elapsed}ms');
-
-      if (response.statusCode == 200) {
-        print('✅ Success - Status code: ${response.statusCode}');
-
-        final data = jsonDecode(response.body);
-        print('Response data structure: ${data.keys.toList()}');
-
-        if (data.containsKey('choices') && data['choices'].isNotEmpty) {
-          final content = data['choices'][0]['message']['content'];
-          final model = data['model'] ?? 'unknown';
-          final usage = data['usage'];
-
-          print('Completion details:');
-          print('  - Model actually used: $model');
-          if (usage != null) {
-            print('  - Prompt tokens: ${usage['prompt_tokens']}');
-            print('  - Completion tokens: ${usage['completion_tokens']}');
-            print('  - Total tokens: ${usage['total_tokens']}');
-          }
-
-          print('Response preview: "${content.substring(0, min(100, content.length))}${content.length > 100 ? '...' : ''}"');
-
-          print('======== OPENAI SERVICE: RESPONSE COMPLETE ========');
-          return content;
-        } else {
-          print('❌ Error: Unexpected response format - no choices found');
-          print('Response body: ${response.body.substring(0, min(200, response.body.length))}...');
-          return null;
-        }
-      } else {
-        print('❌ Error - Status code: ${response.statusCode}');
-        print('Error response: ${response.body}');
-        return null;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return response;
       }
-    } catch (e) {
-      print('❌ Exception in OpenAI API call: $e');
-      print('Stack trace: ${StackTrace.current}');
-      print('======== OPENAI SERVICE: ERROR ========');
-      return null;
-    }
+    } catch (_) {}
+    return null;
   }
 
-  // Transcribe audio using OpenAI's Whisper API
-  Future<String?> transcribeAudio(List<int> audioBytes, {String? language}) async {
-    print('======== OPENAI SERVICE: TRANSCRIBE AUDIO ========');
-    print('Audio size: ${audioBytes.length} bytes');
-    print('Language: ${language ?? 'auto'}');
-
-    if (_apiKey == null) {
-      print('❌ Error: OpenAI API key not found');
+  Future<String?> _transcribeViaProxy({
+    required List<int> audioBytes,
+    String? language,
+  }) async {
+    if (!_proxyConfig.hasProxy) {
       return null;
     }
-
-    // Create a multipart request
-    final request = http.MultipartRequest('POST', Uri.parse(_audioTranscriptionUrl));
-    print('Preparing request to: $_audioTranscriptionUrl');
-
-    // Add the API key to the headers
-    request.headers.addAll({
-      'Authorization': 'Bearer $_apiKey',
-    });
-
-    // Add the audio file as a multipart field
-    request.files.add(
-      http.MultipartFile.fromBytes(
-        'file',
-        audioBytes,
-        filename: 'audio.webm', // The filename matters for the MIME type
-      ),
-    );
-    print('Added audio file to request (${audioBytes.length} bytes)');
-
-    // Add parameters
-    request.fields['model'] = 'whisper-1';
-    if (language != null) {
-      request.fields['language'] = language;
-    }
-    print('Using Whisper model: whisper-1');
-
     try {
-      print('🔄 Sending audio transcription request to OpenAI');
-      final stopwatch = Stopwatch()..start();
+      final request = http.MultipartRequest(
+        'POST',
+        _proxyConfig.proxyUri(_proxyAudioTranscriptionPath),
+      );
+      request.headers.addAll(_proxyConfig.proxyHeaders(json: false));
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          audioBytes,
+          filename: 'audio.webm',
+        ),
+      );
+      request.fields['model'] = 'whisper-1';
+      if (language != null && language.isNotEmpty) {
+        request.fields['language'] = language;
+      }
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-
-      final elapsed = stopwatch.elapsedMilliseconds;
-      print('Response received in ${elapsed}ms');
-
-      if (response.statusCode == 200) {
-        print('✅ Success - Status code: ${response.statusCode}');
-
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         final data = jsonDecode(response.body);
-        final transcription = data['text'];
-
-        print('Transcription result (${transcription.length} chars): "${transcription.substring(0, min(100, transcription.length))}${transcription.length > 100 ? '...' : ''}"');
-        print('======== OPENAI SERVICE: TRANSCRIPTION COMPLETE ========');
-        return transcription;
-      } else {
-        print('❌ Error - Status code: ${response.statusCode}');
-        print('Error response: ${response.body.substring(0, min(200, response.body.length))}...');
-        print('======== OPENAI SERVICE: TRANSCRIPTION ERROR ========');
-        return null;
+        return data['text'] as String?;
       }
-    } catch (e) {
-      print('❌ Exception in OpenAI Whisper API call: $e');
-      print('Stack trace: ${StackTrace.current}');
-      print('======== OPENAI SERVICE: ERROR ========');
+      return null;
+    } catch (_) {
       return null;
     }
   }
-}
 
-// Helper function to get smaller of two integers
-int min(int a, int b) {
-  return a < b ? a : b;
+  Future<String?> _transcribeViaDirect({
+    required List<int> audioBytes,
+    String? language,
+  }) async {
+    if (_apiKey == null || _apiKey!.isEmpty) {
+      return null;
+    }
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse(_directAudioTranscriptionUrl),
+      );
+      request.headers['Authorization'] = 'Bearer $_apiKey';
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          audioBytes,
+          filename: 'audio.webm',
+        ),
+      );
+      request.fields['model'] = 'whisper-1';
+      if (language != null && language.isNotEmpty) {
+        request.fields['language'] = language;
+      }
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data = jsonDecode(response.body);
+        return data['text'] as String?;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static bool get _canCallDirectProvider {
+    final hasKey = _apiKey != null && _apiKey!.isNotEmpty;
+    if (!hasKey) return false;
+    if (!_proxyConfig.allowDirectFallback) return false;
+    if (_proxyConfig.requireProxy && kReleaseMode) return false;
+    return true;
+  }
 }

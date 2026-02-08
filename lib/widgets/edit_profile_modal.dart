@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../providers/profile_provider.dart';
 import '../models/profile.dart';
@@ -105,7 +104,7 @@ class _EditProfileModalState extends State<EditProfileModal> {
     final buttonFontSize = isTablet ? 18.0 : 16.0;
 
     return Material(
-      color: Colors.black.withOpacity(0.5),
+      color: Colors.black.withValues(alpha: 0.5),
       child: Center(
         child: Container(
           margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
@@ -118,7 +117,7 @@ class _EditProfileModalState extends State<EditProfileModal> {
             borderRadius: BorderRadius.circular(borderRadius),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -131,7 +130,8 @@ class _EditProfileModalState extends State<EditProfileModal> {
               children: [
                 // Header
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: padding, vertical: padding * 0.75),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: padding, vertical: padding * 0.75),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8F9FA),
                     border: const Border(
@@ -145,7 +145,8 @@ class _EditProfileModalState extends State<EditProfileModal> {
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
                             color: Colors.grey[100],
                             borderRadius: BorderRadius.circular(20),
@@ -173,13 +174,15 @@ class _EditProfileModalState extends State<EditProfileModal> {
                       GestureDetector(
                         onTap: _validateAndSave,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
                             color: const Color(0xFF4CAF50),
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF4CAF50).withOpacity(0.3),
+                                color: const Color(0xFF4CAF50)
+                                    .withValues(alpha: 0.3),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -343,7 +346,7 @@ class _EditProfileModalState extends State<EditProfileModal> {
         const SizedBox(height: 8),
 
         // Input field
-        Container(
+        SizedBox(
           width: width,
           child: TextField(
             controller: controller,
@@ -378,7 +381,9 @@ class _EditProfileModalState extends State<EditProfileModal> {
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                  color: hasError ? const Color(0xFFFF6B6B) : const Color(0xFF4CAF50),
+                  color: hasError
+                      ? const Color(0xFFFF6B6B)
+                      : const Color(0xFF4CAF50),
                   width: 2.0,
                 ),
               ),
@@ -396,7 +401,8 @@ class _EditProfileModalState extends State<EditProfileModal> {
                   width: 2.0,
                 ),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               counterText: '', // Hide character counter
               suffixIcon: hasError
                   ? const Icon(

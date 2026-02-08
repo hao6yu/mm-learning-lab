@@ -35,11 +35,15 @@ class ResponsiveConfig {
   double get largeSpacing => isTablet ? 48.0 : (isLandscape ? 24.0 : 32.0);
 
   // Button sizing
-  double get buttonHorizontalPadding => isTablet ? 56.0 : (isLandscape ? 32.0 : 40.0);
-  double get buttonVerticalPadding => isTablet ? 20.0 : (isLandscape ? 12.0 : 16.0);
-  double get buttonBorderRadius => isTablet ? 28.0 : (isLandscape ? 16.0 : 20.0);
+  double get buttonHorizontalPadding =>
+      isTablet ? 56.0 : (isLandscape ? 32.0 : 40.0);
+  double get buttonVerticalPadding =>
+      isTablet ? 20.0 : (isLandscape ? 12.0 : 16.0);
+  double get buttonBorderRadius =>
+      isTablet ? 28.0 : (isLandscape ? 16.0 : 20.0);
 
   // Layout constraints
-  double get maxContentWidth => isTablet ? 800.0 : (isLandscape ? 700.0 : 500.0);
+  double get maxContentWidth =>
+      isTablet ? 800.0 : (isLandscape ? 700.0 : 500.0);
   double get topPadding => isLandscape ? 20.0 : 60.0;
 }

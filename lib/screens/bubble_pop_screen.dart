@@ -9,14 +9,42 @@ class BubblePopScreen extends StatefulWidget {
   State<BubblePopScreen> createState() => _BubblePopScreenState();
 }
 
-class _BubblePopScreenState extends State<BubblePopScreen> with TickerProviderStateMixin {
+class _BubblePopScreenState extends State<BubblePopScreen>
+    with TickerProviderStateMixin {
   late String targetLetter;
   List<String> bubbles = [];
   List<AnimationController> _controllers = [];
   int? poppingIndex;
   int? shakingIndex;
   bool showConfetti = false;
-  final List<String> allLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+  final List<String> allLetters = [
+    'A',
+    'B',
+    'C',
+    'D',
+    'E',
+    'F',
+    'G',
+    'H',
+    'I',
+    'J',
+    'K',
+    'L',
+    'M',
+    'N',
+    'O',
+    'P',
+    'Q',
+    'R',
+    'S',
+    'T',
+    'U',
+    'V',
+    'W',
+    'X',
+    'Y',
+    'Z'
+  ];
   final AudioPlayer _audioPlayer = AudioPlayer();
   final Random _rand = Random();
 
@@ -107,10 +135,10 @@ class _BubblePopScreenState extends State<BubblePopScreen> with TickerProviderSt
   }
 
   // Improved random positioning that ensures all bubbles are visible
-  List<Offset> _generateRandomBubblePositions(Size area, double bubbleRadius, int count) {
+  List<Offset> _generateRandomBubblePositions(
+      Size area, double bubbleRadius, int count) {
     // Use a grid layout with jitter, but ensure all bubbles are fully inside the area
     List<Offset> positions = [];
-    final isSmallScreen = area.width < 360;
     final margin = 8.0; // margin from the edge
     final safeWidth = area.width - 2 * (bubbleRadius + margin);
     final safeHeight = area.height - 2 * (bubbleRadius + margin);
@@ -127,8 +155,12 @@ class _BubblePopScreenState extends State<BubblePopScreen> with TickerProviderSt
       int col = i % cols;
       double baseX = col * sectionWidth + sectionWidth / 2;
       double baseY = topOffset + row * sectionHeight + sectionHeight / 2;
-      double jitterX = ((_rand.nextDouble() * 2) - 1) * (sectionWidth * (1 - edgeBuffer * 2)) * 0.5;
-      double jitterY = ((_rand.nextDouble() * 2) - 1) * (sectionHeight * (1 - edgeBuffer * 2)) * 0.5;
+      double jitterX = ((_rand.nextDouble() * 2) - 1) *
+          (sectionWidth * (1 - edgeBuffer * 2)) *
+          0.5;
+      double jitterY = ((_rand.nextDouble() * 2) - 1) *
+          (sectionHeight * (1 - edgeBuffer * 2)) *
+          0.5;
       double x = baseX + jitterX;
       double y = baseY + jitterY;
       // Ensure within bounds (fully visible)
@@ -155,12 +187,16 @@ class _BubblePopScreenState extends State<BubblePopScreen> with TickerProviderSt
           }
           double pushAmount = (minDistance - distance) / 2;
           positions[i] = Offset(
-            (positions[i].dx + dx * pushAmount).clamp(bubbleRadius + margin, area.width - bubbleRadius - margin),
-            (positions[i].dy + dy * pushAmount).clamp(bubbleRadius + margin, area.height - bubbleRadius - margin),
+            (positions[i].dx + dx * pushAmount).clamp(
+                bubbleRadius + margin, area.width - bubbleRadius - margin),
+            (positions[i].dy + dy * pushAmount).clamp(
+                bubbleRadius + margin, area.height - bubbleRadius - margin),
           );
           positions[j] = Offset(
-            (positions[j].dx - dx * pushAmount).clamp(bubbleRadius + margin, area.width - bubbleRadius - margin),
-            (positions[j].dy - dy * pushAmount).clamp(bubbleRadius + margin, area.height - bubbleRadius - margin),
+            (positions[j].dx - dx * pushAmount).clamp(
+                bubbleRadius + margin, area.width - bubbleRadius - margin),
+            (positions[j].dy - dy * pushAmount).clamp(
+                bubbleRadius + margin, area.height - bubbleRadius - margin),
           );
         }
       }
@@ -396,7 +432,7 @@ class _BubblePopScreenState extends State<BubblePopScreen> with TickerProviderSt
                           offset: Offset(0, 2),
                         ),
                         Shadow(
-                          color: Colors.black.withOpacity(0.10),
+                          color: Colors.black.withValues(alpha: 0.10),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
@@ -442,7 +478,8 @@ class _BubblePopScreenState extends State<BubblePopScreen> with TickerProviderSt
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      final area = Size(constraints.maxWidth, constraints.maxHeight);
+                      final area =
+                          Size(constraints.maxWidth, constraints.maxHeight);
                       final bubblePositions = _generateRandomBubblePositions(
                         area,
                         bubbleRadius,
@@ -455,8 +492,12 @@ class _BubblePopScreenState extends State<BubblePopScreen> with TickerProviderSt
                           if (emptyBubbles.isNotEmpty)
                             for (final pos in emptyBubbles)
                               Positioned(
-                                left: area.width * 0.5 + pos.dx * 100 - bubbleRadius * 0.6,
-                                top: area.height * 0.4 + pos.dy * 100 - bubbleRadius * 0.6,
+                                left: area.width * 0.5 +
+                                    pos.dx * 100 -
+                                    bubbleRadius * 0.6,
+                                top: area.height * 0.4 +
+                                    pos.dy * 100 -
+                                    bubbleRadius * 0.6,
                                 child: _Bubble(
                                   letter: '',
                                   isTarget: false,
@@ -479,7 +520,9 @@ class _BubblePopScreenState extends State<BubblePopScreen> with TickerProviderSt
                                   child: GestureDetector(
                                     onTap: () => _onBubbleTap(i),
                                     child: Transform.scale(
-                                      scale: popping ? 1 - _controllers[i].value : 1,
+                                      scale: popping
+                                          ? 1 - _controllers[i].value
+                                          : 1,
                                       child: _Bubble(
                                         letter: bubbles[i],
                                         isTarget: bubbles[i] == targetLetter,
@@ -540,23 +583,29 @@ class _Bubble extends StatelessWidget {
     bool isNarrowLetter = "IijJl1".contains(letter);
 
     // Scale font size based on bubble size, with special handling for narrow letters
-    final fontSize = isDecorative ? 0.0 : (isNarrowLetter ? size * 0.6 : size * 0.45);
+    final fontSize =
+        isDecorative ? 0.0 : (isNarrowLetter ? size * 0.6 : size * 0.45);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 120),
       width: size,
       height: size,
-      transform: shaking ? (Matrix4.identity()..translate(Random().nextInt(12) - 6.0, 0.0)) : Matrix4.identity(),
+      transform: shaking
+          ? (Matrix4.identity()
+            ..translateByDouble(Random().nextInt(12) - 6.0, 0.0, 0.0, 1.0))
+          : Matrix4.identity(),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: isDecorative ? Colors.white.withOpacity(0.18) : Colors.white.withOpacity(0.7), // More opacity
+        color: isDecorative
+            ? Colors.white.withValues(alpha: 0.18)
+            : Colors.white.withValues(alpha: 0.7), // More opacity
         border: Border.all(
           color: const Color(0xFFB3E0FF),
           width: isDecorative ? 2 : (isSmallScreen ? 3 : 6),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12), // Stronger shadow
+            color: Colors.black.withValues(alpha: 0.12), // Stronger shadow
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -575,7 +624,8 @@ class _Bubble extends StatelessWidget {
                   letterSpacing: 0, // Remove letter spacing to center better
                   shadows: [
                     Shadow(
-                      color: Colors.black.withOpacity(0.15), // Stronger text shadow
+                      color: Colors.black
+                          .withValues(alpha: 0.15), // Stronger text shadow
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -592,7 +642,7 @@ class _Bubble extends StatelessWidget {
                 width: size * 0.25,
                 height: size * 0.12,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.45),
+                  color: Colors.white.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(size * 0.08),
                 ),
               ),
@@ -613,7 +663,7 @@ class _Cloud extends StatelessWidget {
       width: size,
       height: size * 0.6,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.8),
+        color: Colors.white.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(size * 0.3),
       ),
       child: Stack(
@@ -625,7 +675,7 @@ class _Cloud extends StatelessWidget {
               width: size * 0.5,
               height: size * 0.32,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(size * 0.16),
               ),
             ),
@@ -644,12 +694,15 @@ class _ConfettiOverlay extends StatefulWidget {
   State<_ConfettiOverlay> createState() => _ConfettiOverlayState();
 }
 
-class _ConfettiOverlayState extends State<_ConfettiOverlay> with SingleTickerProviderStateMixin {
+class _ConfettiOverlayState extends State<_ConfettiOverlay>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..forward();
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900))
+      ..forward();
   }
 
   @override
@@ -697,8 +750,13 @@ class _ConfettiBurstPainter extends CustomPainter {
       final distance = 0.0 + progress * (maxDistance + _rand.nextDouble() * 40);
       final x = origin.dx + cos(angle) * distance;
       final y = origin.dy + sin(angle) * distance;
-      final r = isSmallScreen ? (2.0 + _rand.nextDouble() * 3) : (4.0 + _rand.nextDouble() * 4);
-      final paint = Paint()..color = Color.fromARGB(255, _rand.nextInt(256), _rand.nextInt(256), _rand.nextInt(256)).withOpacity(1 - progress * 0.7);
+      final r = isSmallScreen
+          ? (2.0 + _rand.nextDouble() * 3)
+          : (4.0 + _rand.nextDouble() * 4);
+      final paint = Paint()
+        ..color = Color.fromARGB(
+                255, _rand.nextInt(256), _rand.nextInt(256), _rand.nextInt(256))
+            .withValues(alpha: 1 - progress * 0.7);
       canvas.drawCircle(Offset(x, y), r, paint);
     }
 
@@ -706,11 +764,15 @@ class _ConfettiBurstPainter extends CustomPainter {
     final starCount = isSmallScreen ? 5 : 8;
     for (int i = 0; i < starCount; i++) {
       final angle = (2 * pi / starCount) * i + _rand.nextDouble() * 0.2;
-      final distance = 0.0 + progress * ((isSmallScreen ? 60 : 90) + _rand.nextDouble() * 30);
+      final distance = 0.0 +
+          progress * ((isSmallScreen ? 60 : 90) + _rand.nextDouble() * 30);
       final x = origin.dx + cos(angle) * distance;
       final y = origin.dy + sin(angle) * distance;
-      final paint = Paint()..color = Colors.yellow.withOpacity(1 - progress * 0.7);
-      final starSize = isSmallScreen ? (6.0 + _rand.nextDouble() * 3) : (10.0 + _rand.nextDouble() * 4);
+      final paint = Paint()
+        ..color = Colors.yellow.withValues(alpha: 1 - progress * 0.7);
+      final starSize = isSmallScreen
+          ? (6.0 + _rand.nextDouble() * 3)
+          : (10.0 + _rand.nextDouble() * 4);
       _drawStar(canvas, Offset(x, y), starSize, paint);
     }
   }

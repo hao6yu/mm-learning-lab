@@ -14,7 +14,8 @@ class _ChessMazeScreenState extends State<ChessMazeScreen> {
   int knightCol = 1;
   int goalRow = 3;
   int goalCol = 3;
-  List<List<bool>> stars = List.generate(gridSize, (_) => List.filled(gridSize, false));
+  List<List<bool>> stars =
+      List.generate(gridSize, (_) => List.filled(gridSize, false));
   int moves = 0;
   int starsCollected = 0;
   bool gameWon = false;
@@ -46,7 +47,11 @@ class _ChessMazeScreenState extends State<ChessMazeScreen> {
   bool _isValidMove(int newRow, int newCol) {
     int dr = (newRow - knightRow).abs();
     int dc = (newCol - knightCol).abs();
-    return newRow >= 0 && newRow < gridSize && newCol >= 0 && newCol < gridSize && ((dr == 2 && dc == 1) || (dr == 1 && dc == 2));
+    return newRow >= 0 &&
+        newRow < gridSize &&
+        newCol >= 0 &&
+        newCol < gridSize &&
+        ((dr == 2 && dc == 1) || (dr == 1 && dc == 2));
   }
 
   void _moveKnight(int dRow, int dCol) {
@@ -69,7 +74,9 @@ class _ChessMazeScreenState extends State<ChessMazeScreen> {
   }
 
   Widget _buildCell(int row, int col) {
-    Color cellColor = ((row + col) % 2 == 0) ? const Color(0xFFF3E8FF) : const Color(0xFFD1C4E9);
+    Color cellColor = ((row + col) % 2 == 0)
+        ? const Color(0xFFF3E8FF)
+        : const Color(0xFFD1C4E9);
     Widget? child;
     if (row == knightRow && col == knightCol) {
       child = const Text('♞', style: TextStyle(fontSize: 38));
@@ -86,7 +93,7 @@ class _ChessMazeScreenState extends State<ChessMazeScreen> {
         border: Border.all(color: Colors.deepPurple.shade200, width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.deepPurple.withOpacity(0.08),
+            color: Colors.deepPurple.withValues(alpha: 0.08),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -129,7 +136,8 @@ class _ChessMazeScreenState extends State<ChessMazeScreen> {
                         ],
                       ),
                       padding: const EdgeInsets.all(14),
-                      child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 32),
+                      child: const Icon(Icons.arrow_back_rounded,
+                          color: Colors.white, size: 32),
                     ),
                   ),
                   const Spacer(),
@@ -157,7 +165,7 @@ class _ChessMazeScreenState extends State<ChessMazeScreen> {
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.deepPurple.withOpacity(0.08),
+                      color: Colors.deepPurple.withValues(alpha: 0.08),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -170,7 +178,11 @@ class _ChessMazeScreenState extends State<ChessMazeScreen> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          for (int col = 0; col < gridSize; col++) SizedBox(width: 54, height: 54, child: _buildCell(row, col)),
+                          for (int col = 0; col < gridSize; col++)
+                            SizedBox(
+                                width: 54,
+                                height: 54,
+                                child: _buildCell(row, col)),
                         ],
                       ),
                   ],
@@ -184,29 +196,45 @@ class _ChessMazeScreenState extends State<ChessMazeScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _ArrowButton(icon: Icons.arrow_upward_rounded, onTap: () => _moveKnight(-2, -1)),
+                        _ArrowButton(
+                            icon: Icons.arrow_upward_rounded,
+                            onTap: () => _moveKnight(-2, -1)),
                         const SizedBox(width: 12),
-                        _ArrowButton(icon: Icons.arrow_upward_rounded, onTap: () => _moveKnight(-2, 1)),
+                        _ArrowButton(
+                            icon: Icons.arrow_upward_rounded,
+                            onTap: () => _moveKnight(-2, 1)),
                       ],
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _ArrowButton(icon: Icons.arrow_back_rounded, onTap: () => _moveKnight(-1, -2)),
+                        _ArrowButton(
+                            icon: Icons.arrow_back_rounded,
+                            onTap: () => _moveKnight(-1, -2)),
                         const SizedBox(width: 12),
-                        _ArrowButton(icon: Icons.arrow_forward_rounded, onTap: () => _moveKnight(-1, 2)),
+                        _ArrowButton(
+                            icon: Icons.arrow_forward_rounded,
+                            onTap: () => _moveKnight(-1, 2)),
                         const SizedBox(width: 12),
-                        _ArrowButton(icon: Icons.arrow_back_rounded, onTap: () => _moveKnight(1, -2)),
+                        _ArrowButton(
+                            icon: Icons.arrow_back_rounded,
+                            onTap: () => _moveKnight(1, -2)),
                         const SizedBox(width: 12),
-                        _ArrowButton(icon: Icons.arrow_forward_rounded, onTap: () => _moveKnight(1, 2)),
+                        _ArrowButton(
+                            icon: Icons.arrow_forward_rounded,
+                            onTap: () => _moveKnight(1, 2)),
                       ],
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _ArrowButton(icon: Icons.arrow_downward_rounded, onTap: () => _moveKnight(2, -1)),
+                        _ArrowButton(
+                            icon: Icons.arrow_downward_rounded,
+                            onTap: () => _moveKnight(2, -1)),
                         const SizedBox(width: 12),
-                        _ArrowButton(icon: Icons.arrow_downward_rounded, onTap: () => _moveKnight(2, 1)),
+                        _ArrowButton(
+                            icon: Icons.arrow_downward_rounded,
+                            onTap: () => _moveKnight(2, 1)),
                       ],
                     ),
                   ],
@@ -218,16 +246,28 @@ class _ChessMazeScreenState extends State<ChessMazeScreen> {
                     children: [
                       const Text('🎉', style: TextStyle(fontSize: 48)),
                       const SizedBox(height: 8),
-                      const Text('You reached the goal!', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF8E6CFF), fontFamily: 'Baloo2')),
+                      const Text('You reached the goal!',
+                          style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF8E6CFF),
+                              fontFamily: 'Baloo2')),
                       const SizedBox(height: 12),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF8E6CFF),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                          padding: const EdgeInsets.symmetric(horizontal: 44, vertical: 18),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(28)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 44, vertical: 18),
                         ),
                         onPressed: _resetBoard,
-                        child: const Text('Play Again', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Baloo2')),
+                        child: const Text('Play Again',
+                            style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                fontFamily: 'Baloo2')),
                       ),
                     ],
                   ),
@@ -236,9 +276,19 @@ class _ChessMazeScreenState extends State<ChessMazeScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('Moves: $moves', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF8E6CFF), fontFamily: 'Baloo2')),
+                  Text('Moves: $moves',
+                      style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF8E6CFF),
+                          fontFamily: 'Baloo2')),
                   const SizedBox(width: 32),
-                  Text('Stars: $starsCollected/2', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFF9F43), fontFamily: 'Baloo2')),
+                  Text('Stars: $starsCollected/2',
+                      style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFFF9F43),
+                          fontFamily: 'Baloo2')),
                 ],
               ),
             ],

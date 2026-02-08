@@ -69,12 +69,29 @@ cp env.example .env
 
 ### Environment Setup
 
-Edit `.env` with your API keys:
+Edit `.env` with proxy settings (recommended):
 
 ```env
+AI_PROXY_BASE_URL=https://your-proxy.example.com
+AI_PROXY_TOKEN=your_proxy_token
+AI_PROXY_REQUIRED=true
+AI_ALLOW_DIRECT_FALLBACK=false
+```
+
+For local development only, you can optionally enable direct fallback with provider keys:
+
+```env
+AI_PROXY_REQUIRED=false
+AI_ALLOW_DIRECT_FALLBACK=true
 OPENAI_API_KEY=your_openai_api_key
 ELEVENLABS_API_KEY=your_elevenlabs_api_key
 ```
+
+Fallback behavior:
+- If proxy is configured, the app tries proxy endpoints first.
+- If proxy fails, direct provider fallback is allowed only when `AI_ALLOW_DIRECT_FALLBACK=true`.
+- In release builds, direct fallback is blocked when `AI_PROXY_REQUIRED=true`.
+- If both proxy and direct fallback are unavailable, AI calls fail gracefully and the app keeps running.
 
 ### Run
 
@@ -91,6 +108,9 @@ flutter run -d android
 See the included guides:
 - `ANDROID_RELEASE_GUIDE.md` - Android Play Store deployment
 - `APP_STORE_SUBMISSION_GUIDE.md` - iOS App Store deployment
+- `AI_PROXY_DEPLOYMENT_GUIDE.md` - backend proxy deployment for OpenAI/ElevenLabs
+- `NEXT_RELEASE_CHANGELOG.md` - release summary
+- `RELEASE_SMOKE_TEST_CHECKLIST.md` - phone/tablet release QA checklist
 
 ## Support
 

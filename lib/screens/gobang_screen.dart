@@ -36,7 +36,6 @@ class _GobangScreenState extends State<GobangScreen> {
   String _selectedVoiceId = '9BWtsMINqrJLrRacOk9x'; // Default voice: Aria
   bool _useVoiceCommentary = false;
   final AudioPlayer _audioPlayer = AudioPlayer();
-  String? _currentAIMessage;
   bool _isPlayingAudio = false;
   int _tempAudioCounter = 0;
   // Create a queue for pending audio messages
@@ -52,7 +51,14 @@ class _GobangScreenState extends State<GobangScreen> {
       'similarity_boost': 0.75,
       'speed': 1.05, // Slightly faster
       'prefix': 'Teacher',
-      'exclamations': ['Interesting!', 'Let me see...', 'Hmm...', 'Oh!', 'Wonderful!', 'Great!'],
+      'exclamations': [
+        'Interesting!',
+        'Let me see...',
+        'Hmm...',
+        'Oh!',
+        'Wonderful!',
+        'Great!'
+      ],
     },
     // Callum - Playful buddy
     'N2lVS1w4EtoT3dr4eOWO': {
@@ -61,7 +67,14 @@ class _GobangScreenState extends State<GobangScreen> {
       'similarity_boost': 0.8,
       'speed': 1.2, // Increased from 1.15 for more energy
       'prefix': 'Coach',
-      'exclamations': ['Awesome!', 'Got it!', 'Alright!', 'Let\'s go!', 'Sweet!', 'Cool!'],
+      'exclamations': [
+        'Awesome!',
+        'Got it!',
+        'Alright!',
+        'Let\'s go!',
+        'Sweet!',
+        'Cool!'
+      ],
     },
     // Aria - Enthusiastic coach
     '9BWtsMINqrJLrRacOk9x': {
@@ -70,7 +83,14 @@ class _GobangScreenState extends State<GobangScreen> {
       'similarity_boost': 0.7,
       'speed': 1.15, // Increased from 1.1
       'prefix': 'Coach',
-      'exclamations': ['Amazing!', 'Let\'s do this!', 'Woo!', 'Cool!', 'Fantastic!', 'Brilliant!'],
+      'exclamations': [
+        'Amazing!',
+        'Let\'s do this!',
+        'Woo!',
+        'Cool!',
+        'Fantastic!',
+        'Brilliant!'
+      ],
     },
     // Madeline - Patient mentor
     'x7Pz9CsHMAlHFwKlPxu8': {
@@ -79,7 +99,14 @@ class _GobangScreenState extends State<GobangScreen> {
       'similarity_boost': 0.7,
       'speed': 1.0, // Increased from 0.95
       'prefix': 'Mentor',
-      'exclamations': ['Wonderful!', 'I see...', 'Let\'s think...', 'Interesting choice!', 'Lovely!', 'Delightful!'],
+      'exclamations': [
+        'Wonderful!',
+        'I see...',
+        'Let\'s think...',
+        'Interesting choice!',
+        'Lovely!',
+        'Delightful!'
+      ],
     },
     // Haoziiiiiii - Analytical expert
     'iV5XeqzOeJzUHmdQ8FLK': {
@@ -88,22 +115,44 @@ class _GobangScreenState extends State<GobangScreen> {
       'similarity_boost': 0.8,
       'speed': 1.1, // Increased from 1.05
       'prefix': 'Master',
-      'exclamations': ['Analyzing...', 'Processing...', 'Calculating...', 'Interesting pattern!', 'Fascinating!', 'Impressive!'],
+      'exclamations': [
+        'Analyzing...',
+        'Processing...',
+        'Calculating...',
+        'Interesting pattern!',
+        'Fascinating!',
+        'Impressive!'
+      ],
     },
   };
 
   // List of AI thinking messages with more personality
-  final List<String> _easyThinkingMessages = ["Hmm, where to go?", "Let me try this!", "Eeny, meeny, miny, moe...", "Is this good?", "Let's try here.", "This looks nice!"];
+  final List<String> _easyThinkingMessages = [
+    "Hmm, where to go?",
+    "Let me try this!",
+    "Eeny, meeny, miny, moe...",
+    "Is this good?",
+    "Let's try here.",
+    "This looks nice!"
+  ];
 
-  final List<String> _mediumThinkingMessages = ["Interesting options...", "Block or attack?", "Nice strategy!", "Let me think...", "Hmm, I see your plan.", "This is getting fun!"];
+  final List<String> _mediumThinkingMessages = [
+    "Interesting options...",
+    "Block or attack?",
+    "Nice strategy!",
+    "Let me think...",
+    "Hmm, I see your plan.",
+    "This is getting fun!"
+  ];
 
-  final List<String> _hardThinkingMessages = ["Calculating...", "I see your strategy.", "Analyzing the board...", "I need to counter that.", "Interesting position!", "Let me focus..."];
-
-  // Reaction messages when player makes a good move
-  final List<String> _playerGoodMoveMessages = ["Strong move!", "Well played!", "Nice one!", "Impressive!", "Clever!"];
-
-  // Reaction messages when AI blocks player
-  final List<String> _aiBlockingMessages = ["I'll block that.", "Not so fast!", "Stopping you there.", "Blocked!", "Can't let you do that."];
+  final List<String> _hardThinkingMessages = [
+    "Calculating...",
+    "I see your strategy.",
+    "Analyzing the board...",
+    "I need to counter that.",
+    "Interesting position!",
+    "Let me focus..."
+  ];
 
   // Track used messages to avoid repetition
   final Set<String> _usedMessages = {};
@@ -170,7 +219,7 @@ class _GobangScreenState extends State<GobangScreen> {
         });
       }
     } catch (e) {
-      print('Error stopping audio: $e');
+      debugPrint('Error stopping audio: $e');
     }
   }
 
@@ -236,7 +285,11 @@ class _GobangScreenState extends State<GobangScreen> {
   }
 
   void _handleTap(int x, int y) async {
-    if (gameOver || board[x][y] != null || (mode == GobangMode.vsAI && currentPlayer == GobangPlayer.p2)) return;
+    if (gameOver ||
+        board[x][y] != null ||
+        (mode == GobangMode.vsAI && currentPlayer == GobangPlayer.p2)) {
+      return;
+    }
 
     setState(() {
       board[x][y] = currentPlayer;
@@ -253,7 +306,9 @@ class _GobangScreenState extends State<GobangScreen> {
     _checkWinner(x, y);
     if (!gameOver) {
       setState(() {
-        currentPlayer = currentPlayer == GobangPlayer.p1 ? GobangPlayer.p2 : GobangPlayer.p1;
+        currentPlayer = currentPlayer == GobangPlayer.p1
+            ? GobangPlayer.p2
+            : GobangPlayer.p1;
       });
       if (mode == GobangMode.vsAI && currentPlayer == GobangPlayer.p2) {
         await Future.delayed(const Duration(milliseconds: 400));
@@ -307,7 +362,9 @@ class _GobangScreenState extends State<GobangScreen> {
 
     for (var dir in directions) {
       int dx = dir[0], dy = dir[1];
-      int count = _countConsecutive(x, y, dx, dy, player) + _countConsecutive(x, y, -dx, -dy, player) - 1;
+      int count = _countConsecutive(x, y, dx, dy, player) +
+          _countConsecutive(x, y, -dx, -dy, player) -
+          1;
 
       if (count >= 3) {
         isAttacking = true;
@@ -338,7 +395,9 @@ class _GobangScreenState extends State<GobangScreen> {
     ];
     for (var dir in directions) {
       int dx = dir[0], dy = dir[1];
-      int count = _countConsecutive(x, y, dx, dy, GobangPlayer.p2) + _countConsecutive(x, y, -dx, -dy, GobangPlayer.p2) - 1;
+      int count = _countConsecutive(x, y, dx, dy, GobangPlayer.p2) +
+          _countConsecutive(x, y, -dx, -dy, GobangPlayer.p2) -
+          1;
 
       if (count >= 3) {
         isDefensive = true;
@@ -375,10 +434,6 @@ class _GobangScreenState extends State<GobangScreen> {
 
       // Get a unique message that hasn't been used recently
       message = _getUniqueMessage(messageList);
-
-      setState(() {
-        _currentAIMessage = message;
-      });
 
       // Add thinking message to queue
       _playAIVoiceMessage(message);
@@ -430,7 +485,6 @@ class _GobangScreenState extends State<GobangScreen> {
       board[move.x][move.y] = GobangPlayer.p2;
       aiMoves.add(move);
       aiThinking = false;
-      _currentAIMessage = null;
     });
 
     _checkWinner(move.x, move.y);
@@ -468,9 +522,10 @@ class _GobangScreenState extends State<GobangScreen> {
       // Get the next message from the queue
       String textToSpeak = _pendingAudioMessages.removeAt(0);
       _tempAudioCounter++;
-      int storyId = 99999 + _tempAudioCounter; // Using high numbers to avoid conflicts
+      int storyId =
+          99999 + _tempAudioCounter; // Using high numbers to avoid conflicts
 
-      print('Generating audio for AI message: $textToSpeak');
+      debugPrint('Generating audio for AI message: $textToSpeak');
 
       // Get personality settings for the selected voice
       final personality = _voicePersonalities[_selectedVoiceId] ??
@@ -489,7 +544,8 @@ class _GobangScreenState extends State<GobangScreen> {
         // 70% chance to add an exclamation for more personality (increased from 40%)
         if (Random().nextDouble() < 0.7) {
           final exclamations = personality['exclamations'] as List<String>;
-          final exclamation = exclamations[Random().nextInt(exclamations.length)];
+          final exclamation =
+              exclamations[Random().nextInt(exclamations.length)];
           enhancedText = "$exclamation $textToSpeak";
         }
       }
@@ -510,7 +566,8 @@ class _GobangScreenState extends State<GobangScreen> {
       };
 
       // First check if we have cached audio for this message
-      String? audioPath = await _checkCachedAudio(enhancedText, _selectedVoiceId);
+      String? audioPath =
+          await _checkCachedAudio(enhancedText, _selectedVoiceId);
 
       // If no cache, generate new audio
       if (audioPath == null) {
@@ -556,7 +613,7 @@ class _GobangScreenState extends State<GobangScreen> {
         });
       }
     } catch (e) {
-      print('Error playing AI voice message: $e');
+      debugPrint('Error playing AI voice message: $e');
       if (mounted) {
         setState(() {
           _isPlayingAudio = false;
@@ -579,16 +636,17 @@ class _GobangScreenState extends State<GobangScreen> {
 
       final cacheFile = File('${cacheDir.path}/$hash.mp3');
       if (await cacheFile.exists()) {
-        print('Using cached audio for: $text');
+        debugPrint('Using cached audio for: $text');
         return cacheFile.path;
       }
     } catch (e) {
-      print('Error checking cache: $e');
+      debugPrint('Error checking cache: $e');
     }
     return null;
   }
 
-  Future<void> _cacheAudio(String text, String voiceId, String audioPath) async {
+  Future<void> _cacheAudio(
+      String text, String voiceId, String audioPath) async {
     try {
       final hash = text.hashCode.toString() + voiceId;
       final dir = await getApplicationDocumentsDirectory();
@@ -602,10 +660,10 @@ class _GobangScreenState extends State<GobangScreen> {
 
       if (await originalFile.exists()) {
         await originalFile.copy(cacheFile.path);
-        print('Cached audio for: $text');
+        debugPrint('Cached audio for: $text');
       }
     } catch (e) {
-      print('Error caching audio: $e');
+      debugPrint('Error caching audio: $e');
     }
   }
 
@@ -704,7 +762,8 @@ class _GobangScreenState extends State<GobangScreen> {
     if (doubleThreatMove != null) return doubleThreatMove;
 
     // Priority 6: Block opponent's double threats
-    Point<int>? blockDoubleThreatMove = _findDoubleThreatMove(forOpponent: true);
+    Point<int>? blockDoubleThreatMove =
+        _findDoubleThreatMove(forOpponent: true);
     if (blockDoubleThreatMove != null) return blockDoubleThreatMove;
 
     // Priority 7: Block opponent's strong attacks
@@ -737,10 +796,22 @@ class _GobangScreenState extends State<GobangScreen> {
         // Try placing a stone here to see if it wins
         board[x][y] = player;
 
-        bool isWinning = _countConsecutive(x, y, 1, 0, player) + _countConsecutive(x, y, -1, 0, player) - 1 >= 5 ||
-            _countConsecutive(x, y, 0, 1, player) + _countConsecutive(x, y, 0, -1, player) - 1 >= 5 ||
-            _countConsecutive(x, y, 1, 1, player) + _countConsecutive(x, y, -1, -1, player) - 1 >= 5 ||
-            _countConsecutive(x, y, 1, -1, player) + _countConsecutive(x, y, -1, 1, player) - 1 >= 5;
+        bool isWinning = _countConsecutive(x, y, 1, 0, player) +
+                    _countConsecutive(x, y, -1, 0, player) -
+                    1 >=
+                5 ||
+            _countConsecutive(x, y, 0, 1, player) +
+                    _countConsecutive(x, y, 0, -1, player) -
+                    1 >=
+                5 ||
+            _countConsecutive(x, y, 1, 1, player) +
+                    _countConsecutive(x, y, -1, -1, player) -
+                    1 >=
+                5 ||
+            _countConsecutive(x, y, 1, -1, player) +
+                    _countConsecutive(x, y, -1, 1, player) -
+                    1 >=
+                5;
 
         // Restore the original board state
         board[x][y] = originalState;
@@ -821,13 +892,21 @@ class _GobangScreenState extends State<GobangScreen> {
     int count = 1;
     int i = x + dx, j = y + dy;
 
-    while (i >= 0 && i < boardSize && j >= 0 && j < boardSize && board[i][j] == player) {
+    while (i >= 0 &&
+        i < boardSize &&
+        j >= 0 &&
+        j < boardSize &&
+        board[i][j] == player) {
       count++;
       i += dx;
       j += dy;
     }
 
-    bool isOpenEnded = i >= 0 && i < boardSize && j >= 0 && j < boardSize && board[i][j] == null;
+    bool isOpenEnded = i >= 0 &&
+        i < boardSize &&
+        j >= 0 &&
+        j < boardSize &&
+        board[i][j] == null;
 
     return isOpenEnded ? count : 0;
   }
@@ -858,7 +937,10 @@ class _GobangScreenState extends State<GobangScreen> {
 
         for (var direction in directions) {
           int dx = direction[0], dy = direction[1];
-          int consecutiveStones = _countConsecutive(x, y, dx, dy, GobangPlayer.p2) + _countConsecutive(x, y, -dx, -dy, GobangPlayer.p2) - 1;
+          int consecutiveStones =
+              _countConsecutive(x, y, dx, dy, GobangPlayer.p2) +
+                  _countConsecutive(x, y, -dx, -dy, GobangPlayer.p2) -
+                  1;
 
           if (consecutiveStones > bestLine) {
             bestLine = consecutiveStones;
@@ -866,8 +948,10 @@ class _GobangScreenState extends State<GobangScreen> {
             // Check if both ends are open
             int i1 = x + dx * _countConsecutive(x, y, dx, dy, GobangPlayer.p2);
             int j1 = y + dy * _countConsecutive(x, y, dx, dy, GobangPlayer.p2);
-            int i2 = x - dx * _countConsecutive(x, y, -dx, -dy, GobangPlayer.p2);
-            int j2 = y - dy * _countConsecutive(x, y, -dx, -dy, GobangPlayer.p2);
+            int i2 =
+                x - dx * _countConsecutive(x, y, -dx, -dy, GobangPlayer.p2);
+            int j2 =
+                y - dy * _countConsecutive(x, y, -dx, -dy, GobangPlayer.p2);
 
             bool isOpen1 = _isValidPosition(i1, j1) && board[i1][j1] == null;
             bool isOpen2 = _isValidPosition(i2, j2) && board[i2][j2] == null;
@@ -924,7 +1008,9 @@ class _GobangScreenState extends State<GobangScreen> {
         // Count how many directions create a threat (3+ in a row with open ends)
         for (var dir in directions) {
           int dx = dir[0], dy = dir[1];
-          int count = _countConsecutive(x, y, dx, dy, player) + _countConsecutive(x, y, -dx, -dy, player) - 1;
+          int count = _countConsecutive(x, y, dx, dy, player) +
+              _countConsecutive(x, y, -dx, -dy, player) -
+              1;
 
           if (count >= 3) {
             // Check if at least one end is open
@@ -933,8 +1019,10 @@ class _GobangScreenState extends State<GobangScreen> {
             int backwardX = x - dx * _countConsecutive(x, y, -dx, -dy, player);
             int backwardY = y - dy * _countConsecutive(x, y, -dx, -dy, player);
 
-            bool forwardOpen = _isValidPosition(forwardX, forwardY) && board[forwardX][forwardY] == null;
-            bool backwardOpen = _isValidPosition(backwardX, backwardY) && board[backwardX][backwardY] == null;
+            bool forwardOpen = _isValidPosition(forwardX, forwardY) &&
+                board[forwardX][forwardY] == null;
+            bool backwardOpen = _isValidPosition(backwardX, backwardY) &&
+                board[backwardX][backwardY] == null;
 
             if (forwardOpen || backwardOpen) {
               threatCount++;
@@ -975,17 +1063,25 @@ class _GobangScreenState extends State<GobangScreen> {
 
         for (var dir in directions) {
           int dx = dir[0], dy = dir[1];
-          int count = _countConsecutive(x, y, dx, dy, GobangPlayer.p1) + _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1) - 1;
+          int count = _countConsecutive(x, y, dx, dy, GobangPlayer.p1) +
+              _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1) -
+              1;
 
           if (count >= 3) {
             // Check if both ends are open (very dangerous)
-            int forwardX = x + dx * _countConsecutive(x, y, dx, dy, GobangPlayer.p1);
-            int forwardY = y + dy * _countConsecutive(x, y, dx, dy, GobangPlayer.p1);
-            int backwardX = x - dx * _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1);
-            int backwardY = y - dy * _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1);
+            int forwardX =
+                x + dx * _countConsecutive(x, y, dx, dy, GobangPlayer.p1);
+            int forwardY =
+                y + dy * _countConsecutive(x, y, dx, dy, GobangPlayer.p1);
+            int backwardX =
+                x - dx * _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1);
+            int backwardY =
+                y - dy * _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1);
 
-            bool forwardOpen = _isValidPosition(forwardX, forwardY) && board[forwardX][forwardY] == null;
-            bool backwardOpen = _isValidPosition(backwardX, backwardY) && board[backwardX][backwardY] == null;
+            bool forwardOpen = _isValidPosition(forwardX, forwardY) &&
+                board[forwardX][forwardY] == null;
+            bool backwardOpen = _isValidPosition(backwardX, backwardY) &&
+                board[backwardX][backwardY] == null;
 
             if (forwardOpen && backwardOpen) {
               isStrongThreat = true;
@@ -1016,7 +1112,11 @@ class _GobangScreenState extends State<GobangScreen> {
 
     for (int x = center - 1; x <= center + 1; x++) {
       for (int y = center - 1; y <= center + 1; y++) {
-        if (x >= 0 && x < boardSize && y >= 0 && y < boardSize && board[x][y] == null) {
+        if (x >= 0 &&
+            x < boardSize &&
+            y >= 0 &&
+            y < boardSize &&
+            board[x][y] == null) {
           centerPositions.add(Point(x, y));
         }
       }
@@ -1024,7 +1124,12 @@ class _GobangScreenState extends State<GobangScreen> {
 
     for (int x = center - 2; x <= center + 2; x++) {
       for (int y = center - 2; y <= center + 2; y++) {
-        if (x >= 0 && x < boardSize && y >= 0 && y < boardSize && board[x][y] == null && !centerPositions.contains(Point(x, y))) {
+        if (x >= 0 &&
+            x < boardSize &&
+            y >= 0 &&
+            y < boardSize &&
+            board[x][y] == null &&
+            !centerPositions.contains(Point(x, y))) {
           nearCenterPositions.add(Point(x, y));
         }
       }
@@ -1082,11 +1187,13 @@ class _GobangScreenState extends State<GobangScreen> {
       int dx = dir[0], dy = dir[1];
 
       // Check potential for AI stones
-      int aiPotential = _evaluateDirectionPotential(x, y, dx, dy, GobangPlayer.p2);
+      int aiPotential =
+          _evaluateDirectionPotential(x, y, dx, dy, GobangPlayer.p2);
       score += aiPotential * 2;
 
       // Check blocking potential against opponent
-      int blockPotential = _evaluateDirectionPotential(x, y, dx, dy, GobangPlayer.p1);
+      int blockPotential =
+          _evaluateDirectionPotential(x, y, dx, dy, GobangPlayer.p1);
       score += blockPotential;
     }
 
@@ -1097,9 +1204,11 @@ class _GobangScreenState extends State<GobangScreen> {
         if (dx == 0 && dy == 0) continue;
         int nx = x + dx, ny = y + dy;
         if (_isValidPosition(nx, ny)) {
-          if (board[nx][ny] == GobangPlayer.p2)
+          if (board[nx][ny] == GobangPlayer.p2) {
             adjacentBonus += 3;
-          else if (board[nx][ny] == GobangPlayer.p1) adjacentBonus += 1;
+          } else if (board[nx][ny] == GobangPlayer.p1) {
+            adjacentBonus += 1;
+          }
         }
       }
     }
@@ -1109,7 +1218,8 @@ class _GobangScreenState extends State<GobangScreen> {
   }
 
   // Evaluate potential in a specific direction
-  int _evaluateDirectionPotential(int x, int y, int dx, int dy, GobangPlayer player) {
+  int _evaluateDirectionPotential(
+      int x, int y, int dx, int dy, GobangPlayer player) {
     int potential = 0;
     int consecutiveSpaces = 0;
     int friendlyStones = 0;
@@ -1122,22 +1232,24 @@ class _GobangScreenState extends State<GobangScreen> {
 
       // Forward direction
       if (_isValidPosition(fx, fy)) {
-        if (board[fx][fy] == player)
+        if (board[fx][fy] == player) {
           friendlyStones++;
-        else if (board[fx][fy] == null)
+        } else if (board[fx][fy] == null) {
           consecutiveSpaces++;
-        else
+        } else {
           enemyStones++;
+        }
       }
 
       // Backward direction
       if (_isValidPosition(bx, by)) {
-        if (board[bx][by] == player)
+        if (board[bx][by] == player) {
           friendlyStones++;
-        else if (board[bx][by] == null)
+        } else if (board[bx][by] == null) {
           consecutiveSpaces++;
-        else
+        } else {
           enemyStones++;
+        }
       }
     }
 
@@ -1167,7 +1279,11 @@ class _GobangScreenState extends State<GobangScreen> {
             int nx = x + dx;
             int ny = y + dy;
 
-            if (nx >= 0 && nx < boardSize && ny >= 0 && ny < boardSize && board[nx][ny] != null) {
+            if (nx >= 0 &&
+                nx < boardSize &&
+                ny >= 0 &&
+                ny < boardSize &&
+                board[nx][ny] != null) {
               isAdjacent = true;
               break;
             }
@@ -1191,10 +1307,22 @@ class _GobangScreenState extends State<GobangScreen> {
   void _checkWinner(int x, int y) {
     final player = board[x][y];
     if (player == null) return;
-    if (_countConsecutive(x, y, 1, 0, player) + _countConsecutive(x, y, -1, 0, player) - 1 >= 5 ||
-        _countConsecutive(x, y, 0, 1, player) + _countConsecutive(x, y, 0, -1, player) - 1 >= 5 ||
-        _countConsecutive(x, y, 1, 1, player) + _countConsecutive(x, y, -1, -1, player) - 1 >= 5 ||
-        _countConsecutive(x, y, 1, -1, player) + _countConsecutive(x, y, -1, 1, player) - 1 >= 5) {
+    if (_countConsecutive(x, y, 1, 0, player) +
+                _countConsecutive(x, y, -1, 0, player) -
+                1 >=
+            5 ||
+        _countConsecutive(x, y, 0, 1, player) +
+                _countConsecutive(x, y, 0, -1, player) -
+                1 >=
+            5 ||
+        _countConsecutive(x, y, 1, 1, player) +
+                _countConsecutive(x, y, -1, -1, player) -
+                1 >=
+            5 ||
+        _countConsecutive(x, y, 1, -1, player) +
+                _countConsecutive(x, y, -1, 1, player) -
+                1 >=
+            5) {
       setState(() {
         winner = player;
         gameOver = true;
@@ -1203,7 +1331,9 @@ class _GobangScreenState extends State<GobangScreen> {
 
       // Play final victory/defeat message
       if (_useVoiceCommentary) {
-        final finalMessage = player == GobangPlayer.p1 ? _getUniqueMessage(_finalDefeatMessages) : _getUniqueMessage(_finalVictoryMessages);
+        final finalMessage = player == GobangPlayer.p1
+            ? _getUniqueMessage(_finalDefeatMessages)
+            : _getUniqueMessage(_finalVictoryMessages);
         _playAIVoiceMessage(finalMessage);
       }
     } else if (board.expand((row) => row).every((cell) => cell != null)) {
@@ -1223,7 +1353,11 @@ class _GobangScreenState extends State<GobangScreen> {
   int _countConsecutive(int x, int y, int dx, int dy, GobangPlayer player) {
     int count = 0;
     int i = x, j = y;
-    while (i >= 0 && i < boardSize && j >= 0 && j < boardSize && board[i][j] == player) {
+    while (i >= 0 &&
+        i < boardSize &&
+        j >= 0 &&
+        j < boardSize &&
+        board[i][j] == player) {
       count++;
       i += dx;
       j += dy;
@@ -1306,7 +1440,9 @@ class _GobangScreenState extends State<GobangScreen> {
 
         for (var dir in directions) {
           int dx = dir[0], dy = dir[1];
-          int count = _countConsecutive(x, y, dx, dy, GobangPlayer.p1) + _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1) - 1;
+          int count = _countConsecutive(x, y, dx, dy, GobangPlayer.p1) +
+              _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1) -
+              1;
 
           if (count >= 4) {
             board[x][y] = null; // Restore
@@ -1326,7 +1462,9 @@ class _GobangScreenState extends State<GobangScreen> {
 
     // Check the areas around player's most recent moves for potential threats
     // Focus on the last 3 moves as they indicate current strategy
-    List<Point<int>> recentMoves = playerMoves.length <= 3 ? playerMoves : playerMoves.sublist(playerMoves.length - 3);
+    List<Point<int>> recentMoves = playerMoves.length <= 3
+        ? playerMoves
+        : playerMoves.sublist(playerMoves.length - 3);
 
     // Detect patterns in player's moves (e.g., consecutive stones)
     for (var move in recentMoves) {
@@ -1408,18 +1546,26 @@ class _GobangScreenState extends State<GobangScreen> {
 
     for (var dir in directions) {
       int dx = dir[0], dy = dir[1];
-      int count = _countConsecutive(x, y, dx, dy, GobangPlayer.p1) + _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1) - 1;
+      int count = _countConsecutive(x, y, dx, dy, GobangPlayer.p1) +
+          _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1) -
+          1;
 
       // Check if it would create a sequence of 3 or more with open ends
       if (count >= 3) {
         // Check if at least one end is open
-        int forwardX = x + dx * _countConsecutive(x, y, dx, dy, GobangPlayer.p1);
-        int forwardY = y + dy * _countConsecutive(x, y, dx, dy, GobangPlayer.p1);
-        int backwardX = x - dx * _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1);
-        int backwardY = y - dy * _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1);
+        int forwardX =
+            x + dx * _countConsecutive(x, y, dx, dy, GobangPlayer.p1);
+        int forwardY =
+            y + dy * _countConsecutive(x, y, dx, dy, GobangPlayer.p1);
+        int backwardX =
+            x - dx * _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1);
+        int backwardY =
+            y - dy * _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1);
 
-        bool forwardOpen = _isValidPosition(forwardX, forwardY) && board[forwardX][forwardY] == null;
-        bool backwardOpen = _isValidPosition(backwardX, backwardY) && board[backwardX][backwardY] == null;
+        bool forwardOpen = _isValidPosition(forwardX, forwardY) &&
+            board[forwardX][forwardY] == null;
+        bool backwardOpen = _isValidPosition(backwardX, backwardY) &&
+            board[backwardX][backwardY] == null;
 
         if (forwardOpen || backwardOpen) {
           isThreat = true;
@@ -1450,22 +1596,30 @@ class _GobangScreenState extends State<GobangScreen> {
 
     for (var dir in directions) {
       int dx = dir[0], dy = dir[1];
-      int count = _countConsecutive(x, y, dx, dy, GobangPlayer.p1) + _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1) - 1;
+      int count = _countConsecutive(x, y, dx, dy, GobangPlayer.p1) +
+          _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1) -
+          1;
 
       // Check openness of the ends
       int forwardX = x + dx * _countConsecutive(x, y, dx, dy, GobangPlayer.p1);
       int forwardY = y + dy * _countConsecutive(x, y, dx, dy, GobangPlayer.p1);
-      int backwardX = x - dx * _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1);
-      int backwardY = y - dy * _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1);
+      int backwardX =
+          x - dx * _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1);
+      int backwardY =
+          y - dy * _countConsecutive(x, y, -dx, -dy, GobangPlayer.p1);
 
-      bool forwardOpen = _isValidPosition(forwardX, forwardY) && board[forwardX][forwardY] == null;
-      bool backwardOpen = _isValidPosition(backwardX, backwardY) && board[backwardX][backwardY] == null;
+      bool forwardOpen = _isValidPosition(forwardX, forwardY) &&
+          board[forwardX][forwardY] == null;
+      bool backwardOpen = _isValidPosition(backwardX, backwardY) &&
+          board[backwardX][backwardY] == null;
 
       // Calculate threat value based on sequence length and openness
       int threatValue = count;
       if (forwardOpen) threatValue += 2;
       if (backwardOpen) threatValue += 2;
-      if (forwardOpen && backwardOpen) threatValue += 3; // Double-open is extra dangerous
+      if (forwardOpen && backwardOpen) {
+        threatValue += 3; // Double-open is extra dangerous
+      }
 
       maxThreat = max(maxThreat, threatValue);
     }
@@ -1541,7 +1695,8 @@ class _GobangScreenState extends State<GobangScreen> {
   }
 
   int _evaluateCenterSpot(int x, int y, int center) {
-    int value = 10 - ((x - center).abs() + (y - center).abs()); // Value proximity to center
+    int value = 10 -
+        ((x - center).abs() + (y - center).abs()); // Value proximity to center
 
     // Add value for adjacent friendly stones
     for (int dx = -1; dx <= 1; dx++) {
@@ -1612,7 +1767,8 @@ class _GobangScreenState extends State<GobangScreen> {
       for (int step = 1; step <= 2; step++) {
         int fx = x + dx * step;
         int fy = y + dy * step;
-        if (_isValidPosition(fx, fy) && (board[fx][fy] == null || board[fx][fy] == GobangPlayer.p2)) {
+        if (_isValidPosition(fx, fy) &&
+            (board[fx][fy] == null || board[fx][fy] == GobangPlayer.p2)) {
           hasPotential = true;
         } else {
           hasPotential = false;
@@ -1630,7 +1786,8 @@ class _GobangScreenState extends State<GobangScreen> {
       for (int step = 1; step <= 2; step++) {
         int bx = x - dx * step;
         int by = y - dy * step;
-        if (_isValidPosition(bx, by) && (board[bx][by] == null || board[bx][by] == GobangPlayer.p2)) {
+        if (_isValidPosition(bx, by) &&
+            (board[bx][by] == null || board[bx][by] == GobangPlayer.p2)) {
           hasPotential = true;
         } else {
           hasPotential = false;
@@ -1656,7 +1813,8 @@ class _GobangScreenState extends State<GobangScreen> {
     }
 
     // Find messages we haven't used yet
-    final unusedMessages = messageList.where((msg) => !_usedMessages.contains(msg)).toList();
+    final unusedMessages =
+        messageList.where((msg) => !_usedMessages.contains(msg)).toList();
 
     // If all messages have been used (shouldn't happen with the reset above but just in case)
     if (unusedMessages.isEmpty) {
@@ -1674,7 +1832,14 @@ class _GobangScreenState extends State<GobangScreen> {
 
   // Helper method to get a thinking verb for variety
   String _getThinkingVerb() {
-    final verbs = ['thinking', 'pondering', 'calculating', 'planning', 'strategizing', 'contemplating'];
+    final verbs = [
+      'thinking',
+      'pondering',
+      'calculating',
+      'planning',
+      'strategizing',
+      'contemplating'
+    ];
     return verbs[Random().nextInt(verbs.length)];
   }
 
@@ -1696,21 +1861,61 @@ class _GobangScreenState extends State<GobangScreen> {
               final screenHeight = MediaQuery.of(context).size.height;
               final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
               final shortestSide = min(screenWidth, screenHeight);
-              final isTablet = shortestSide > 600 || (shortestSide > 500 && devicePixelRatio < 2.5);
+              final isTablet = shortestSide > 600 ||
+                  (shortestSide > 500 && devicePixelRatio < 2.5);
               final isLandscape = screenWidth > screenHeight;
-              final isSmallPhoneLandscape = isLandscape && !isTablet && screenHeight < 380;
+              final isSmallPhoneLandscape =
+                  isLandscape && !isTablet && screenHeight < 380;
 
               // Responsive sizing
-              final horizontalPadding = isTablet ? 24.0 : (isSmallPhoneLandscape ? 8.0 : (isLandscape ? 12.0 : 18.0));
-              final verticalPadding = isTablet ? 18.0 : (isSmallPhoneLandscape ? 6.0 : (isLandscape ? 8.0 : 12.0));
-              final titleFontSize = isTablet ? 32.0 : (isSmallPhoneLandscape ? 20.0 : (isLandscape ? 24.0 : 32.0));
-              final iconSize = isTablet ? 32.0 : (isSmallPhoneLandscape ? 20.0 : (isLandscape ? 24.0 : 32.0));
-              final dropdownFontSize = isTablet ? 16.0 : (isSmallPhoneLandscape ? 12.0 : (isLandscape ? 14.0 : 16.0));
-              final buttonFontSize = isTablet ? 22.0 : (isSmallPhoneLandscape ? 14.0 : (isLandscape ? 16.0 : 22.0));
+              final horizontalPadding = isTablet
+                  ? 24.0
+                  : (isSmallPhoneLandscape ? 8.0 : (isLandscape ? 12.0 : 18.0));
+              final verticalPadding = isTablet
+                  ? 18.0
+                  : (isSmallPhoneLandscape ? 6.0 : (isLandscape ? 8.0 : 12.0));
+              final titleFontSize = isTablet
+                  ? 32.0
+                  : (isSmallPhoneLandscape
+                      ? 20.0
+                      : (isLandscape ? 24.0 : 32.0));
+              final iconSize = isTablet
+                  ? 32.0
+                  : (isSmallPhoneLandscape
+                      ? 20.0
+                      : (isLandscape ? 24.0 : 32.0));
+              final dropdownFontSize = isTablet
+                  ? 16.0
+                  : (isSmallPhoneLandscape
+                      ? 12.0
+                      : (isLandscape ? 14.0 : 16.0));
+              final buttonFontSize = isTablet
+                  ? 22.0
+                  : (isSmallPhoneLandscape
+                      ? 14.0
+                      : (isLandscape ? 16.0 : 22.0));
 
               return isLandscape
-                  ? _buildLandscapeLayout(horizontalPadding, verticalPadding, titleFontSize, iconSize, dropdownFontSize, buttonFontSize, isTablet, isSmallPhoneLandscape, constraints)
-                  : _buildPortraitLayout(horizontalPadding, verticalPadding, titleFontSize, iconSize, dropdownFontSize, buttonFontSize, isTablet, isSmallPhoneLandscape, constraints);
+                  ? _buildLandscapeLayout(
+                      horizontalPadding,
+                      verticalPadding,
+                      titleFontSize,
+                      iconSize,
+                      dropdownFontSize,
+                      buttonFontSize,
+                      isTablet,
+                      isSmallPhoneLandscape,
+                      constraints)
+                  : _buildPortraitLayout(
+                      horizontalPadding,
+                      verticalPadding,
+                      titleFontSize,
+                      iconSize,
+                      dropdownFontSize,
+                      buttonFontSize,
+                      isTablet,
+                      isSmallPhoneLandscape,
+                      constraints);
             },
           ),
         ),
@@ -1719,12 +1924,22 @@ class _GobangScreenState extends State<GobangScreen> {
   }
 
   // Landscape layout with two panels
-  Widget _buildLandscapeLayout(double horizontalPadding, double verticalPadding, double titleFontSize, double iconSize, double dropdownFontSize, double buttonFontSize, bool isTablet, bool isSmallPhoneLandscape, BoxConstraints constraints) {
+  Widget _buildLandscapeLayout(
+      double horizontalPadding,
+      double verticalPadding,
+      double titleFontSize,
+      double iconSize,
+      double dropdownFontSize,
+      double buttonFontSize,
+      bool isTablet,
+      bool isSmallPhoneLandscape,
+      BoxConstraints constraints) {
     return Column(
       children: [
         // Top bar
         Container(
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding * 0.5),
+          padding: EdgeInsets.symmetric(
+              horizontal: horizontalPadding, vertical: verticalPadding * 0.5),
           child: Row(
             children: [
               GestureDetector(
@@ -1741,8 +1956,10 @@ class _GobangScreenState extends State<GobangScreen> {
                       ),
                     ],
                   ),
-                  padding: EdgeInsets.all(isTablet ? 12.0 : (isSmallPhoneLandscape ? 6.0 : 8.0)),
-                  child: Icon(Icons.arrow_back_rounded, color: Colors.white, size: iconSize * 0.7),
+                  padding: EdgeInsets.all(
+                      isTablet ? 12.0 : (isSmallPhoneLandscape ? 6.0 : 8.0)),
+                  child: Icon(Icons.arrow_back_rounded,
+                      color: Colors.white, size: iconSize * 0.7),
                 ),
               ),
               const Spacer(),
@@ -1757,7 +1974,9 @@ class _GobangScreenState extends State<GobangScreen> {
                 ),
               ),
               const Spacer(),
-              SizedBox(width: isTablet ? 40.0 : (isSmallPhoneLandscape ? 20.0 : 28.0)),
+              SizedBox(
+                  width:
+                      isTablet ? 40.0 : (isSmallPhoneLandscape ? 20.0 : 28.0)),
             ],
           ),
         ),
@@ -1766,22 +1985,32 @@ class _GobangScreenState extends State<GobangScreen> {
           child: Row(
             children: [
               // Left panel: Controls/settings
-              Container(
-                width: isTablet ? 240.0 : (isSmallPhoneLandscape ? 160.0 : 190.0),
+              SizedBox(
+                width:
+                    isTablet ? 240.0 : (isSmallPhoneLandscape ? 160.0 : 190.0),
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding * 0.75, vertical: verticalPadding * 0.5),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding * 0.75,
+                      vertical: verticalPadding * 0.5),
                   child: Column(
                     children: [
                       // Game modes and settings
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: verticalPadding * 0.75, vertical: verticalPadding * 0.5),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: verticalPadding * 0.75,
+                            vertical: verticalPadding * 0.5),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(isTablet ? 12.0 : 8.0),
+                          color: Colors.white.withValues(alpha: 0.9),
+                          borderRadius:
+                              BorderRadius.circular(isTablet ? 12.0 : 8.0),
                         ),
                         child: Column(
                           children: [
-                            Text('Game Mode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: dropdownFontSize * 0.85, color: const Color(0xFF00B8D4))),
+                            Text('Game Mode',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: dropdownFontSize * 0.85,
+                                    color: const Color(0xFF00B8D4))),
                             SizedBox(height: verticalPadding * 0.25),
                             Column(
                               children: [
@@ -1789,9 +2018,16 @@ class _GobangScreenState extends State<GobangScreen> {
                                   children: [
                                     Expanded(
                                       child: ChoiceChip(
-                                        label: Text('2 Players', style: TextStyle(fontFamily: 'Baloo2', fontWeight: FontWeight.bold, color: Colors.black, fontSize: dropdownFontSize * 0.7)),
+                                        label: Text('2 Players',
+                                            style: TextStyle(
+                                                fontFamily: 'Baloo2',
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black,
+                                                fontSize:
+                                                    dropdownFontSize * 0.7)),
                                         selected: mode == GobangMode.twoPlayer,
-                                        onSelected: (_) => _setMode(GobangMode.twoPlayer),
+                                        onSelected: (_) =>
+                                            _setMode(GobangMode.twoPlayer),
                                       ),
                                     ),
                                   ],
@@ -1801,9 +2037,16 @@ class _GobangScreenState extends State<GobangScreen> {
                                   children: [
                                     Expanded(
                                       child: ChoiceChip(
-                                        label: Text('vs ChatGPT', style: TextStyle(fontFamily: 'Baloo2', fontWeight: FontWeight.bold, color: Colors.black, fontSize: dropdownFontSize * 0.7)),
+                                        label: Text('vs ChatGPT',
+                                            style: TextStyle(
+                                                fontFamily: 'Baloo2',
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black,
+                                                fontSize:
+                                                    dropdownFontSize * 0.7)),
                                         selected: mode == GobangMode.vsAI,
-                                        onSelected: (_) => _setMode(GobangMode.vsAI),
+                                        onSelected: (_) =>
+                                            _setMode(GobangMode.vsAI),
                                       ),
                                     ),
                                   ],
@@ -1813,21 +2056,29 @@ class _GobangScreenState extends State<GobangScreen> {
                                   DropdownButton<GobangAIDifficulty>(
                                     value: aiDifficulty,
                                     onChanged: (v) => _setAIDifficulty(v!),
-                                    style: TextStyle(fontSize: dropdownFontSize * 0.75, color: Colors.black),
+                                    style: TextStyle(
+                                        fontSize: dropdownFontSize * 0.75,
+                                        color: Colors.black),
                                     isExpanded: true,
                                     isDense: true,
                                     items: const [
                                       DropdownMenuItem(
                                         value: GobangAIDifficulty.easy,
-                                        child: Text('Easy', style: TextStyle(color: Colors.black)),
+                                        child: Text('Easy',
+                                            style:
+                                                TextStyle(color: Colors.black)),
                                       ),
                                       DropdownMenuItem(
                                         value: GobangAIDifficulty.medium,
-                                        child: Text('Medium', style: TextStyle(color: Colors.black)),
+                                        child: Text('Medium',
+                                            style:
+                                                TextStyle(color: Colors.black)),
                                       ),
                                       DropdownMenuItem(
                                         value: GobangAIDifficulty.hard,
-                                        child: Text('Hard', style: TextStyle(color: Colors.black)),
+                                        child: Text('Hard',
+                                            style:
+                                                TextStyle(color: Colors.black)),
                                       ),
                                     ],
                                   ),
@@ -1836,13 +2087,19 @@ class _GobangScreenState extends State<GobangScreen> {
                                 DropdownButton<int>(
                                   value: boardSize,
                                   onChanged: (v) => _setBoardSize(v!),
-                                  style: TextStyle(fontSize: dropdownFontSize * 0.75, color: Colors.black),
+                                  style: TextStyle(
+                                      fontSize: dropdownFontSize * 0.75,
+                                      color: Colors.black),
                                   isExpanded: true,
                                   isDense: true,
                                   items: boardSizes
                                       .map((size) => DropdownMenuItem(
                                             value: size,
-                                            child: Text('${size}x$size', style: TextStyle(color: Colors.black, fontSize: dropdownFontSize * 0.75)),
+                                            child: Text('${size}x$size',
+                                                style: TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: dropdownFontSize *
+                                                        0.75)),
                                           ))
                                       .toList(),
                                 ),
@@ -1855,25 +2112,38 @@ class _GobangScreenState extends State<GobangScreen> {
                       if (mode == GobangMode.vsAI) ...[
                         SizedBox(height: verticalPadding * 0.75),
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: verticalPadding * 0.75, vertical: verticalPadding * 0.5),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: verticalPadding * 0.75,
+                              vertical: verticalPadding * 0.5),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.9),
-                            borderRadius: BorderRadius.circular(isTablet ? 12.0 : 8.0),
+                            color: Colors.white.withValues(alpha: 0.9),
+                            borderRadius:
+                                BorderRadius.circular(isTablet ? 12.0 : 8.0),
                           ),
                           child: Column(
                             children: [
-                              Text('Voice', style: TextStyle(fontWeight: FontWeight.bold, fontSize: dropdownFontSize * 0.85, color: const Color(0xFF00B8D4))),
+                              Text('Voice',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: dropdownFontSize * 0.85,
+                                      color: const Color(0xFF00B8D4))),
                               SizedBox(height: verticalPadding * 0.25),
                               DropdownButton<String>(
                                 value: _selectedVoiceId,
                                 onChanged: (v) => _setVoiceId(v!),
-                                style: TextStyle(fontSize: dropdownFontSize * 0.75, color: Colors.black),
+                                style: TextStyle(
+                                    fontSize: dropdownFontSize * 0.75,
+                                    color: Colors.black),
                                 isExpanded: true,
                                 isDense: true,
                                 items: ElevenLabsService.availableVoices
                                     .map((voice) => DropdownMenuItem(
                                           value: voice['id'],
-                                          child: Text(voice['name']!, style: TextStyle(color: Colors.black, fontSize: dropdownFontSize * 0.75)),
+                                          child: Text(voice['name']!,
+                                              style: TextStyle(
+                                                  color: Colors.black,
+                                                  fontSize:
+                                                      dropdownFontSize * 0.75)),
                                         ))
                                     .toList(),
                               ),
@@ -1882,15 +2152,20 @@ class _GobangScreenState extends State<GobangScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Transform.scale(
-                                    scale: isTablet ? 0.8 : (isSmallPhoneLandscape ? 0.6 : 0.7),
+                                    scale: isTablet
+                                        ? 0.8
+                                        : (isSmallPhoneLandscape ? 0.6 : 0.7),
                                     child: Switch(
                                       value: _useVoiceCommentary,
                                       onChanged: _toggleVoiceCommentary,
-                                      activeColor: const Color(0xFF00B8D4),
+                                      activeThumbColor: const Color(0xFF00B8D4),
                                     ),
                                   ),
                                   SizedBox(width: verticalPadding * 0.25),
-                                  Text('Commentary', style: TextStyle(fontWeight: FontWeight.w600, fontSize: dropdownFontSize * 0.75)),
+                                  Text('Commentary',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: dropdownFontSize * 0.75)),
                                 ],
                               ),
                             ],
@@ -1901,14 +2176,21 @@ class _GobangScreenState extends State<GobangScreen> {
                       if (message != null) ...[
                         SizedBox(height: verticalPadding * 0.75),
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: verticalPadding * 0.75, vertical: verticalPadding * 0.5),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: verticalPadding * 0.75,
+                              vertical: verticalPadding * 0.5),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.9),
-                            borderRadius: BorderRadius.circular(isTablet ? 12.0 : 8.0),
+                            color: Colors.white.withValues(alpha: 0.9),
+                            borderRadius:
+                                BorderRadius.circular(isTablet ? 12.0 : 8.0),
                           ),
                           child: Text(
                             message!,
-                            style: TextStyle(fontSize: dropdownFontSize * 0.9, fontWeight: FontWeight.bold, color: Color(0xFF00B8D4), fontFamily: 'Baloo2'),
+                            style: TextStyle(
+                                fontSize: dropdownFontSize * 0.9,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF00B8D4),
+                                fontFamily: 'Baloo2'),
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -1918,11 +2200,18 @@ class _GobangScreenState extends State<GobangScreen> {
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF00B8D4),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(28)),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
                           ),
                           onPressed: _resetGame,
-                          child: Text('Play Again', style: TextStyle(fontSize: dropdownFontSize * 0.9, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Baloo2')),
+                          child: Text('Play Again',
+                              style: TextStyle(
+                                  fontSize: dropdownFontSize * 0.9,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  fontFamily: 'Baloo2')),
                         ),
                       ],
                     ],
@@ -1935,7 +2224,12 @@ class _GobangScreenState extends State<GobangScreen> {
                   builder: (context, rightPanelConstraints) {
                     return Padding(
                       padding: EdgeInsets.all(horizontalPadding * 0.5),
-                      child: _buildBoardPanel(rightPanelConstraints, isTablet, isSmallPhoneLandscape, verticalPadding, buttonFontSize),
+                      child: _buildBoardPanel(
+                          rightPanelConstraints,
+                          isTablet,
+                          isSmallPhoneLandscape,
+                          verticalPadding,
+                          buttonFontSize),
                     );
                   },
                 ),
@@ -1948,7 +2242,16 @@ class _GobangScreenState extends State<GobangScreen> {
   }
 
   // Portrait layout (original single-column layout)
-  Widget _buildPortraitLayout(double horizontalPadding, double verticalPadding, double titleFontSize, double iconSize, double dropdownFontSize, double buttonFontSize, bool isTablet, bool isSmallPhoneLandscape, BoxConstraints constraints) {
+  Widget _buildPortraitLayout(
+      double horizontalPadding,
+      double verticalPadding,
+      double titleFontSize,
+      double iconSize,
+      double dropdownFontSize,
+      double buttonFontSize,
+      bool isTablet,
+      bool isSmallPhoneLandscape,
+      BoxConstraints constraints) {
     return Column(
       children: [
         const SizedBox(height: 18),
@@ -1970,7 +2273,8 @@ class _GobangScreenState extends State<GobangScreen> {
                   ],
                 ),
                 padding: const EdgeInsets.all(14),
-                child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 32),
+                child: const Icon(Icons.arrow_back_rounded,
+                    color: Colors.white, size: 32),
               ),
             ),
             const Spacer(),
@@ -1992,14 +2296,17 @@ class _GobangScreenState extends State<GobangScreen> {
         _buildControlsPanel(dropdownFontSize, buttonFontSize, verticalPadding),
         const SizedBox(height: 18),
         Expanded(
-          child: _buildBoardPanel(constraints, isTablet, isSmallPhoneLandscape, verticalPadding, buttonFontSize),
+          child: _buildBoardPanel(constraints, isTablet, isSmallPhoneLandscape,
+              verticalPadding, buttonFontSize),
         ),
       ],
     );
   }
 
   // Controls/settings panel (mode, difficulty, board size, voice, etc.)
-  Widget _buildControlsPanel(double dropdownFontSize, double buttonFontSize, double verticalPadding, [bool isSmallPhoneLandscape = false]) {
+  Widget _buildControlsPanel(
+      double dropdownFontSize, double buttonFontSize, double verticalPadding,
+      [bool isSmallPhoneLandscape = false]) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -2010,12 +2317,20 @@ class _GobangScreenState extends State<GobangScreen> {
           spacing: 6,
           children: [
             ChoiceChip(
-              label: const Text('2 Players', style: TextStyle(fontFamily: 'Baloo2', fontWeight: FontWeight.bold, color: Colors.black)),
+              label: const Text('2 Players',
+                  style: TextStyle(
+                      fontFamily: 'Baloo2',
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black)),
               selected: mode == GobangMode.twoPlayer,
               onSelected: (_) => _setMode(GobangMode.twoPlayer),
             ),
             ChoiceChip(
-              label: const Text('Play vs ChatGPT', style: TextStyle(fontFamily: 'Baloo2', fontWeight: FontWeight.bold, color: Colors.black)),
+              label: const Text('Play vs ChatGPT',
+                  style: TextStyle(
+                      fontFamily: 'Baloo2',
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black)),
               selected: mode == GobangMode.vsAI,
               onSelected: (_) => _setMode(GobangMode.vsAI),
             ),
@@ -2024,7 +2339,8 @@ class _GobangScreenState extends State<GobangScreen> {
               DropdownButton<GobangAIDifficulty>(
                 value: aiDifficulty,
                 onChanged: (v) => _setAIDifficulty(v!),
-                style: TextStyle(fontSize: dropdownFontSize, color: Colors.black),
+                style:
+                    TextStyle(fontSize: dropdownFontSize, color: Colors.black),
                 dropdownColor: Colors.white,
                 items: const [
                   DropdownMenuItem(
@@ -2033,7 +2349,8 @@ class _GobangScreenState extends State<GobangScreen> {
                   ),
                   DropdownMenuItem(
                     value: GobangAIDifficulty.medium,
-                    child: Text('Medium', style: TextStyle(color: Colors.black)),
+                    child:
+                        Text('Medium', style: TextStyle(color: Colors.black)),
                   ),
                   DropdownMenuItem(
                     value: GobangAIDifficulty.hard,
@@ -2051,7 +2368,8 @@ class _GobangScreenState extends State<GobangScreen> {
               items: boardSizes
                   .map((size) => DropdownMenuItem(
                         value: size,
-                        child: Text('${size}x$size', style: TextStyle(color: Colors.black)),
+                        child: Text('${size}x$size',
+                            style: TextStyle(color: Colors.black)),
                       ))
                   .toList(),
             ),
@@ -2063,17 +2381,21 @@ class _GobangScreenState extends State<GobangScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('AI Voice:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+              const Text('AI Voice:',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, color: Colors.black)),
               const SizedBox(width: 8),
               DropdownButton<String>(
                 value: _selectedVoiceId,
                 onChanged: (v) => _setVoiceId(v!),
-                style: TextStyle(fontSize: dropdownFontSize, color: Colors.black),
+                style:
+                    TextStyle(fontSize: dropdownFontSize, color: Colors.black),
                 dropdownColor: Colors.white,
                 items: ElevenLabsService.availableVoices
                     .map((voice) => DropdownMenuItem(
                           value: voice['id'],
-                          child: Text(voice['name']!, style: TextStyle(color: Colors.black)),
+                          child: Text(voice['name']!,
+                              style: TextStyle(color: Colors.black)),
                         ))
                     .toList(),
               ),
@@ -2090,7 +2412,9 @@ class _GobangScreenState extends State<GobangScreen> {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
-                    fontSize: isSmallPhoneLandscape ? dropdownFontSize * 0.95 : dropdownFontSize,
+                    fontSize: isSmallPhoneLandscape
+                        ? dropdownFontSize * 0.95
+                        : dropdownFontSize,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -2099,7 +2423,7 @@ class _GobangScreenState extends State<GobangScreen> {
                   child: Switch(
                     value: _useVoiceCommentary,
                     onChanged: _toggleVoiceCommentary,
-                    activeColor: const Color(0xFF00B8D4),
+                    activeThumbColor: const Color(0xFF00B8D4),
                   ),
                 ),
               ],
@@ -2112,7 +2436,11 @@ class _GobangScreenState extends State<GobangScreen> {
             padding: const EdgeInsets.all(8.0),
             child: Text(
               message!,
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF00B8D4), fontFamily: 'Baloo2'),
+              style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF00B8D4),
+                  fontFamily: 'Baloo2'),
               textAlign: TextAlign.center,
             ),
           ),
@@ -2123,11 +2451,17 @@ class _GobangScreenState extends State<GobangScreen> {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF00B8D4),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28)),
                 padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
               onPressed: _resetGame,
-              child: Text('Play Again', style: TextStyle(fontSize: buttonFontSize, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Baloo2')),
+              child: Text('Play Again',
+                  style: TextStyle(
+                      fontSize: buttonFontSize,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontFamily: 'Baloo2')),
             ),
           ),
       ],
@@ -2135,11 +2469,17 @@ class _GobangScreenState extends State<GobangScreen> {
   }
 
   // Board panel (game board, overlays, audio indicator)
-  Widget _buildBoardPanel(BoxConstraints constraints, bool isTablet, bool isSmallPhoneLandscape, double verticalPadding, double buttonFontSize) {
+  Widget _buildBoardPanel(
+      BoxConstraints constraints,
+      bool isTablet,
+      bool isSmallPhoneLandscape,
+      double verticalPadding,
+      double buttonFontSize) {
     // Calculate board size based on available space
     final double availableWidth = constraints.maxWidth - 32; // padding
     final double availableHeight = constraints.maxHeight - 32; // padding
-    final double maxBoard = min(availableWidth, availableHeight).clamp(200.0, 600.0);
+    final double maxBoard =
+        min(availableWidth, availableHeight).clamp(200.0, 600.0);
 
     return Center(
       child: Stack(
@@ -2154,7 +2494,7 @@ class _GobangScreenState extends State<GobangScreen> {
               border: Border.all(color: const Color(0xFF00B8D4), width: 5),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.cyan.withOpacity(0.10),
+                  color: Colors.cyan.withValues(alpha: 0.10),
                   blurRadius: 18,
                   offset: const Offset(0, 6),
                 ),
@@ -2178,13 +2518,15 @@ class _GobangScreenState extends State<GobangScreen> {
                   onTap: () => _handleTap(x, y),
                   child: LayoutBuilder(
                     builder: (context, cellConstraints) {
-                      final cellSize = min(cellConstraints.maxWidth, cellConstraints.maxHeight);
+                      final cellSize = min(
+                          cellConstraints.maxWidth, cellConstraints.maxHeight);
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(cellSize / 2.5),
-                          border: Border.all(color: const Color(0xFFB3E5FC), width: 2),
+                          border: Border.all(
+                              color: const Color(0xFFB3E5FC), width: 2),
                         ),
                         child: Center(
                           child: board[x][y] == null
@@ -2194,17 +2536,25 @@ class _GobangScreenState extends State<GobangScreen> {
                                   width: cellSize * 0.7,
                                   height: cellSize * 0.7,
                                   decoration: BoxDecoration(
-                                    color: board[x][y] == GobangPlayer.p1 ? const Color(0xFF00B8D4) : const Color(0xFFFF80AB),
+                                    color: board[x][y] == GobangPlayer.p1
+                                        ? const Color(0xFF00B8D4)
+                                        : const Color(0xFFFF80AB),
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: board[x][y] == GobangPlayer.p1 ? Colors.cyanAccent.withOpacity(0.18) : Colors.pinkAccent.withOpacity(0.18),
+                                        color: board[x][y] == GobangPlayer.p1
+                                            ? Colors.cyanAccent
+                                                .withValues(alpha: 0.18)
+                                            : Colors.pinkAccent
+                                                .withValues(alpha: 0.18),
                                         blurRadius: 12,
                                         offset: const Offset(0, 2),
                                       ),
                                     ],
                                     border: Border.all(
-                                      color: board[x][y] == GobangPlayer.p1 ? const Color(0xFFB2EBF2) : const Color(0xFFFFC1E3),
+                                      color: board[x][y] == GobangPlayer.p1
+                                          ? const Color(0xFFB2EBF2)
+                                          : const Color(0xFFFFC1E3),
                                       width: 4,
                                     ),
                                   ),
@@ -2221,7 +2571,7 @@ class _GobangScreenState extends State<GobangScreen> {
             Container(
               width: maxBoard,
               height: maxBoard,
-              color: Colors.black.withOpacity(0.18),
+              color: Colors.black.withValues(alpha: 0.18),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -2239,7 +2589,8 @@ class _GobangScreenState extends State<GobangScreen> {
                     ),
                     const SizedBox(height: 10),
                     CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00B8D4)),
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Color(0xFF00B8D4)),
                     ),
                   ],
                 ),
@@ -2250,13 +2601,14 @@ class _GobangScreenState extends State<GobangScreen> {
               top: 16,
               right: 16,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -2270,7 +2622,8 @@ class _GobangScreenState extends State<GobangScreen> {
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00B8D4)),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Color(0xFF00B8D4)),
                       ),
                     ),
                     const SizedBox(width: 8),

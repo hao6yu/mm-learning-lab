@@ -1,7 +1,7 @@
 // ignore_for_file: prefer_const_constructors
 
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:provider/provider.dart';
 import 'dart:async';
 import '../services/database_service.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -11,6 +11,7 @@ import 'create_story_screen.dart';
 import '../services/elevenlabs_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'dart:math';
+import '../providers/profile_provider.dart';
 
 class StoryAdventureScreen extends StatefulWidget {
   const StoryAdventureScreen({super.key});
@@ -19,7 +20,8 @@ class StoryAdventureScreen extends StatefulWidget {
   State<StoryAdventureScreen> createState() => _StoryAdventureScreenState();
 }
 
-class _StoryAdventureScreenState extends State<StoryAdventureScreen> with SingleTickerProviderStateMixin {
+class _StoryAdventureScreenState extends State<StoryAdventureScreen>
+    with SingleTickerProviderStateMixin {
   List<Story> _stories = [];
   Story? _selectedStory;
   bool _loading = true;
@@ -32,6 +34,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
   String _selectedCategory = 'All';
   String _selectedDifficulty = 'All';
   late AnimationController _animationController;
+  // ignore: unused_field
   late Animation<double> _scaleAnimation;
   List<Map<String, dynamic>> _wordList = [];
 
@@ -41,16 +44,26 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
   bool _isUsingElevenLabs = false; // Toggle between Flutter TTS and ElevenLabs
   bool _isGeneratingAudio = false; // Loading state for audio generation
   bool _audioGenerationFailed = false; // Error state for audio generation
-  bool _aiVoiceAvailable = false; // Whether AI voice is available for this story
-  String _selectedVoiceId = ElevenLabsService.getCurrentVoiceId(); // Selected ElevenLabs voice ID
+  bool _aiVoiceAvailable =
+      false; // Whether AI voice is available for this story
+  String _selectedVoiceId =
+      ElevenLabsService.getCurrentVoiceId(); // Selected ElevenLabs voice ID
 
   // Word highlighting for AI voice
   int _currentWordIndex = -1; // Currently highlighted word index
   Timer? _wordHighlightTimer; // Timer for word highlighting
+  // ignore: unused_field
   Duration _totalAudioDuration = Duration.zero; // Total audio duration
   List<Map<String, dynamic>> _wordTimestamps = []; // ElevenLabs word timestamps
 
-  final List<String> _categories = ['All', 'Adventure', 'Animals', 'Space', 'Fantasy', 'Nature'];
+  final List<String> _categories = [
+    'All',
+    'Adventure',
+    'Animals',
+    'Space',
+    'Fantasy',
+    'Nature'
+  ];
   final List<String> _difficulties = ['All', 'Easy', 'Medium', 'Hard'];
 
   // First, add a new state variable to track whether to show only user-created stories
@@ -60,7 +73,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
   @override
   void initState() {
     super.initState();
-    print("StoryAdventureScreen initState called");
+    debugPrint("StoryAdventureScreen initState called");
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
@@ -69,7 +82,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     _flutterTts = FlutterTts();
-    print("FlutterTts initialized");
+    debugPrint("FlutterTts initialized");
     _flutterTts.setLanguage("en-US");
     _flutterTts.setSpeechRate(_speechRate);
     _flutterTts.setPitch(1.0);
@@ -84,7 +97,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
   void _setupTtsEventHandlers() {
     _flutterTts.setStartHandler(() {
-      print("TTS start handler called");
+      debugPrint("TTS start handler called");
       if (mounted) {
         setState(() {
           _isPlaying = true;
@@ -94,7 +107,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
     });
 
     _flutterTts.setCompletionHandler(() {
-      print("TTS completion handler called");
+      debugPrint("TTS completion handler called");
       if (mounted) {
         setState(() {
           _isPlaying = false;
@@ -104,7 +117,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
     });
 
     _flutterTts.setCancelHandler(() {
-      print("TTS cancel handler called");
+      debugPrint("TTS cancel handler called");
       if (mounted) {
         setState(() {
           _isPlaying = false;
@@ -114,7 +127,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
     });
 
     _flutterTts.setErrorHandler((msg) {
-      print("TTS error handler called: $msg");
+      debugPrint("TTS error handler called: $msg");
       if (mounted) {
         setState(() {
           _isPlaying = false;
@@ -123,14 +136,15 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
       }
     });
 
-    _flutterTts.setProgressHandler((String text, int start, int end, String word) {
-      print("TTS PROGRESS: '$word' at position $start-$end");
+    _flutterTts
+        .setProgressHandler((String text, int start, int end, String word) {
+      debugPrint("TTS PROGRESS: '$word' at position $start-$end");
     });
   }
 
   @override
   void dispose() {
-    print("StoryAdventureScreen dispose called");
+    debugPrint("StoryAdventureScreen dispose called");
 
     // Stop all audio first
     if (_isPlaying || _isPaused) {
@@ -153,7 +167,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
     // Clear the word list
     _wordList.clear();
 
-    print("StoryAdventureScreen resources disposed");
+    debugPrint("StoryAdventureScreen resources disposed");
     super.dispose();
   }
 
@@ -162,15 +176,26 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
       _loading = true;
     });
 
-    final db = await DatabaseService().database;
-    final stories = await db.query('stories');
+    final selectedProfileId = context.read<ProfileProvider>().selectedProfileId;
+    if (selectedProfileId == null) {
+      if (mounted) {
+        setState(() {
+          _stories = [];
+          _loading = false;
+        });
+      }
+      return;
+    }
+
+    final stories =
+        await DatabaseService().getStories(profileId: selectedProfileId);
 
     // Check if there are any user-created stories
-    final hasUserStories = stories.any((s) => Story.fromMap(s).isUserCreated);
+    final hasUserStories = stories.any((s) => s.isUserCreated);
 
     if (mounted) {
       setState(() {
-        _stories = stories.map((s) => Story.fromMap(s)).toList();
+        _stories = stories;
         _loading = false;
 
         // If there are no user stories but the filter is on, turn it off
@@ -184,8 +209,10 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
   // Update the _filteredStories getter to include the new filter
   List<Story> get _filteredStories {
     return _stories.where((story) {
-      final categoryMatch = _selectedCategory == 'All' || story.category == _selectedCategory;
-      final difficultyMatch = _selectedDifficulty == 'All' || story.difficulty == _selectedDifficulty;
+      final categoryMatch =
+          _selectedCategory == 'All' || story.category == _selectedCategory;
+      final difficultyMatch = _selectedDifficulty == 'All' ||
+          story.difficulty == _selectedDifficulty;
       final myStoriesMatch = !_showOnlyMyStories || story.isUserCreated;
       return categoryMatch && difficultyMatch && myStoriesMatch;
     }).toList();
@@ -195,9 +222,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
     final voices = await _flutterTts.getVoices;
 
     // Debug: print all available voices for troubleshooting
-    // print('Available voices:');
+    // debugPrint('Available voices:');
     // for (var v in voices) {
-    //   print(v);
+    //   debugPrint(v);
     // }
 
     // Filter voices to only include those with explicit gender and locale specification
@@ -247,17 +274,25 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
     // 1. Prefer female US English voice with name containing 'samantha'
     dynamic femaleUSSamantha = sortedVoices.firstWhere(
-      (v) => (v['locale']?.toString().toLowerCase().trim() == 'en-us') && (v['gender']?.toString().toLowerCase().trim() == 'female') && (v['name']?.toString().toLowerCase().contains('samantha') ?? false),
+      (v) =>
+          (v['locale']?.toString().toLowerCase().trim() == 'en-us') &&
+          (v['gender']?.toString().toLowerCase().trim() == 'female') &&
+          (v['name']?.toString().toLowerCase().contains('samantha') ?? false),
       orElse: () => null,
     );
     // 2. If not found, prefer any female US English voice
     dynamic femaleUSVoice = sortedVoices.firstWhere(
-      (v) => (v['locale']?.toString().toLowerCase().trim() == 'en-us') && (v['gender']?.toString().toLowerCase().trim() == 'female'),
+      (v) =>
+          (v['locale']?.toString().toLowerCase().trim() == 'en-us') &&
+          (v['gender']?.toString().toLowerCase().trim() == 'female'),
       orElse: () => null,
     );
     // 3. If not found, prefer any female English voice
     dynamic femaleEnglishVoice = sortedVoices.firstWhere(
-      (v) => (v['locale']?.toString().toLowerCase().trim().startsWith('en-') ?? false) && (v['gender']?.toString().toLowerCase().trim() == 'female'),
+      (v) =>
+          (v['locale']?.toString().toLowerCase().trim().startsWith('en-') ??
+              false) &&
+          (v['gender']?.toString().toLowerCase().trim() == 'female'),
       orElse: () => null,
     );
 
@@ -328,19 +363,23 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
     for (final match in matches) {
       _wordList.add({
-        'word': match.group(0)!.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), ''), // Remove punctuation
+        'word': match
+            .group(0)!
+            .toLowerCase()
+            .replaceAll(RegExp(r'[^\w\s]'), ''), // Remove punctuation
         'originalWord': match.group(0), // Keep original for reference
         'start': match.start,
         'position': sequentialPosition, // Sequential position for tracking
-        'id': '${match.start}_${match.group(0)!.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '')}' // Unique ID using start position and word
+        'id':
+            '${match.start}_${match.group(0)!.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '')}' // Unique ID using start position and word
       });
       sequentialPosition++;
     }
-    print('Built word list with ${_wordList.length} words');
+    debugPrint('Built word list with ${_wordList.length} words');
   }
 
   Future<void> _selectStory(Story story) async {
-    print("_selectStory called for: ${story.title}");
+    debugPrint("_selectStory called for: ${story.title}");
     await _flutterTts.stop();
     // Stop any playing audio
     await _audioPlayer?.stop();
@@ -361,7 +400,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
     // Build word list immediately after selecting story
     // We need to include both title and content in the same sequence
     _buildWordList('${story.title}. ${story.content}');
-    print("Word list built, length: ${_wordList.length}");
+    debugPrint("Word list built, length: ${_wordList.length}");
 
     // Check if this story has an AI voice audio file
     if (story.id != null) {
@@ -378,7 +417,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
   // Unified method to stop all audio playback
   Future<void> _stopAllAudio() async {
-    print("_stopAllAudio called");
+    debugPrint("_stopAllAudio called");
 
     // Cancel word highlighting timer
     _wordHighlightTimer?.cancel();
@@ -387,7 +426,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
     try {
       await _flutterTts.stop();
     } catch (e) {
-      print("Error stopping TTS: $e");
+      debugPrint("Error stopping TTS: $e");
     }
 
     // Stop audio player if it exists
@@ -399,7 +438,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
         await _audioPlayer!.dispose();
         _audioPlayer = null;
       } catch (e) {
-        print("Error stopping audio player: $e");
+        debugPrint("Error stopping audio player: $e");
         // Force null even if there was an error
         _audioPlayer = null;
       }
@@ -417,7 +456,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
   // Play device TTS voice
   Future<void> _playDeviceTTS() async {
-    print("_playDeviceTTS called");
+    debugPrint("_playDeviceTTS called");
     if (_selectedStory == null) return;
 
     // Stop any playing audio first
@@ -430,13 +469,14 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
       });
 
       final storyText = '${_selectedStory!.title}. ${_selectedStory!.content}';
-      print("About to call TTS speak with text: '${storyText.substring(0, min(50, storyText.length))}...'");
+      debugPrint(
+          "About to call TTS speak with text: '${storyText.substring(0, min(50, storyText.length))}...'");
 
       // Begin playback with device TTS
       var result = await _flutterTts.speak(storyText);
-      print("TTS speak called, result: $result");
+      debugPrint("TTS speak called, result: $result");
     } catch (e) {
-      print("Error playing device TTS: $e");
+      debugPrint("Error playing device TTS: $e");
       setState(() {
         _isPlaying = false;
         _isPaused = false;
@@ -446,17 +486,17 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
   // Pause device TTS voice
   Future<void> _pauseDeviceTTS() async {
-    print("_pauseDeviceTTS called");
+    debugPrint("_pauseDeviceTTS called");
     try {
       var result = await _flutterTts.pause();
-      print("TTS pause result: $result");
+      debugPrint("TTS pause result: $result");
 
       setState(() {
         _isPlaying = false;
         _isPaused = true;
       });
     } catch (e) {
-      print("Error pausing device TTS: $e");
+      debugPrint("Error pausing device TTS: $e");
       // Try to stop if pause fails
       await _flutterTts.stop();
       setState(() {
@@ -468,7 +508,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
   // Resume device TTS voice
   Future<void> _resumeDeviceTTS() async {
-    print("_resumeDeviceTTS called");
+    debugPrint("_resumeDeviceTTS called");
     try {
       setState(() {
         _isPaused = false;
@@ -476,12 +516,12 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
       });
 
       if (_selectedStory != null) {
-        print("About to resume speaking content");
+        debugPrint("About to resume speaking content");
         await _flutterTts.speak(_selectedStory!.content);
-        print("TTS speak called for resume");
+        debugPrint("TTS speak called for resume");
       }
     } catch (e) {
-      print("Error resuming device TTS: $e");
+      debugPrint("Error resuming device TTS: $e");
       setState(() {
         _isPlaying = false;
         _isPaused = false;
@@ -491,9 +531,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
   // Method to play AI voice audio
   Future<void> _playAIVoiceAudio() async {
-    print("_playAIVoiceAudio called");
+    debugPrint("_playAIVoiceAudio called");
     if (_selectedStory == null || _selectedStory!.id == null) {
-      print("Cannot play AI audio: story or story ID is null");
+      debugPrint("Cannot play AI audio: story or story ID is null");
       return;
     }
 
@@ -513,9 +553,11 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
     try {
       // Check if audio file exists for the selected voice
-      print("Checking if audio file exists for story $storyId with voice $_selectedVoiceId");
-      bool hasAudioFile = await _elevenLabsService.hasAudioFile(storyId, voiceId: _selectedVoiceId);
-      print("Audio file exists: $hasAudioFile");
+      debugPrint(
+          "Checking if audio file exists for story $storyId with voice $_selectedVoiceId");
+      bool hasAudioFile = await _elevenLabsService.hasAudioFile(storyId,
+          voiceId: _selectedVoiceId);
+      debugPrint("Audio file exists: $hasAudioFile");
 
       if (!hasAudioFile) {
         // Need to generate audio
@@ -526,13 +568,15 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
           });
         }
 
-        print("Generating audio for story $storyId with voice $_selectedVoiceId");
+        debugPrint(
+            "Generating audio for story $storyId with voice $_selectedVoiceId");
         try {
           // Generate audio with timestamps for word highlighting
-          final result = await _elevenLabsService.generateAudioWithTimestamps(text: storyText, storyId: storyId, voiceId: _selectedVoiceId);
+          final result = await _elevenLabsService.generateAudioWithTimestamps(
+              text: storyText, storyId: storyId, voiceId: _selectedVoiceId);
 
           if (result == null) {
-            print("Audio generation failed: no result returned");
+            debugPrint("Audio generation failed: no result returned");
             if (mounted) {
               setState(() {
                 _isGeneratingAudio = false;
@@ -543,10 +587,11 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
             return;
           }
 
-          print("Audio generated successfully");
+          debugPrint("Audio generated successfully");
 
           // Load the timestamps for word highlighting
-          final timestamps = result['timestamps'] as List<Map<String, dynamic>>? ?? [];
+          final timestamps =
+              result['timestamps'] as List<Map<String, dynamic>>? ?? [];
 
           // Set state to show we have an audio file now
           if (mounted) {
@@ -557,7 +602,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
             });
           }
         } catch (e) {
-          print("Error generating audio: $e");
+          debugPrint("Error generating audio: $e");
           if (mounted) {
             setState(() {
               _isGeneratingAudio = false;
@@ -572,14 +617,15 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
       // Load timestamps if they exist
       if (_wordTimestamps.isEmpty) {
-        _wordTimestamps = await _elevenLabsService.getTimestampData(storyId, voiceId: _selectedVoiceId);
-        print("Loaded ${_wordTimestamps.length} word timestamps");
+        _wordTimestamps = await _elevenLabsService.getTimestampData(storyId,
+            voiceId: _selectedVoiceId);
+        debugPrint("Loaded ${_wordTimestamps.length} word timestamps");
       }
 
       // Now play the audio file
       await _playAudioFile(storyId);
     } catch (e) {
-      print("Error in _playAIVoiceAudio: $e");
+      debugPrint("Error in _playAIVoiceAudio: $e");
       if (mounted) {
         setState(() {
           _isPlaying = false;
@@ -590,16 +636,19 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
     }
   }
 
+  // ignore: unused_element
   void _buildWordSequence(String text) {
     _wordList.clear();
     final wordRegex = RegExp(r"[\w'']+");
     final matches = wordRegex.allMatches(text);
-    _wordList = matches.map((m) => {'word': m.group(0)!.toLowerCase(), 'start': m.start}).toList();
-    print('Built word sequence: $_wordList'); // Debug print
+    _wordList = matches
+        .map((m) => {'word': m.group(0)!.toLowerCase(), 'start': m.start})
+        .toList();
+    debugPrint('Built word sequence: $_wordList'); // Debug print
   }
 
   Future<void> _backToSelection() async {
-    print("_backToSelection called");
+    debugPrint("_backToSelection called");
 
     // Stop audio first before changing state
     if (_isPlaying || _isPaused) {
@@ -625,11 +674,12 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
   // Start word highlighting for AI voice
   void _startWordHighlighting() {
     if (_wordTimestamps.isEmpty) {
-      print("Cannot start word highlighting: no timestamp data available");
+      debugPrint("Cannot start word highlighting: no timestamp data available");
       return;
     }
 
-    print("Starting timestamp-based word highlighting for ${_wordTimestamps.length} words");
+    debugPrint(
+        "Starting timestamp-based word highlighting for ${_wordTimestamps.length} words");
 
     // Reset current word index
     setState(() {
@@ -677,7 +727,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
       // Debug logging
       if (_currentWordIndex < _wordTimestamps.length) {
         final currentWord = _wordTimestamps[_currentWordIndex]['originalWord'];
-        print("Highlighting word $newWordIndex: '$currentWord' at ${position.inSeconds}s");
+        debugPrint(
+            "Highlighting word $newWordIndex: '$currentWord' at ${position.inSeconds}s");
       }
     }
   }
@@ -685,7 +736,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
   // Map timestamp word index to UI word index
   // This maps the ElevenLabs timestamp index to the visual word position in the UI
   bool _isWordHighlighted(int uiWordIndex, bool isTitle) {
-    if (!_isUsingElevenLabs || _currentWordIndex == -1 || _wordTimestamps.isEmpty) {
+    if (!_isUsingElevenLabs ||
+        _currentWordIndex == -1 ||
+        _wordTimestamps.isEmpty) {
       return false;
     }
 
@@ -698,15 +751,18 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
     if (isTitle) {
       // For title words, check if current timestamp index is within title range
-      return _currentWordIndex < numTitleWords && _currentWordIndex == uiWordIndex;
+      return _currentWordIndex < numTitleWords &&
+          _currentWordIndex == uiWordIndex;
     } else {
       // For content words, adjust the index by subtracting title words
       final adjustedTimestampIndex = _currentWordIndex - numTitleWords;
-      return adjustedTimestampIndex >= 0 && adjustedTimestampIndex == uiWordIndex;
+      return adjustedTimestampIndex >= 0 &&
+          adjustedTimestampIndex == uiWordIndex;
     }
   }
 
   // Calculate line position and word index for a given character position
+  // ignore: unused_element
   void _calculateLineAndWordPosition(int start, int end, String cleanWord) {
     if (_selectedStory == null) return;
 
@@ -714,19 +770,22 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
     final content = _selectedStory!.content;
     final contentLines = content.split('\n');
 
-    print('DEBUG: Trying to find word "$cleanWord" at position $start in ${_wordList.length} words');
+    debugPrint(
+        'DEBUG: Trying to find word "$cleanWord" at position $start in ${_wordList.length} words');
 
     // Try multiple matching approaches
     int wordListIndex = -1;
 
     // Approach 1: Exact match by start position and word
-    wordListIndex = _wordList.indexWhere((w) => w['start'] == start && w['word'] == cleanWord);
+    wordListIndex = _wordList
+        .indexWhere((w) => w['start'] == start && w['word'] == cleanWord);
 
     // Approach 2: Match by start position only
     if (wordListIndex == -1 && cleanWord.isNotEmpty) {
       wordListIndex = _wordList.indexWhere((w) => w['start'] == start);
       if (wordListIndex != -1) {
-        print('DEBUG: Found by start position only: ${_wordList[wordListIndex]}');
+        debugPrint(
+            'DEBUG: Found by start position only: ${_wordList[wordListIndex]}');
       }
     }
 
@@ -734,7 +793,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
     if (wordListIndex == -1 && cleanWord.isNotEmpty) {
       wordListIndex = _wordList.indexWhere((w) => w['word'] == cleanWord);
       if (wordListIndex != -1) {
-        print('DEBUG: Found by word only: ${_wordList[wordListIndex]}');
+        debugPrint('DEBUG: Found by word only: ${_wordList[wordListIndex]}');
       }
     }
 
@@ -746,14 +805,15 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
         final entryWord = entry['word'] as String;
         if ((start - entryStart).abs() <= 2 && entryWord.contains(cleanWord)) {
           wordListIndex = i;
-          print('DEBUG: Found by approximate position: ${_wordList[wordListIndex]}');
+          debugPrint(
+              'DEBUG: Found by approximate position: ${_wordList[wordListIndex]}');
           break;
         }
       }
     }
 
     if (wordListIndex == -1) {
-      print('DEBUG: No match found for "$cleanWord" at position $start');
+      debugPrint('DEBUG: No match found for "$cleanWord" at position $start');
       return;
     }
 
@@ -764,7 +824,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
     if (wordListIndex < numTitleWords) {
       // It's in the title
-      print('Word in title: "$cleanWord" at position $start, word index ${wordListIndex}');
+      debugPrint(
+          'Word in title: "$cleanWord" at position $start, word index $wordListIndex');
       return;
     }
 
@@ -784,15 +845,18 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
       wordsSeen += matches.length;
     }
 
-    print('Calculated position for "$cleanWord" - Line: $foundLine, Word Index: $wordIndexInLine');
+    debugPrint(
+        'Calculated position for "$cleanWord" - Line: $foundLine, Word Index: $wordIndexInLine');
   }
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
         // Handle system back button
-        print("System back button pressed");
+        debugPrint("System back button pressed");
         if (_selectedStory != null) {
           // If in story reader, go back to selection
           if (_isPlaying || _isPaused) {
@@ -801,13 +865,15 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
             await Future.delayed(Duration(milliseconds: 50));
           }
           _backToSelection();
-          return false; // Don't exit the screen
+          return;
         }
         // Otherwise, allow normal back behavior but make sure to cleanup first
         if (_isPlaying || _isPaused) {
           await _stopAllAudio();
         }
-        return true;
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
       },
       child: Scaffold(
         body: Container(
@@ -819,7 +885,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
             ),
           ),
           child: SafeArea(
-            child: _selectedStory == null ? _buildStorySelection(context) : _buildStoryReader(context, _selectedStory!),
+            child: _selectedStory == null
+                ? _buildStorySelection(context)
+                : _buildStoryReader(context, _selectedStory!),
           ),
         ),
       ),
@@ -828,9 +896,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
   Widget _buildStorySelection(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
     final isTablet = screenWidth > 600;
-    final isLandscape = screenWidth > screenHeight;
 
     // Responsive sizing
     final horizontalPadding = isTablet ? 24.0 : 16.0;
@@ -844,7 +910,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
       children: [
         // App Bar
         Container(
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+          padding: EdgeInsets.symmetric(
+              horizontal: horizontalPadding, vertical: verticalPadding),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.only(
@@ -853,7 +920,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 8.0,
                 offset: const Offset(0, 4.0),
               ),
@@ -931,7 +998,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                 ),
               ),
               const Spacer(),
-              SizedBox(width: isTablet ? 44.0 : 36.0), // Balance the back button
+              SizedBox(
+                  width: isTablet ? 44.0 : 36.0), // Balance the back button
             ],
           ),
         ),
@@ -949,18 +1017,23 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                 child: GestureDetector(
                   onTap: () => _navigateToCreateStory(context),
                   child: Container(
-                    margin: EdgeInsets.only(left: isTablet ? 24.0 : 20.0, right: isTablet ? 8.0 : 5.0),
-                    padding: EdgeInsets.symmetric(vertical: isTablet ? 16.0 : 12.0, horizontal: isTablet ? 18.0 : 14.0),
+                    margin: EdgeInsets.only(
+                        left: isTablet ? 24.0 : 20.0,
+                        right: isTablet ? 8.0 : 5.0),
+                    padding: EdgeInsets.symmetric(
+                        vertical: isTablet ? 16.0 : 12.0,
+                        horizontal: isTablet ? 18.0 : 14.0),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [Color(0xFF8E6CFF), Color(0xFF7C4DFF)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(isTablet ? 20.0 : 18.0),
+                      borderRadius:
+                          BorderRadius.circular(isTablet ? 20.0 : 18.0),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF8E6CFF).withOpacity(0.3),
+                          color: const Color(0xFF8E6CFF).withValues(alpha: 0.3),
                           blurRadius: isTablet ? 8.0 : 6.0,
                           offset: Offset(0, isTablet ? 6.0 : 4.0),
                         ),
@@ -1013,15 +1086,18 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                   margin: EdgeInsets.only(left: 6, right: 24),
                   padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                   decoration: BoxDecoration(
-                    color: _showOnlyMyStories ? Color(0xFFFFF3E0) : Colors.white,
+                    color:
+                        _showOnlyMyStories ? Color(0xFFFFF3E0) : Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: _showOnlyMyStories ? Colors.orange : Colors.grey.shade300,
+                      color: _showOnlyMyStories
+                          ? Colors.orange
+                          : Colors.grey.shade300,
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 4,
                         offset: Offset(0, 2),
                       ),
@@ -1032,7 +1108,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        _showOnlyMyStories ? Icons.bookmark : Icons.bookmark_outline,
+                        _showOnlyMyStories
+                            ? Icons.bookmark
+                            : Icons.bookmark_outline,
                         color: _showOnlyMyStories ? Colors.orange : Colors.grey,
                         size: 16, // Slightly smaller icon
                       ),
@@ -1042,8 +1120,12 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                           'My Stories',
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: _showOnlyMyStories ? Colors.orange : Colors.grey.shade700,
-                            fontWeight: _showOnlyMyStories ? FontWeight.bold : FontWeight.normal,
+                            color: _showOnlyMyStories
+                                ? Colors.orange
+                                : Colors.grey.shade700,
+                            fontWeight: _showOnlyMyStories
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                             fontSize: 12, // Smaller font size
                           ),
                         ),
@@ -1055,20 +1137,27 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                         curve: Curves.easeInOut,
                         builder: (context, value, child) {
                           return Transform.scale(
-                            scale: _showOnlyMyStories ? (0.9 + (value * 0.1)) : 1.0,
+                            scale: _showOnlyMyStories
+                                ? (0.9 + (value * 0.1))
+                                : 1.0,
                             child: child,
                           );
                         },
                         child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 1), // Smaller padding
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 1), // Smaller padding
                           decoration: BoxDecoration(
-                            color: _showOnlyMyStories ? Colors.orange : Colors.grey.shade200,
+                            color: _showOnlyMyStories
+                                ? Colors.orange
+                                : Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             '$_userCreatedStoriesCount',
                             style: TextStyle(
-                              color: _showOnlyMyStories ? Colors.white : Colors.grey.shade700,
+                              color: _showOnlyMyStories
+                                  ? Colors.white
+                                  : Colors.grey.shade700,
                               fontSize: 10, // Smaller font
                               fontWeight: FontWeight.bold,
                             ),
@@ -1125,7 +1214,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                         Icon(
                           iconData,
                           size: 16,
-                          color: isSelected ? const Color(0xFF8E6CFF) : const Color(0xFF26324A).withOpacity(0.6),
+                          color: isSelected
+                              ? const Color(0xFF8E6CFF)
+                              : const Color(0xFF26324A).withValues(alpha: 0.6),
                         ),
                         SizedBox(width: 4),
                       ],
@@ -1134,8 +1225,12 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                           category,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: isSelected ? const Color(0xFF8E6CFF) : const Color(0xFF26324A),
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected
+                                ? const Color(0xFF8E6CFF)
+                                : const Color(0xFF26324A),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                       ),
@@ -1148,18 +1243,22 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                     });
                   },
                   backgroundColor: Colors.white,
-                  selectedColor: const Color(0xFF8E6CFF).withOpacity(0.2),
+                  selectedColor: const Color(0xFF8E6CFF).withValues(alpha: 0.2),
                   checkmarkColor: const Color(0xFF8E6CFF),
                   labelStyle: TextStyle(
-                    color: isSelected ? const Color(0xFF8E6CFF) : const Color(0xFF26324A),
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected
+                        ? const Color(0xFF8E6CFF)
+                        : const Color(0xFF26324A),
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                   elevation: 1,
                   pressElevation: 2,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                     side: BorderSide(
-                      color: isSelected ? Color(0xFF8E6CFF) : Colors.transparent,
+                      color:
+                          isSelected ? Color(0xFF8E6CFF) : Colors.transparent,
                       width: 1,
                     ),
                   ),
@@ -1220,7 +1319,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                         Icon(
                           iconData,
                           size: 16,
-                          color: isSelected ? getDifficultyColor(difficulty) : const Color(0xFF26324A).withOpacity(0.6),
+                          color: isSelected
+                              ? getDifficultyColor(difficulty)
+                              : const Color(0xFF26324A).withValues(alpha: 0.6),
                         ),
                         SizedBox(width: 4),
                       ],
@@ -1229,8 +1330,12 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                           difficulty,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: isSelected ? getDifficultyColor(difficulty) : const Color(0xFF26324A),
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected
+                                ? getDifficultyColor(difficulty)
+                                : const Color(0xFF26324A),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                       ),
@@ -1243,18 +1348,25 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                     });
                   },
                   backgroundColor: Colors.white,
-                  selectedColor: isSelected ? getDifficultyColor(difficulty).withOpacity(0.2) : null,
+                  selectedColor: isSelected
+                      ? getDifficultyColor(difficulty).withValues(alpha: 0.2)
+                      : null,
                   checkmarkColor: getDifficultyColor(difficulty),
                   labelStyle: TextStyle(
-                    color: isSelected ? getDifficultyColor(difficulty) : const Color(0xFF26324A),
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected
+                        ? getDifficultyColor(difficulty)
+                        : const Color(0xFF26324A),
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                   elevation: 1,
                   pressElevation: 2,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                     side: BorderSide(
-                      color: isSelected ? getDifficultyColor(difficulty) : Colors.transparent,
+                      color: isSelected
+                          ? getDifficultyColor(difficulty)
+                          : Colors.transparent,
                       width: 1,
                     ),
                   ),
@@ -1283,7 +1395,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Color(0xFF8E6CFF).withOpacity(0.2),
+                              color: Color(0xFF8E6CFF).withValues(alpha: 0.2),
                               blurRadius: 10,
                               offset: Offset(0, 4),
                             ),
@@ -1321,7 +1433,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: Color(0xFF8E6CFF).withOpacity(0.5),
+                                        color: Color(0xFF8E6CFF)
+                                            .withValues(alpha: 0.5),
                                         width: 2,
                                       ),
                                     ),
@@ -1412,7 +1525,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 8,
                 offset: Offset(0, 4),
               ),
@@ -1423,8 +1536,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                splashColor: Color(0xFF8E6CFF).withOpacity(0.1),
-                highlightColor: Color(0xFF8E6CFF).withOpacity(0.05),
+                splashColor: Color(0xFF8E6CFF).withValues(alpha: 0.1),
+                highlightColor: Color(0xFF8E6CFF).withValues(alpha: 0.05),
                 onTap: () => _selectStory(story),
                 child: Container(
                   padding: const EdgeInsets.all(16),
@@ -1449,7 +1562,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Color(0xFF90CAF9).withOpacity(0.3),
+                                color: Color(0xFF90CAF9).withValues(alpha: 0.3),
                                 blurRadius: 8,
                                 offset: Offset(0, 4),
                               ),
@@ -1500,9 +1613,11 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                               children: [
                                 // Category tag with icon
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF8E6CFF).withOpacity(0.1),
+                                    color: const Color(0xFF8E6CFF)
+                                        .withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Row(
@@ -1531,9 +1646,11 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
                                 // Difficulty tag with icon
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: getDifficultyColor(story.difficulty).withOpacity(0.1),
+                                    color: getDifficultyColor(story.difficulty)
+                                        .withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Row(
@@ -1545,7 +1662,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                                             : story.difficulty == 'Medium'
                                                 ? Icons.sentiment_satisfied
                                                 : Icons.sentiment_satisfied_alt,
-                                        color: getDifficultyColor(story.difficulty),
+                                        color: getDifficultyColor(
+                                            story.difficulty),
                                         size: 14,
                                       ),
                                       SizedBox(width: 4),
@@ -1556,7 +1674,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w500,
-                                            color: getDifficultyColor(story.difficulty),
+                                            color: getDifficultyColor(
+                                                story.difficulty),
                                           ),
                                         ),
                                       ),
@@ -1567,9 +1686,11 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                                 // My Story tag (if user created)
                                 if (story.isUserCreated)
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: Colors.orange.withOpacity(0.1),
+                                      color:
+                                          Colors.orange.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Row(
@@ -1617,7 +1738,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                                 );
                               },
                               child: IconButton(
-                                icon: const Icon(Icons.edit, color: Color(0xFF8E6CFF)),
+                                icon: const Icon(Icons.edit,
+                                    color: Color(0xFF8E6CFF)),
                                 tooltip: 'Edit Story',
                                 onPressed: () => _editStory(story),
                               ),
@@ -1626,7 +1748,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                             // Delete button with bounce effect
                             TweenAnimationBuilder<double>(
                               tween: Tween<double>(begin: 0.9, end: 1.0),
-                              duration: Duration(milliseconds: 600), // Slightly delayed
+                              duration: Duration(
+                                  milliseconds: 600), // Slightly delayed
                               curve: Curves.elasticOut,
                               builder: (context, value, child) {
                                 return Transform.scale(
@@ -1635,7 +1758,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                                 );
                               },
                               child: IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
+                                icon:
+                                    const Icon(Icons.delete, color: Colors.red),
                                 tooltip: 'Delete Story',
                                 onPressed: () => _deleteStory(story),
                               ),
@@ -1716,11 +1840,13 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
               ),
               _buildHelpItem(
                 icon: Icons.speed,
-                text: 'Adjust reading speed with the slider (Device Voice only)',
+                text:
+                    'Adjust reading speed with the slider (Device Voice only)',
               ),
               _buildHelpItem(
                 icon: Icons.create,
-                text: 'Create your own stories with the "Create Your Own Story" button',
+                text:
+                    'Create your own stories with the "Create Your Own Story" button',
               ),
               _buildHelpItem(
                 icon: Icons.edit,
@@ -1732,10 +1858,10 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Got it!'),
             style: TextButton.styleFrom(
               foregroundColor: Color(0xFF8E6CFF),
             ),
+            child: Text('Got it!'),
           ),
         ],
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1768,14 +1894,13 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
     }
 
     final wordRegex = RegExp(r"[\w'']+|[.,!?;:]");
-    final titleWords = wordRegex.allMatches(story.title).map((m) => m.group(0)!).toList();
+    final titleWords =
+        wordRegex.allMatches(story.title).map((m) => m.group(0)!).toList();
     final contentLines = story.content.split('\n');
 
     // Check if this is a tablet-sized screen
     final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
     final isTablet = screenWidth > 600;
-    final isLandscape = screenWidth > screenHeight;
 
     // Responsive sizing
     final horizontalPadding = isTablet ? 24.0 : 16.0;
@@ -1790,7 +1915,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
       children: [
         // Enhanced App Bar
         Container(
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+          padding: EdgeInsets.symmetric(
+              horizontal: horizontalPadding, vertical: verticalPadding),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.only(
@@ -1799,7 +1925,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 8.0,
                 offset: const Offset(0, 4.0),
               ),
@@ -1872,7 +1998,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
               // Help button
               IconButton(
-                icon: Icon(Icons.help_outline, color: Color(0xFF8E6CFF), size: iconSize),
+                icon: Icon(Icons.help_outline,
+                    color: Color(0xFF8E6CFF), size: iconSize),
                 tooltip: 'How to use',
                 onPressed: () {
                   _showHelpAndInfoDialog(context);
@@ -1886,13 +2013,14 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
         Expanded(
           child: Container(
             width: double.infinity,
-            margin: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: isTablet ? 8.0 : 12.0),
+            margin: EdgeInsets.symmetric(
+                horizontal: horizontalPadding, vertical: isTablet ? 8.0 : 12.0),
             decoration: BoxDecoration(
               color: const Color(0xFFE3F2FD),
               borderRadius: BorderRadius.circular(borderRadius),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF90CAF9).withOpacity(0.2),
+                  color: const Color(0xFF90CAF9).withValues(alpha: 0.2),
                   blurRadius: 6.0,
                 ),
               ],
@@ -1907,7 +2035,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                     width: 80.0,
                     height: 80.0,
                     decoration: BoxDecoration(
-                      color: Color(0xFF90CAF9).withOpacity(0.1),
+                      color: Color(0xFF90CAF9).withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -1919,7 +2047,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                     width: 120.0,
                     height: 120.0,
                     decoration: BoxDecoration(
-                      color: Color(0xFF90CAF9).withOpacity(0.1),
+                      color: Color(0xFF90CAF9).withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -1938,10 +2066,11 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                         padding: EdgeInsets.all(isTablet ? 12.0 : 16.0),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(isTablet ? 16.0 : 14.0),
+                          borderRadius:
+                              BorderRadius.circular(isTablet ? 16.0 : 14.0),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
+                              color: Colors.black.withValues(alpha: 0.05),
                               blurRadius: 3.0,
                               offset: const Offset(0, 2.0),
                             ),
@@ -1958,20 +2087,25 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                                 runSpacing: isTablet ? 6.0 : 4.0,
                                 children: () {
                                   List<Widget> titleWidgets = [];
-                                  int actualWordIndex = 0; // Only count actual words, not punctuation
+                                  int actualWordIndex =
+                                      0; // Only count actual words, not punctuation
 
                                   for (int i = 0; i < titleWords.length; i++) {
-                                    if (titleWords[i].contains(RegExp(r"[\w'']+"))) {
+                                    if (titleWords[i]
+                                        .contains(RegExp(r"[\w'']+"))) {
                                       // This is an actual word
                                       titleWidgets.add(WordCard(
                                         word: titleWords[i],
                                         isTitle: true,
                                         flutterTts: _flutterTts,
-                                        isCurrentWord: _isWordHighlighted(actualWordIndex, true),
+                                        isCurrentWord: _isWordHighlighted(
+                                            actualWordIndex, true),
                                         onTap: () async {
-                                          print('Title word tapped: "${titleWords[i]}" at word index $actualWordIndex');
+                                          debugPrint(
+                                              'Title word tapped: "${titleWords[i]}" at word index $actualWordIndex');
                                           await _flutterTts.stop();
-                                          await _flutterTts.speak(titleWords[i]);
+                                          await _flutterTts
+                                              .speak(titleWords[i]);
                                         },
                                       ));
                                       actualWordIndex++; // Only increment for actual words
@@ -1992,7 +2126,10 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                               ),
                             ),
 
-                            Divider(height: isTablet ? 20.0 : 24.0, thickness: 1, color: Color(0xFFE0E0E0)),
+                            Divider(
+                                height: isTablet ? 20.0 : 24.0,
+                                thickness: 1,
+                                color: Color(0xFFE0E0E0)),
 
                             // Category and difficulty badges
                             Wrap(
@@ -2023,42 +2160,48 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                       ),
 
                       // Story content - more compact spacing on tablets
-                      for (int lineIdx = 0; lineIdx < contentLines.length; lineIdx++)
+                      for (int lineIdx = 0;
+                          lineIdx < contentLines.length;
+                          lineIdx++)
                         Padding(
-                          padding: EdgeInsets.only(bottom: isTablet ? 6.0 : 8.0),
+                          padding:
+                              EdgeInsets.only(bottom: isTablet ? 6.0 : 8.0),
                           child: Builder(
                             builder: (context) {
-                              final words = wordRegex.allMatches(contentLines[lineIdx]).map((m) => m.group(0)!).toList();
+                              final words = wordRegex
+                                  .allMatches(contentLines[lineIdx])
+                                  .map((m) => m.group(0)!)
+                                  .toList();
                               List<Widget> widgets = [];
-
-                              // Calculate the starting word index for this line
-                              int lineStartWordIndex = titleWords.length; // Start after title words
-                              for (int i = 0; i < lineIdx; i++) {
-                                final lineWords = wordRegex.allMatches(contentLines[i]).toList();
-                                lineStartWordIndex += lineWords.length;
-                              }
 
                               // Track content word index (excluding title words and punctuation)
                               int contentWordIndex = 0;
                               for (int i = 0; i < lineIdx; i++) {
-                                final lineWordsOnly = RegExp(r"[\w'']+").allMatches(contentLines[i]).toList();
+                                final lineWordsOnly = RegExp(r"[\w'']+")
+                                    .allMatches(contentLines[i])
+                                    .toList();
                                 contentWordIndex += lineWordsOnly.length;
                               }
 
                               // Track actual word count within this line (excluding punctuation)
                               int actualWordIndexInLine = 0;
 
-                              for (int wordIdx = 0; wordIdx < words.length; wordIdx++) {
+                              for (int wordIdx = 0;
+                                  wordIdx < words.length;
+                                  wordIdx++) {
                                 final word = words[wordIdx];
                                 if (word.contains(RegExp(r"[\w'']+"))) {
-                                  final currentContentWordIndex = contentWordIndex + actualWordIndexInLine;
+                                  final currentContentWordIndex =
+                                      contentWordIndex + actualWordIndexInLine;
                                   widgets.add(WordCard(
                                     word: word,
                                     isTitle: false,
                                     flutterTts: _flutterTts,
-                                    isCurrentWord: _isWordHighlighted(currentContentWordIndex, false),
+                                    isCurrentWord: _isWordHighlighted(
+                                        currentContentWordIndex, false),
                                     onTap: () async {
-                                      print('Word tapped: "$word" at line $lineIdx, content word index $currentContentWordIndex');
+                                      debugPrint(
+                                          'Word tapped: "$word" at line $lineIdx, content word index $currentContentWordIndex');
                                       await _flutterTts.stop();
                                       await _flutterTts.speak(word);
                                     },
@@ -2102,13 +2245,14 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 8.0,
                 offset: const Offset(0, -4.0),
               ),
             ],
           ),
-          padding: EdgeInsets.fromLTRB(spacing, isTablet ? 12.0 : 16.0, spacing, isTablet ? 16.0 : 20.0),
+          padding: EdgeInsets.fromLTRB(
+              spacing, isTablet ? 12.0 : 16.0, spacing, isTablet ? 16.0 : 20.0),
           constraints: BoxConstraints(maxHeight: isTablet ? 180.0 : 280.0),
           child: SingleChildScrollView(
             child: Column(
@@ -2116,7 +2260,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
               children: [
                 // Reading mode toggle - more compact on tablets
                 Container(
-                  padding: EdgeInsets.symmetric(vertical: isTablet ? 8.0 : 10.0, horizontal: spacing),
+                  padding: EdgeInsets.symmetric(
+                      vertical: isTablet ? 8.0 : 10.0, horizontal: spacing),
                   decoration: BoxDecoration(
                     color: Color(0xFFF5F5F5),
                     borderRadius: BorderRadius.circular(borderRadius),
@@ -2142,7 +2287,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                             icon: Icons.auto_awesome,
                             text: 'AI Storyteller',
                             color: Color(0xFFFF9800),
-                            showDownloadIcon: !_aiVoiceAvailable && _isUsingElevenLabs,
+                            showDownloadIcon:
+                                !_aiVoiceAvailable && _isUsingElevenLabs,
                             onTap: () {
                               setState(() {
                                 _isUsingElevenLabs = true;
@@ -2173,7 +2319,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                 // Play controls - different based on selected voice mode
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: _isUsingElevenLabs ? _buildAIVoiceControls() : _buildDeviceVoiceControls(),
+                  children: _isUsingElevenLabs
+                      ? _buildAIVoiceControls()
+                      : _buildDeviceVoiceControls(),
                 ),
 
                 // Only show slider for device voice (FlutterTTS) - more compact on tablets
@@ -2186,8 +2334,13 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.slow_motion_video, color: Color(0xFF26324A), size: isTablet ? 18.0 : 20.0),
-                          Text('Slow', style: TextStyle(fontSize: isTablet ? 11.0 : 12.0, color: Color(0xFF26324A))),
+                          Icon(Icons.slow_motion_video,
+                              color: Color(0xFF26324A),
+                              size: isTablet ? 18.0 : 20.0),
+                          Text('Slow',
+                              style: TextStyle(
+                                  fontSize: isTablet ? 11.0 : 12.0,
+                                  color: Color(0xFF26324A))),
                         ],
                       ),
 
@@ -2197,9 +2350,13 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                         child: SliderTheme(
                           data: SliderTheme.of(context).copyWith(
                             trackHeight: isTablet ? 4.0 : 6.0,
-                            thumbShape: RoundSliderThumbShape(enabledThumbRadius: isTablet ? 10.0 : 12.0),
-                            overlayShape: RoundSliderOverlayShape(overlayRadius: isTablet ? 18.0 : 22.0),
-                            valueIndicatorTextStyle: TextStyle(fontSize: isTablet ? 12.0 : 14.0, fontWeight: FontWeight.bold),
+                            thumbShape: RoundSliderThumbShape(
+                                enabledThumbRadius: isTablet ? 10.0 : 12.0),
+                            overlayShape: RoundSliderOverlayShape(
+                                overlayRadius: isTablet ? 18.0 : 22.0),
+                            valueIndicatorTextStyle: TextStyle(
+                                fontSize: isTablet ? 12.0 : 14.0,
+                                fontWeight: FontWeight.bold),
                           ),
                           child: Slider(
                             value: _speechRate,
@@ -2212,7 +2369,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                               await _flutterTts.setSpeechRate(v);
                             },
                             activeColor: Color(0xFF8E6CFF),
-                            inactiveColor: Color(0xFF8E6CFF).withOpacity(0.2),
+                            inactiveColor:
+                                Color(0xFF8E6CFF).withValues(alpha: 0.2),
                           ),
                         ),
                       ),
@@ -2221,8 +2379,13 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.speed, color: Color(0xFF26324A), size: isTablet ? 18.0 : 20.0),
-                          Text('Fast', style: TextStyle(fontSize: isTablet ? 11.0 : 12.0, color: Color(0xFF26324A))),
+                          Icon(Icons.speed,
+                              color: Color(0xFF26324A),
+                              size: isTablet ? 18.0 : 20.0),
+                          Text('Fast',
+                              style: TextStyle(
+                                  fontSize: isTablet ? 11.0 : 12.0,
+                                  color: Color(0xFF26324A))),
                         ],
                       ),
                     ],
@@ -2233,27 +2396,39 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                 if (!_isUsingElevenLabs && _voices.isNotEmpty) ...[
                   SizedBox(height: isTablet ? 8.0 : 12.0),
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: spacing, vertical: isTablet ? 6.0 : 8.0),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: spacing, vertical: isTablet ? 6.0 : 8.0),
                     decoration: BoxDecoration(
                       color: Color(0xFFF5F5F5),
-                      borderRadius: BorderRadius.circular(isTablet ? 12.0 : 10.0),
+                      borderRadius:
+                          BorderRadius.circular(isTablet ? 12.0 : 10.0),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.record_voice_over, color: Color(0xFF8E6CFF), size: isTablet ? 16.0 : 18.0),
+                        Icon(Icons.record_voice_over,
+                            color: Color(0xFF8E6CFF),
+                            size: isTablet ? 16.0 : 18.0),
                         SizedBox(width: isTablet ? 8.0 : 6.0),
                         Text(
                           'Voice:',
-                          style: TextStyle(fontSize: isTablet ? 12.0 : 13.0, color: Color(0xFF26324A), fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: isTablet ? 12.0 : 13.0,
+                              color: Color(0xFF26324A),
+                              fontWeight: FontWeight.bold),
                         ),
                         SizedBox(width: isTablet ? 8.0 : 6.0),
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: isTablet ? 10.0 : 8.0, vertical: isTablet ? 4.0 : 3.0),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: isTablet ? 10.0 : 8.0,
+                              vertical: isTablet ? 4.0 : 3.0),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(isTablet ? 10.0 : 8.0),
-                            border: Border.all(color: const Color(0xFF8E6CFF).withOpacity(0.3)),
+                            borderRadius:
+                                BorderRadius.circular(isTablet ? 10.0 : 8.0),
+                            border: Border.all(
+                                color: const Color(0xFF8E6CFF)
+                                    .withValues(alpha: 0.3)),
                           ),
                           child: DropdownButton<dynamic>(
                             value: _selectedVoice,
@@ -2262,16 +2437,21 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                                 value: voice,
                                 child: Text(
                                   _getVoiceDescription(voice),
-                                  style: TextStyle(fontSize: isTablet ? 11.0 : 12.0, color: Color(0xFF26324A)),
+                                  style: TextStyle(
+                                      fontSize: isTablet ? 11.0 : 12.0,
+                                      color: Color(0xFF26324A)),
                                 ),
                               );
                             }).toList(),
                             onChanged: (voice) async {
                               setState(() => _selectedVoice = voice);
-                              await _flutterTts.setVoice(Map<String, String>.from(voice));
+                              await _flutterTts
+                                  .setVoice(Map<String, String>.from(voice));
                             },
                             underline: const SizedBox(),
-                            icon: Icon(Icons.arrow_drop_down, color: Color(0xFF8E6CFF), size: isTablet ? 18.0 : 16.0),
+                            icon: Icon(Icons.arrow_drop_down,
+                                color: Color(0xFF8E6CFF),
+                                size: isTablet ? 18.0 : 16.0),
                             dropdownColor: Colors.white,
                             style: TextStyle(color: Color(0xFF26324A)),
                           ),
@@ -2303,16 +2483,18 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
   }
 
   // Helper method to build info badges
-  Widget _buildInfoBadge({required IconData icon, required String label, required Color color}) {
+  Widget _buildInfoBadge(
+      {required IconData icon, required String label, required Color color}) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: isTablet ? 10.0 : 8.0, vertical: isTablet ? 6.0 : 4.0),
+      padding: EdgeInsets.symmetric(
+          horizontal: isTablet ? 10.0 : 8.0, vertical: isTablet ? 6.0 : 4.0),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(isTablet ? 14.0 : 12.0),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2347,7 +2529,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
             borderRadius: BorderRadius.circular(isTablet ? 16.0 : 14.0),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 6.0,
                 offset: const Offset(0, 3.0),
               ),
@@ -2363,7 +2545,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                 child: Stack(
                   children: [
                     CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF9800)),
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Color(0xFFFF9800)),
                       strokeWidth: isTablet ? 5.0 : 4.0,
                     ),
                     Center(
@@ -2390,7 +2573,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                 'This may take a minute',
                 style: TextStyle(
                   fontSize: isTablet ? 12.0 : 11.0,
-                  color: Color(0xFF26324A).withOpacity(0.7),
+                  color: Color(0xFF26324A).withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -2430,18 +2613,25 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                 'Please try again or switch to device voice',
                 style: TextStyle(
                   fontSize: isTablet ? 12.0 : 11.0,
-                  color: Color(0xFF26324A).withOpacity(0.7),
+                  color: Color(0xFF26324A).withValues(alpha: 0.7),
                 ),
               ),
               SizedBox(height: isTablet ? 16.0 : 12.0),
               ElevatedButton.icon(
                 onPressed: _playAIVoiceAudio,
-                icon: Icon(Icons.refresh, color: Colors.white, size: isTablet ? 18.0 : 16.0),
-                label: Text('Try Again', style: TextStyle(color: Colors.white, fontSize: isTablet ? 14.0 : 12.0)),
+                icon: Icon(Icons.refresh,
+                    color: Colors.white, size: isTablet ? 18.0 : 16.0),
+                label: Text('Try Again',
+                    style: TextStyle(
+                        color: Colors.white, fontSize: isTablet ? 14.0 : 12.0)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.shade400,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(isTablet ? 12.0 : 10.0)),
-                  padding: EdgeInsets.symmetric(horizontal: isTablet ? 20.0 : 16.0, vertical: isTablet ? 10.0 : 8.0),
+                  shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(isTablet ? 12.0 : 10.0)),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: isTablet ? 20.0 : 16.0,
+                      vertical: isTablet ? 10.0 : 8.0),
                 ),
               ),
             ],
@@ -2460,11 +2650,14 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
             children: [
               // Voice selection dropdown (compact)
               Container(
-                padding: EdgeInsets.symmetric(horizontal: isTablet ? 10.0 : 8.0, vertical: isTablet ? 6.0 : 4.0),
+                padding: EdgeInsets.symmetric(
+                    horizontal: isTablet ? 10.0 : 8.0,
+                    vertical: isTablet ? 6.0 : 4.0),
                 decoration: BoxDecoration(
                   color: Color(0xFFF5F5F5),
                   borderRadius: BorderRadius.circular(isTablet ? 12.0 : 10.0),
-                  border: Border.all(color: Color(0xFFFF9800).withOpacity(0.3)),
+                  border: Border.all(
+                      color: Color(0xFFFF9800).withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -2478,7 +2671,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                     DropdownButton<String>(
                       value: _selectedVoiceId,
                       underline: SizedBox(),
-                      icon: Icon(Icons.arrow_drop_down, color: Color(0xFFFF9800), size: isTablet ? 16.0 : 14.0),
+                      icon: Icon(Icons.arrow_drop_down,
+                          color: Color(0xFFFF9800),
+                          size: isTablet ? 16.0 : 14.0),
                       style: TextStyle(
                         color: Color(0xFF26324A),
                         fontWeight: FontWeight.bold,
@@ -2489,8 +2684,12 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                         if (newValue != null) {
                           setState(() {
                             _selectedVoiceId = newValue;
-                            if (_selectedStory != null && _selectedStory!.id != null) {
-                              _elevenLabsService.hasAudioFile(_selectedStory!.id!, voiceId: newValue).then((exists) {
+                            if (_selectedStory != null &&
+                                _selectedStory!.id != null) {
+                              _elevenLabsService
+                                  .hasAudioFile(_selectedStory!.id!,
+                                      voiceId: newValue)
+                                  .then((exists) {
                                 setState(() {
                                   _aiVoiceAvailable = exists;
                                 });
@@ -2499,10 +2698,14 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                           });
                         }
                       },
-                      items: ElevenLabsService.availableVoices.map<DropdownMenuItem<String>>((Map<String, String> voice) {
+                      items: ElevenLabsService.availableVoices
+                          .map<DropdownMenuItem<String>>(
+                              (Map<String, String> voice) {
                         return DropdownMenuItem<String>(
                           value: voice['id'],
-                          child: Text(voice['name']!, style: TextStyle(fontSize: isTablet ? 11.0 : 10.0)),
+                          child: Text(voice['name']!,
+                              style:
+                                  TextStyle(fontSize: isTablet ? 11.0 : 10.0)),
                         );
                       }).toList(),
                     ),
@@ -2532,7 +2735,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                     borderRadius: BorderRadius.circular(isTablet ? 14.0 : 12.0),
                     boxShadow: [
                       BoxShadow(
-                        color: Color(0xFFFF9800).withOpacity(0.3),
+                        color: Color(0xFFFF9800).withValues(alpha: 0.3),
                         blurRadius: 4.0,
                         offset: const Offset(0, 2.0),
                       ),
@@ -2540,7 +2743,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                   ),
                   child: ElevatedButton.icon(
                     onPressed: _playAIVoiceAudio,
-                    icon: Icon(Icons.smart_toy, size: isTablet ? 16.0 : 14.0, color: Colors.white),
+                    icon: Icon(Icons.smart_toy,
+                        size: isTablet ? 16.0 : 14.0, color: Colors.white),
                     label: Text(
                       'Read',
                       style: TextStyle(
@@ -2552,8 +2756,12 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(isTablet ? 14.0 : 12.0)),
-                      padding: EdgeInsets.symmetric(horizontal: isTablet ? 14.0 : 12.0, vertical: isTablet ? 10.0 : 8.0),
+                      shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(isTablet ? 14.0 : 12.0)),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: isTablet ? 14.0 : 12.0,
+                          vertical: isTablet ? 10.0 : 8.0),
                       elevation: 0,
                     ),
                   ),
@@ -2563,7 +2771,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
               if (_isPlaying || _isPaused) ...[
                 // Control buttons container
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: isTablet ? 10.0 : 8.0, vertical: isTablet ? 6.0 : 4.0),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: isTablet ? 10.0 : 8.0,
+                      vertical: isTablet ? 6.0 : 4.0),
                   decoration: BoxDecoration(
                     color: Color(0xFFF5F5F5),
                     borderRadius: BorderRadius.circular(isTablet ? 14.0 : 12.0),
@@ -2581,7 +2791,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                               color: Color(0xFFE3F2FD),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(Icons.pause_rounded, size: isTablet ? 16.0 : 14.0, color: Color(0xFF26324A)),
+                            child: Icon(Icons.pause_rounded,
+                                size: isTablet ? 16.0 : 14.0,
+                                color: Color(0xFF26324A)),
                           ),
                         ),
 
@@ -2594,7 +2806,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                               color: Color(0xFFE3F2FD),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(Icons.play_arrow_rounded, size: isTablet ? 16.0 : 14.0, color: Color(0xFF26324A)),
+                            child: Icon(Icons.play_arrow_rounded,
+                                size: isTablet ? 16.0 : 14.0,
+                                color: Color(0xFF26324A)),
                           ),
                         ),
 
@@ -2609,7 +2823,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                             color: Color(0xFFFFCDD2),
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(Icons.stop_rounded, size: isTablet ? 16.0 : 14.0, color: Color(0xFF26324A)),
+                          child: Icon(Icons.stop_rounded,
+                              size: isTablet ? 16.0 : 14.0,
+                              color: Color(0xFF26324A)),
                         ),
                       ),
                     ],
@@ -2641,7 +2857,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
             borderRadius: BorderRadius.circular(isTablet ? 20.0 : 18.0),
             boxShadow: [
               BoxShadow(
-                color: Color(0xFF8E6CFF).withOpacity(0.3),
+                color: Color(0xFF8E6CFF).withValues(alpha: 0.3),
                 blurRadius: 8,
                 offset: Offset(0, 4),
               ),
@@ -2649,7 +2865,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
           ),
           child: ElevatedButton.icon(
             onPressed: _playDeviceTTS,
-            icon: Icon(Icons.volume_up_rounded, size: isTablet ? 32.0 : 28.0, color: Colors.white),
+            icon: Icon(Icons.volume_up_rounded,
+                size: isTablet ? 32.0 : 28.0, color: Colors.white),
             label: Text(
               'Read Aloud',
               style: TextStyle(
@@ -2661,8 +2878,11 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.transparent,
               shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(isTablet ? 20.0 : 18.0)),
-              padding: EdgeInsets.symmetric(horizontal: isTablet ? 28.0 : 24.0, vertical: isTablet ? 16.0 : 14.0),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(isTablet ? 20.0 : 18.0)),
+              padding: EdgeInsets.symmetric(
+                  horizontal: isTablet ? 28.0 : 24.0,
+                  vertical: isTablet ? 16.0 : 14.0),
               elevation: 0,
             ),
           ),
@@ -2672,7 +2892,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
       if (_isPlaying || _isPaused) ...[
         // Control buttons container
         Container(
-          padding: EdgeInsets.symmetric(horizontal: isTablet ? 20.0 : 16.0, vertical: isTablet ? 10.0 : 8.0),
+          padding: EdgeInsets.symmetric(
+              horizontal: isTablet ? 20.0 : 16.0,
+              vertical: isTablet ? 10.0 : 8.0),
           decoration: BoxDecoration(
             color: Color(0xFFF5F5F5),
             borderRadius: BorderRadius.circular(isTablet ? 28.0 : 24.0),
@@ -2690,7 +2912,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                       color: Color(0xFFE3F2FD),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.pause_rounded, size: isTablet ? 30.0 : 26.0, color: Color(0xFF26324A)),
+                    child: Icon(Icons.pause_rounded,
+                        size: isTablet ? 30.0 : 26.0, color: Color(0xFF26324A)),
                   ),
                   tooltip: 'Pause',
                   iconSize: isTablet ? 50.0 : 42.0,
@@ -2705,7 +2928,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                       color: Color(0xFFE3F2FD),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.play_arrow_rounded, size: isTablet ? 30.0 : 26.0, color: Color(0xFF26324A)),
+                    child: Icon(Icons.play_arrow_rounded,
+                        size: isTablet ? 30.0 : 26.0, color: Color(0xFF26324A)),
                   ),
                   tooltip: 'Resume',
                   iconSize: isTablet ? 50.0 : 42.0,
@@ -2722,7 +2946,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                     color: Color(0xFFFFCDD2),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.stop_rounded, size: isTablet ? 30.0 : 26.0, color: Color(0xFF26324A)),
+                  child: Icon(Icons.stop_rounded,
+                      size: isTablet ? 30.0 : 26.0, color: Color(0xFF26324A)),
                 ),
                 tooltip: 'Stop',
                 iconSize: isTablet ? 50.0 : 42.0,
@@ -2765,7 +2990,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
   void _editStory(Story story) async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => CreateStoryScreen(storyToEdit: story)),
+      MaterialPageRoute(
+          builder: (context) => CreateStoryScreen(storyToEdit: story)),
     );
 
     if (result == true) {
@@ -2778,7 +3004,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Story'),
-        content: Text('Are you sure you want to delete "${story.title}"? This cannot be undone.'),
+        content: Text(
+            'Are you sure you want to delete "${story.title}"? This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -2791,18 +3018,28 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                 if (story.id == null) {
                   throw Exception('Story ID is null');
                 }
+                final selectedProfileId =
+                    context.read<ProfileProvider>().selectedProfileId;
+                if (selectedProfileId == null) {
+                  throw Exception('No profile selected');
+                }
 
                 // Delete all associated audio files for all voices
                 await _elevenLabsService.deleteAllAudioFiles(story.id!);
 
                 // Delete the story from the database
-                await DatabaseService().deleteStory(story.id!);
+                await DatabaseService().deleteStory(
+                  story.id!,
+                  profileId: selectedProfileId,
+                );
 
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Story deleted successfully')),
                 );
                 _fetchStories();
               } catch (e) {
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Error deleting story: $e')),
                 );
@@ -2818,10 +3055,11 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
   Future<void> _playAudioFile(int storyId) async {
     try {
       // Get and play the audio file with the selected voice
-      final file = await _elevenLabsService.getAudioFile(storyId, voiceId: _selectedVoiceId);
+      final file = await _elevenLabsService.getAudioFile(storyId,
+          voiceId: _selectedVoiceId);
 
       if (file == null || !await file.exists()) {
-        print("Audio file not found or doesn't exist");
+        debugPrint("Audio file not found or doesn't exist");
         if (mounted) {
           setState(() {
             _isPlaying = false;
@@ -2842,17 +3080,17 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
       // Create a new player and play the file
       _audioPlayer = AudioPlayer();
-      print("Created new AudioPlayer");
+      debugPrint("Created new AudioPlayer");
 
       // Set the audio source first
-      print("Setting audio source from file: ${file.path}");
+      debugPrint("Setting audio source from file: ${file.path}");
       await _audioPlayer!.setFilePath(file.path);
 
       // Get audio duration for word highlighting
-      final duration = await _audioPlayer!.duration;
+      final duration = _audioPlayer!.duration;
       if (duration != null) {
         _totalAudioDuration = duration;
-        print("Audio duration: ${duration.inSeconds} seconds");
+        debugPrint("Audio duration: ${duration.inSeconds} seconds");
       }
 
       // Store subscriptions to cancel them when needed
@@ -2863,7 +3101,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
       // Configure player state change listener
       stateSubscription = _audioPlayer!.playerStateStream.listen((playerState) {
-        print("AudioPlayer state changed: ${playerState.processingState}, playing: ${playerState.playing}");
+        debugPrint(
+            "AudioPlayer state changed: ${playerState.processingState}, playing: ${playerState.playing}");
 
         if (mounted) {
           setState(() {
@@ -2873,10 +3112,11 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
               _isPaused = false;
               _currentWordIndex = -1; // Reset highlighting
               _wordHighlightTimer?.cancel();
-              print("Playback completed");
+              debugPrint("Playback completed");
             } else {
               _isPlaying = playerState.playing;
-              _isPaused = !playerState.playing && playerState.processingState != ProcessingState.completed;
+              _isPaused = !playerState.playing &&
+                  playerState.processingState != ProcessingState.completed;
 
               // Start word highlighting when playing starts
               if (playerState.playing && _currentWordIndex == -1) {
@@ -2894,9 +3134,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
       // Configure error listener
       errorSubscription = _audioPlayer!.playbackEventStream.listen((event) {
-        // print("Playback event: $event");
+        // debugPrint("Playback event: $event");
       }, onError: (error) {
-        print("Playback error: $error");
+        debugPrint("Playback error: $error");
         if (mounted) {
           setState(() {
             _isPlaying = false;
@@ -2909,7 +3149,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
       });
 
       // Make sure subscriptions are cleaned up when the player is done or disposed
-      processingSubscription = _audioPlayer!.processingStateStream.listen((state) {
+      processingSubscription =
+          _audioPlayer!.processingStateStream.listen((state) {
         if (state == ProcessingState.idle) {
           stateSubscription?.cancel();
           errorSubscription?.cancel();
@@ -2919,7 +3160,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
         }
 
         if (state == ProcessingState.completed) {
-          print("Playback completed");
+          debugPrint("Playback completed");
           if (mounted) {
             setState(() {
               _isPlaying = false;
@@ -2932,10 +3173,10 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
       });
 
       // Start playback
-      print("Starting audio playback");
+      debugPrint("Starting audio playback");
       await _audioPlayer!.play();
     } catch (e) {
-      print("Error in _playAudioFile: $e");
+      debugPrint("Error in _playAudioFile: $e");
       if (mounted) {
         setState(() {
           _isPlaying = false;
@@ -2950,10 +3191,10 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
   // Method to pause AI voice playback
   Future<void> _pauseAIVoiceAudio() async {
-    print("_pauseAIVoiceAudio called");
+    debugPrint("_pauseAIVoiceAudio called");
     if (_audioPlayer != null) {
       try {
-        print("Pausing audio player");
+        debugPrint("Pausing audio player");
         await _audioPlayer!.pause();
         // Don't cancel word highlighting timer, just pause it
         if (mounted) {
@@ -2962,9 +3203,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
             _isPaused = true;
           });
         }
-        print("Audio player paused successfully");
+        debugPrint("Audio player paused successfully");
       } catch (e) {
-        print("Error pausing AI audio: $e");
+        debugPrint("Error pausing AI audio: $e");
         // Try to recover by stopping
         try {
           await _audioPlayer!.stop();
@@ -2979,26 +3220,26 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
         }
       }
     } else {
-      print("Cannot pause: audio player is null");
+      debugPrint("Cannot pause: audio player is null");
     }
   }
 
   // Method to resume AI voice playback
   Future<void> _resumeAIVoiceAudio() async {
-    print("_resumeAIVoiceAudio called");
+    debugPrint("_resumeAIVoiceAudio called");
     if (_audioPlayer != null) {
       try {
-        print("Resuming audio player");
-        final position = await _audioPlayer!.position;
-        final duration = await _audioPlayer!.duration;
+        debugPrint("Resuming audio player");
+        final position = _audioPlayer!.position;
+        final duration = _audioPlayer!.duration;
 
         // Check if we're at the end of the track
-        if (duration != null && position != null && position >= duration) {
-          print("At end of track, seeking to beginning");
+        if (duration != null && position >= duration) {
+          debugPrint("At end of track, seeking to beginning");
           await _audioPlayer!.seek(Duration.zero);
         }
 
-        print("Calling play()");
+        debugPrint("Calling play()");
         await _audioPlayer!.play();
         if (mounted) {
           setState(() {
@@ -3006,15 +3247,15 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
             _isPaused = false;
           });
         }
-        print("Audio player resumed successfully");
+        debugPrint("Audio player resumed successfully");
       } catch (e) {
-        print("Error resuming AI audio: $e");
+        debugPrint("Error resuming AI audio: $e");
         // If resume fails, try playing from beginning
-        print("Trying to play from beginning instead");
+        debugPrint("Trying to play from beginning instead");
         _playAIVoiceAudio();
       }
     } else {
-      print("Cannot resume: audio player is null, starting new playback");
+      debugPrint("Cannot resume: audio player is null, starting new playback");
       // If audio player is null, start fresh
       _playAIVoiceAudio();
     }
@@ -3022,23 +3263,23 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
 
   // Method to stop AI voice playback
   Future<void> _stopAIVoiceAudio() async {
-    print("_stopAIVoiceAudio called");
+    debugPrint("_stopAIVoiceAudio called");
 
     // Cancel word highlighting
     _wordHighlightTimer?.cancel();
 
     if (_audioPlayer != null) {
       try {
-        print("Stopping audio player");
+        debugPrint("Stopping audio player");
         await _audioPlayer!.stop();
         await _audioPlayer!.dispose();
         _audioPlayer = null;
-        print("Audio player stopped successfully");
+        debugPrint("Audio player stopped successfully");
       } catch (e) {
-        print("Error stopping AI audio: $e");
+        debugPrint("Error stopping AI audio: $e");
       }
     } else {
-      print("Cannot stop: audio player is null");
+      debugPrint("Cannot stop: audio player is null");
     }
 
     if (mounted) {
@@ -3079,7 +3320,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                 width: 160,
                 height: 160,
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
+                  color: Colors.orange.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Stack(
@@ -3089,7 +3330,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                     Icon(
                       Icons.book,
                       size: 80,
-                      color: Colors.orange.withOpacity(0.5),
+                      color: Colors.orange.withValues(alpha: 0.5),
                     ),
                     // Pencil icon
                     Positioned(
@@ -3179,7 +3420,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
               future: Future.delayed(Duration(milliseconds: 400)),
               builder: (context, snapshot) {
                 return AnimatedOpacity(
-                  opacity: snapshot.connectionState == ConnectionState.done ? 1.0 : 0.0,
+                  opacity: snapshot.connectionState == ConnectionState.done
+                      ? 1.0
+                      : 0.0,
                   duration: Duration(milliseconds: 400),
                   child: TweenAnimationBuilder<double>(
                     tween: Tween<double>(begin: 0.8, end: 1.0),
@@ -3194,10 +3437,12 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                     child: ElevatedButton.icon(
                       onPressed: () => _navigateToCreateStory(context),
                       icon: Icon(Icons.add, color: Colors.white),
-                      label: Text('Start Writing', style: TextStyle(color: Colors.white, fontSize: 18)),
+                      label: Text('Start Writing',
+                          style: TextStyle(color: Colors.white, fontSize: 18)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.orange,
-                        padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
                         ),
@@ -3232,7 +3477,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                 width: 160,
                 height: 160,
                 decoration: BoxDecoration(
-                  color: Color(0xFF8E6CFF).withOpacity(0.1),
+                  color: Color(0xFF8E6CFF).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Stack(
@@ -3242,7 +3487,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                     Icon(
                       Icons.menu_book,
                       size: 80,
-                      color: Color(0xFF8E6CFF).withOpacity(0.5),
+                      color: Color(0xFF8E6CFF).withValues(alpha: 0.5),
                     ),
                     // Magnifying glass
                     Positioned(
@@ -3335,7 +3580,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
               future: Future.delayed(Duration(milliseconds: 400)),
               builder: (context, snapshot) {
                 return AnimatedOpacity(
-                  opacity: snapshot.connectionState == ConnectionState.done ? 1.0 : 0.0,
+                  opacity: snapshot.connectionState == ConnectionState.done
+                      ? 1.0
+                      : 0.0,
                   duration: Duration(milliseconds: 400),
                   child: TweenAnimationBuilder<double>(
                     tween: Tween<double>(begin: 0.8, end: 1.0),
@@ -3355,10 +3602,12 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
                         });
                       },
                       icon: Icon(Icons.filter_list_off, color: Colors.white),
-                      label: Text('Reset Filters', style: TextStyle(color: Colors.white, fontSize: 18)),
+                      label: Text('Reset Filters',
+                          style: TextStyle(color: Colors.white, fontSize: 18)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Color(0xFF8E6CFF),
-                        padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
                         ),
@@ -3386,16 +3635,16 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
   }) {
     // Check if this is a tablet-sized screen
     final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
     final isTablet = screenWidth > 600;
 
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: Duration(milliseconds: 300),
-        padding: EdgeInsets.symmetric(vertical: isTablet ? 6.0 : 8.0, horizontal: isTablet ? 8.0 : 10.0),
+        padding: EdgeInsets.symmetric(
+            vertical: isTablet ? 6.0 : 8.0, horizontal: isTablet ? 8.0 : 10.0),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.2) : Colors.transparent,
+          color: isSelected ? color.withValues(alpha: 0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(isTablet ? 12.0 : 10.0),
           border: Border.all(
             color: isSelected ? color : Colors.transparent,
@@ -3407,7 +3656,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
           children: [
             Icon(
               icon,
-              color: isSelected ? color : Color(0xFF26324A).withOpacity(0.5),
+              color:
+                  isSelected ? color : Color(0xFF26324A).withValues(alpha: 0.5),
               size: isTablet ? 14.0 : 16.0,
             ),
             SizedBox(width: isTablet ? 4.0 : 6.0),
@@ -3416,7 +3666,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen> with Single
               style: TextStyle(
                 fontSize: isTablet ? 11.0 : 12.0,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? color : Color(0xFF26324A).withOpacity(0.5),
+                color: isSelected
+                    ? color
+                    : Color(0xFF26324A).withValues(alpha: 0.5),
               ),
             ),
             if (showDownloadIcon)

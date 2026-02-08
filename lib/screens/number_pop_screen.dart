@@ -10,17 +10,16 @@ class NumberPopScreen extends StatefulWidget {
   State<NumberPopScreen> createState() => _NumberPopScreenState();
 }
 
-class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProviderStateMixin {
+class _NumberPopScreenState extends State<NumberPopScreen>
+    with SingleTickerProviderStateMixin {
   final Random _random = Random();
   int _targetNumber = 5;
   int _score = 0;
-  String _emoji = '😊';
   List<_Bubble> _bubbles = [];
   int _timeLeft = 60;
   Timer? _timer;
   bool _gameOver = false;
   bool _showGetReady = true;
-  int _round = 0;
   bool _scoreShake = false;
   String? _scoreEffect; // '+1' or '-1'
 
@@ -41,7 +40,6 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
 
   // Responsive helpers
   double get _topUiHeight {
-    final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
     // Base UI elements: back button (44) + timer (44) + padding + target badge height + spacing
@@ -129,8 +127,6 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
     _score = 0;
     _timeLeft = 60;
     _gameOver = false;
-    _round = 0;
-    _emoji = '😊';
     _showGetReady = true;
     _scoreShake = false;
     _scoreEffect = null;
@@ -196,14 +192,14 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
       }
 
       final availableWidth = screenWidth - (sidePadding * 2);
-      final availableHeight = screenHeight - topUiHeight - topPadding - bottomPadding;
+      final availableHeight =
+          screenHeight - topUiHeight - topPadding - bottomPadding;
 
       // Ensure we have minimum space for bubbles
       if (availableHeight < _bubbleMinSize || availableWidth < _bubbleMinSize) {
         // Not enough space, skip this round
         setState(() {
           _bubbles = [];
-          _round++;
         });
         return;
       }
@@ -227,7 +223,8 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
           } while (number == _targetNumber && _random.nextBool());
         }
 
-        double size = _random.nextDouble() * (_bubbleMaxSize - _bubbleMinSize) + _bubbleMinSize;
+        double size = _random.nextDouble() * (_bubbleMaxSize - _bubbleMinSize) +
+            _bubbleMinSize;
         double left, top;
         int tries = 0;
         bool positioned = false;
@@ -239,7 +236,9 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
           double maxTop = screenHeight - size - bottomPadding;
 
           left = _random.nextDouble() * (maxLeft - sidePadding) + sidePadding;
-          top = _random.nextDouble() * (maxTop - (topUiHeight + topPadding)) + topUiHeight + topPadding;
+          top = _random.nextDouble() * (maxTop - (topUiHeight + topPadding)) +
+              topUiHeight +
+              topPadding;
 
           // Additional safety check for bounds
           left = left.clamp(sidePadding, maxLeft);
@@ -248,8 +247,18 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
           // Check for overlaps with existing bubbles
           positioned = true;
           for (var existingBubble in bubbles) {
-            double distance = sqrt(pow(left + size / 2 - (existingBubble.left + existingBubble.size / 2), 2) + pow(top + size / 2 - (existingBubble.top + existingBubble.size / 2), 2));
-            double minDistance = (size + existingBubble.size) / 2 + 8; // 8px minimum gap
+            double distance = sqrt(pow(
+                    left +
+                        size / 2 -
+                        (existingBubble.left + existingBubble.size / 2),
+                    2) +
+                pow(
+                    top +
+                        size / 2 -
+                        (existingBubble.top + existingBubble.size / 2),
+                    2));
+            double minDistance =
+                (size + existingBubble.size) / 2 + 8; // 8px minimum gap
 
             if (distance < minDistance) {
               positioned = false;
@@ -268,15 +277,24 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
           int row = i ~/ cols;
 
           double cellWidth = availableWidth / cols;
-          double cellHeight = availableHeight / ((numBubbles + cols - 1) ~/ cols); // Ceiling division
+          double cellHeight = availableHeight /
+              ((numBubbles + cols - 1) ~/ cols); // Ceiling division
 
-          left = sidePadding + col * cellWidth + _random.nextDouble() * (cellWidth - size).clamp(0, cellWidth - size);
-          top = topUiHeight + topPadding + row * cellHeight + _random.nextDouble() * (cellHeight - size).clamp(0, cellHeight - size);
+          left = sidePadding +
+              col * cellWidth +
+              _random.nextDouble() *
+                  (cellWidth - size).clamp(0, cellWidth - size);
+          top = topUiHeight +
+              topPadding +
+              row * cellHeight +
+              _random.nextDouble() *
+                  (cellHeight - size).clamp(0, cellHeight - size);
         }
 
         // Final safety check to ensure bubble is within screen bounds
         left = left.clamp(sidePadding, screenWidth - size - sidePadding);
-        top = top.clamp(topUiHeight + topPadding, screenHeight - size - bottomPadding);
+        top = top.clamp(
+            topUiHeight + topPadding, screenHeight - size - bottomPadding);
 
         bubbles.add(_Bubble(
           key: UniqueKey(),
@@ -290,7 +308,6 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
 
       setState(() {
         _bubbles = bubbles;
-        _round++;
       });
     });
   }
@@ -302,7 +319,6 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
       HapticFeedback.lightImpact(); // Success haptic
       setState(() {
         _score++;
-        _emoji = '🎉';
         _scoreEffect = '+1';
         _scoreShake = true;
         _bubbles.remove(bubble);
@@ -321,7 +337,6 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
       HapticFeedback.mediumImpact(); // Error haptic
       setState(() {
         _score = _score > 0 ? _score - 1 : 0;
-        _emoji = '😅';
         _scoreEffect = '-1';
         _scoreShake = true;
         _bubbles.remove(bubble);
@@ -369,12 +384,15 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
             child: LayoutBuilder(
               builder: (context, constraints) {
                 // Responsive sizing based on available space
-                final isCompact = constraints.maxHeight < 600 || _isPhoneLandscape;
+                final isCompact =
+                    constraints.maxHeight < 600 || _isPhoneLandscape;
                 final emojiSize = isCompact ? 50.0 : 80.0;
                 final titleSize = isCompact ? 32.0 : 48.0;
                 final scoreSize = isCompact ? 24.0 : 36.0;
                 final buttonTextSize = isCompact ? 20.0 : 28.0;
-                final buttonPadding = isCompact ? const EdgeInsets.symmetric(horizontal: 32, vertical: 12) : const EdgeInsets.symmetric(horizontal: 44, vertical: 18);
+                final buttonPadding = isCompact
+                    ? const EdgeInsets.symmetric(horizontal: 32, vertical: 12)
+                    : const EdgeInsets.symmetric(horizontal: 44, vertical: 18);
                 final spacing1 = isCompact ? 12.0 : 24.0;
                 final spacing2 = isCompact ? 8.0 : 18.0;
                 final spacing3 = isCompact ? 16.0 : 32.0;
@@ -417,7 +435,9 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF8E6CFF),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(isCompact ? 20 : 28)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadius.circular(isCompact ? 20 : 28)),
                             padding: buttonPadding,
                           ),
                           onPressed: () {
@@ -439,8 +459,11 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(isCompact ? 20 : 28)),
-                            side: const BorderSide(color: Color(0xFFFF9F43), width: 2),
+                            shape: RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadius.circular(isCompact ? 20 : 28)),
+                            side: const BorderSide(
+                                color: Color(0xFFFF9F43), width: 2),
                             padding: buttonPadding,
                           ),
                           onPressed: () {
@@ -480,8 +503,6 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final availableHeight = constraints.maxHeight;
-              final availableWidth = constraints.maxWidth;
               return Stack(
                 children: [
                   // Top row: Back button, timer, score
@@ -512,7 +533,8 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
                                 ],
                               ),
                               child: Center(
-                                child: Icon(Icons.arrow_back_rounded, color: Colors.white, size: 28),
+                                child: Icon(Icons.arrow_back_rounded,
+                                    color: Colors.white, size: 28),
                               ),
                             ),
                           ),
@@ -524,14 +546,23 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 300),
                               height: 44,
-                              padding: const EdgeInsets.symmetric(horizontal: 14),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 14),
                               decoration: BoxDecoration(
-                                color: _timeLeft <= 10 ? Colors.red.shade600 : const Color(0xFF8E6CFF),
+                                color: _timeLeft <= 10
+                                    ? Colors.red.shade600
+                                    : const Color(0xFF8E6CFF),
                                 borderRadius: BorderRadius.circular(22),
-                                border: Border.all(color: _timeLeft <= 10 ? Colors.red.shade300 : const Color(0xFFFF9F43), width: _timeLeft <= 5 ? 3 : 2),
+                                border: Border.all(
+                                    color: _timeLeft <= 10
+                                        ? Colors.red.shade300
+                                        : const Color(0xFFFF9F43),
+                                    width: _timeLeft <= 5 ? 3 : 2),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: _timeLeft <= 10 ? Colors.red.withOpacity(0.4) : const Color(0x338E6CFF),
+                                    color: _timeLeft <= 10
+                                        ? Colors.red.withValues(alpha: 0.4)
+                                        : const Color(0x338E6CFF),
                                     blurRadius: _timeLeft <= 5 ? 12 : 8,
                                     offset: const Offset(0, 3),
                                   ),
@@ -540,7 +571,8 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.timer, color: Colors.white, size: 28),
+                                  Icon(Icons.timer,
+                                      color: Colors.white, size: 28),
                                   const SizedBox(width: 6),
                                   Text(
                                     '$_timeLeft s',
@@ -561,17 +593,20 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
                           padding: const EdgeInsets.only(right: 8.0),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 180),
-                            transform: _scoreShake ? Matrix4.translationValues(-8, 0, 0) : Matrix4.identity(),
+                            transform: _scoreShake
+                                ? Matrix4.translationValues(-8, 0, 0)
+                                : Matrix4.identity(),
                             curve: Curves.elasticIn,
                             height: 44,
                             padding: const EdgeInsets.symmetric(horizontal: 14),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(22),
-                              border: Border.all(color: const Color(0xFFFF9F43), width: 2),
+                              border: Border.all(
+                                  color: const Color(0xFFFF9F43), width: 2),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.orange.withOpacity(0.13),
+                                  color: Colors.orange.withValues(alpha: 0.13),
                                   blurRadius: 8,
                                   offset: const Offset(0, 3),
                                 ),
@@ -580,7 +615,8 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.star, color: const Color(0xFFFFC107), size: 28),
+                                Icon(Icons.star,
+                                    color: const Color(0xFFFFC107), size: 28),
                                 const SizedBox(width: 6),
                                 Text(
                                   '$_score',
@@ -599,7 +635,9 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
-                                        color: _scoreEffect == '+1' ? Colors.green : Colors.red,
+                                        color: _scoreEffect == '+1'
+                                            ? Colors.green
+                                            : Colors.red,
                                         fontFamily: 'Baloo2',
                                       ),
                                     ),
@@ -618,42 +656,69 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
                     right: 0,
                     child: Center(
                       child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: _isPhoneLandscape ? 12 : (_isTablet ? 32 : 16), vertical: _isPhoneLandscape ? 6 : (_isTablet ? 18 : 8)),
+                        padding: EdgeInsets.symmetric(
+                            horizontal:
+                                _isPhoneLandscape ? 12 : (_isTablet ? 32 : 16),
+                            vertical:
+                                _isPhoneLandscape ? 6 : (_isTablet ? 18 : 8)),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFFF9C4),
-                          borderRadius: BorderRadius.circular(_isPhoneLandscape ? 12 : 16),
+                          borderRadius: BorderRadius.circular(
+                              _isPhoneLandscape ? 12 : 16),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.yellow.withOpacity(0.18),
+                              color: Colors.yellow.withValues(alpha: 0.18),
                               blurRadius: _isPhoneLandscape ? 12 : 18,
                               offset: const Offset(0, 4),
                             ),
                           ],
-                          border: Border.all(color: const Color(0xFFFF9F43), width: _isPhoneLandscape ? 3 : 4),
+                          border: Border.all(
+                              color: const Color(0xFFFF9F43),
+                              width: _isPhoneLandscape ? 3 : 4),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('🎯', style: TextStyle(fontSize: _isPhoneLandscape ? 16 : (_isTablet ? 38 : 22))),
-                            SizedBox(width: _isPhoneLandscape ? 6 : (_isTablet ? 16 : 8)),
+                            Text('🎯',
+                                style: TextStyle(
+                                    fontSize: _isPhoneLandscape
+                                        ? 16
+                                        : (_isTablet ? 38 : 22))),
+                            SizedBox(
+                                width: _isPhoneLandscape
+                                    ? 6
+                                    : (_isTablet ? 16 : 8)),
                             Text(
                               'Pop all the',
                               style: TextStyle(
                                 fontFamily: 'Baloo2',
-                                fontSize: _isPhoneLandscape ? 12 : (_isTablet ? 24 : 14),
+                                fontSize: _isPhoneLandscape
+                                    ? 12
+                                    : (_isTablet ? 24 : 14),
                                 fontWeight: FontWeight.bold,
                                 color: Colors.orange.shade800,
                               ),
                             ),
-                            SizedBox(width: _isPhoneLandscape ? 4 : (_isTablet ? 12 : 6)),
+                            SizedBox(
+                                width: _isPhoneLandscape
+                                    ? 4
+                                    : (_isTablet ? 12 : 6)),
                             Container(
-                              padding: EdgeInsets.symmetric(horizontal: _isPhoneLandscape ? 6 : (_isTablet ? 18 : 8), vertical: _isPhoneLandscape ? 3 : (_isTablet ? 8 : 4)),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: _isPhoneLandscape
+                                      ? 6
+                                      : (_isTablet ? 18 : 8),
+                                  vertical: _isPhoneLandscape
+                                      ? 3
+                                      : (_isTablet ? 8 : 4)),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFF9F43),
-                                borderRadius: BorderRadius.circular(_isPhoneLandscape ? 12 : 18),
+                                borderRadius: BorderRadius.circular(
+                                    _isPhoneLandscape ? 12 : 18),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.orange.withOpacity(0.18),
+                                    color:
+                                        Colors.orange.withValues(alpha: 0.18),
                                     blurRadius: 10,
                                     offset: const Offset(0, 2),
                                   ),
@@ -663,16 +728,30 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
                                 '$_targetNumber',
                                 style: TextStyle(
                                   fontFamily: 'Baloo2',
-                                  fontSize: _isPhoneLandscape ? 18 : (_isTablet ? 38 : 22),
+                                  fontSize: _isPhoneLandscape
+                                      ? 18
+                                      : (_isTablet ? 38 : 22),
                                   fontWeight: FontWeight.w900,
                                   color: Colors.white,
                                   letterSpacing: _isPhoneLandscape ? 1 : 2,
-                                  shadows: [const Shadow(blurRadius: 4, color: Colors.black26)],
+                                  shadows: [
+                                    const Shadow(
+                                        blurRadius: 4, color: Colors.black26)
+                                  ],
                                 ),
                               ),
                             ),
-                            SizedBox(width: _isPhoneLandscape ? 4 : (_isTablet ? 12 : 6)),
-                            Text('!', style: TextStyle(fontSize: _isPhoneLandscape ? 16 : (_isTablet ? 38 : 22), color: const Color(0xFFFF9F43), fontWeight: FontWeight.bold)),
+                            SizedBox(
+                                width: _isPhoneLandscape
+                                    ? 4
+                                    : (_isTablet ? 12 : 6)),
+                            Text('!',
+                                style: TextStyle(
+                                    fontSize: _isPhoneLandscape
+                                        ? 16
+                                        : (_isTablet ? 38 : 22),
+                                    color: const Color(0xFFFF9F43),
+                                    fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -682,13 +761,18 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
                   if (_showGetReady)
                     Center(
                       child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: _isPhoneLandscape ? 16 : (_isTablet ? 36 : 18), vertical: _isPhoneLandscape ? 8 : (_isTablet ? 24 : 12)),
+                        padding: EdgeInsets.symmetric(
+                            horizontal:
+                                _isPhoneLandscape ? 16 : (_isTablet ? 36 : 18),
+                            vertical:
+                                _isPhoneLandscape ? 8 : (_isTablet ? 24 : 12)),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(_isPhoneLandscape ? 20 : 32),
+                          color: Colors.white.withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(
+                              _isPhoneLandscape ? 20 : 32),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
+                              color: Colors.black.withValues(alpha: 0.08),
                               blurRadius: _isPhoneLandscape ? 8 : 12,
                               offset: const Offset(0, 3),
                             ),
@@ -698,7 +782,8 @@ class _NumberPopScreenState extends State<NumberPopScreen> with SingleTickerProv
                           'Get Ready!',
                           style: TextStyle(
                             fontFamily: 'Baloo2',
-                            fontSize: _isPhoneLandscape ? 22 : (_isTablet ? 44 : 28),
+                            fontSize:
+                                _isPhoneLandscape ? 22 : (_isTablet ? 44 : 28),
                             fontWeight: FontWeight.bold,
                             color: const Color(0xFF8E6CFF),
                             letterSpacing: _isPhoneLandscape ? 0.8 : 1.2,
@@ -731,20 +816,32 @@ class _Bubble {
   final double top;
   final double size;
   final Duration duration;
-  _Bubble({required this.key, required this.number, required this.left, required this.top, required this.size, required this.duration});
+  _Bubble(
+      {required this.key,
+      required this.number,
+      required this.left,
+      required this.top,
+      required this.size,
+      required this.duration});
 }
 
 class _AnimatedBubble extends StatefulWidget {
   final _Bubble bubble;
   final VoidCallback onPop;
   final VoidCallback onDisappear;
-  const _AnimatedBubble({required Key key, required this.bubble, required this.onPop, required this.onDisappear}) : super(key: key);
+  const _AnimatedBubble(
+      {required Key key,
+      required this.bubble,
+      required this.onPop,
+      required this.onDisappear})
+      : super(key: key);
 
   @override
   State<_AnimatedBubble> createState() => _AnimatedBubbleState();
 }
 
-class _AnimatedBubbleState extends State<_AnimatedBubble> with SingleTickerProviderStateMixin {
+class _AnimatedBubbleState extends State<_AnimatedBubble>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
   bool _popped = false;
@@ -752,7 +849,8 @@ class _AnimatedBubbleState extends State<_AnimatedBubble> with SingleTickerProvi
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: widget.bubble.duration);
+    _controller =
+        AnimationController(vsync: this, duration: widget.bubble.duration);
     _animation = Tween<double>(begin: 1.0, end: 0.0).animate(_controller);
     _controller.forward();
     _controller.addStatusListener((status) {
@@ -781,10 +879,11 @@ class _AnimatedBubbleState extends State<_AnimatedBubble> with SingleTickerProvi
       height: widget.bubble.size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.primaries[widget.bubble.number % Colors.primaries.length].withOpacity(0.85),
+        color: Colors.primaries[widget.bubble.number % Colors.primaries.length]
+            .withValues(alpha: 0.85),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -809,7 +908,9 @@ class _AnimatedBubbleState extends State<_AnimatedBubble> with SingleTickerProvi
       child: bubbleContent, // Pass as child to avoid rebuilding
       builder: (context, child) {
         final screenHeight = MediaQuery.of(context).size.height;
-        final top = widget.bubble.top + (screenHeight - widget.bubble.top - widget.bubble.size) * (1.0 - _animation.value);
+        final top = widget.bubble.top +
+            (screenHeight - widget.bubble.top - widget.bubble.size) *
+                (1.0 - _animation.value);
 
         return Positioned(
           left: widget.bubble.left,

@@ -55,7 +55,13 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
       'similarity_boost': 0.75,
       'speed': 1.1,
       'name': 'Mary',
-      'exclamations': ['Interesting!', 'Let me see...', 'Oh!', 'Wonderful!', 'Great!'],
+      'exclamations': [
+        'Interesting!',
+        'Let me see...',
+        'Oh!',
+        'Wonderful!',
+        'Great!'
+      ],
     },
     // Callum - Playful buddy
     'N2lVS1w4EtoT3dr4eOWO': {
@@ -73,7 +79,13 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
       'similarity_boost': 0.7,
       'speed': 1.15,
       'name': 'Aria',
-      'exclamations': ['Amazing!', 'Let\'s do this!', 'Woo!', 'Fantastic!', 'Brilliant!'],
+      'exclamations': [
+        'Amazing!',
+        'Let\'s do this!',
+        'Woo!',
+        'Fantastic!',
+        'Brilliant!'
+      ],
     },
   };
 
@@ -95,14 +107,6 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
     "Keep trying!",
     "Those don't match, but you're getting closer!",
     "Remember where that one was!",
-  ];
-
-  final List<String> _gameProgressMessages = [
-    "You're halfway there!",
-    "Just a few more pairs to go!",
-    "You've got this!",
-    "Your memory is impressive!",
-    "You're doing great so far!",
   ];
 
   final List<String> _victoryMessages = [
@@ -140,7 +144,7 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
         });
       }
     } catch (e) {
-      print('Error stopping audio: $e');
+      debugPrint('Error stopping audio: $e');
     }
   }
 
@@ -148,7 +152,48 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
     // Stop any playing audio first
     _stopAudio();
 
-    const List<String> emojiPool = ['🐶', '🐱', '🐭', '🦊', '🐻', '🐼', '🐨', '🦁', '🐯', '🐸', '🐵', '🐷', '🐰', '🦄', '🐔', '🐧', '🐢', '🐙', '🐞', '🦋', '🦉', '🦓', '🦒', '🦘', '🐺', '🦅', '🐠', '🦈', '🐙', '🦀', '🦞', '🐌', '🦗', '🕷️', '🐝', '🐛', '🦄', '🐉', '🦕', '🦖'];
+    const List<String> emojiPool = [
+      '🐶',
+      '🐱',
+      '🐭',
+      '🦊',
+      '🐻',
+      '🐼',
+      '🐨',
+      '🦁',
+      '🐯',
+      '🐸',
+      '🐵',
+      '🐷',
+      '🐰',
+      '🦄',
+      '🐔',
+      '🐧',
+      '🐢',
+      '🐙',
+      '🐞',
+      '🦋',
+      '🦉',
+      '🦓',
+      '🦒',
+      '🦘',
+      '🐺',
+      '🦅',
+      '🐠',
+      '🦈',
+      '🐙',
+      '🦀',
+      '🦞',
+      '🐌',
+      '🦗',
+      '🕷️',
+      '🐝',
+      '🐛',
+      '🦄',
+      '🐉',
+      '🦕',
+      '🦖'
+    ];
     final rand = math.Random();
     final Set<String> picked = {};
 
@@ -158,7 +203,8 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
     }
 
     final List<String> values = picked.toList();
-    assert(values.length == totalPairs && values.toSet().length == totalPairs, 'Must have $totalPairs unique emojis');
+    assert(values.length == totalPairs && values.toSet().length == totalPairs,
+        'Must have $totalPairs unique emojis');
 
     // Create pairs by duplicating each emoji
     final allValues = [...values, ...values];
@@ -169,8 +215,10 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
     for (final e in allValues) {
       emojiCount[e] = (emojiCount[e] ?? 0) + 1;
     }
-    assert(emojiCount.values.every((count) => count == 2), 'Each emoji must appear exactly twice: $emojiCount');
-    assert(allValues.length == totalCards, 'Total cards must equal grid size: ${allValues.length} != $totalCards');
+    assert(emojiCount.values.every((count) => count == 2),
+        'Each emoji must appear exactly twice: $emojiCount');
+    assert(allValues.length == totalCards,
+        'Total cards must equal grid size: ${allValues.length} != $totalCards');
 
     cards = List.generate(totalCards, (i) => _CardData(value: allValues[i]));
     moves = 0;
@@ -184,14 +232,20 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
 
     // Play a welcome message with 50% probability
     if (_useVoiceCommentary && math.Random().nextBool()) {
-      _playVoiceMessage("Let's play Memory Match! Find all the matching pairs!");
+      _playVoiceMessage(
+          "Let's play Memory Match! Find all the matching pairs!");
     }
 
     setState(() {});
   }
 
   void _onCardTap(int idx) async {
-    if (waiting || cards[idx].isMatched || idx == firstFlipped || idx == secondFlipped) return;
+    if (waiting ||
+        cards[idx].isMatched ||
+        idx == firstFlipped ||
+        idx == secondFlipped) {
+      return;
+    }
     setState(() {
       if (firstFlipped == null) {
         firstFlipped = idx;
@@ -223,7 +277,8 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
         if (_useVoiceCommentary && pairsFound == halfwayPoint) {
           // Always play halfway message
           final remaining = totalPairs - pairsFound;
-          _playVoiceMessage("You're halfway there! $remaining more pairs to go!");
+          _playVoiceMessage(
+              "You're halfway there! $remaining more pairs to go!");
         } else if (_useVoiceCommentary && pairsFound == almostDonePoint) {
           // Always play almost done message
           _playVoiceMessage("Just one more pair to find!");
@@ -272,7 +327,8 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
     String message;
     do {
       message = messageList[math.Random().nextInt(messageList.length)];
-    } while (_usedMessages.contains(message) && _usedMessages.length < messageList.length);
+    } while (_usedMessages.contains(message) &&
+        _usedMessages.length < messageList.length);
 
     // Mark this message as used
     _usedMessages.add(message);
@@ -306,9 +362,10 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
       // Get the next message from the queue
       String textToSpeak = _pendingAudioMessages.removeAt(0);
       _tempAudioCounter++;
-      int storyId = 99999 + _tempAudioCounter; // Using high numbers to avoid conflicts
+      int storyId =
+          99999 + _tempAudioCounter; // Using high numbers to avoid conflicts
 
-      print('Generating audio for message: $textToSpeak');
+      debugPrint('Generating audio for message: $textToSpeak');
 
       // Get personality settings for the selected voice
       final personality = _voicePersonalities[_selectedVoiceId] ??
@@ -323,9 +380,12 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
 
       // Add a random exclamation occasionally
       String enhancedText = textToSpeak;
-      if (!textToSpeak.contains('!') && !textToSpeak.contains('?') && math.Random().nextDouble() < 0.4) {
+      if (!textToSpeak.contains('!') &&
+          !textToSpeak.contains('?') &&
+          math.Random().nextDouble() < 0.4) {
         final exclamations = personality['exclamations'] as List<String>;
-        final exclamation = exclamations[math.Random().nextInt(exclamations.length)];
+        final exclamation =
+            exclamations[math.Random().nextInt(exclamations.length)];
         enhancedText = "$exclamation $textToSpeak";
       }
 
@@ -343,7 +403,8 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
       };
 
       // First check if we have cached audio for this message
-      String? audioPath = await _checkCachedAudio(enhancedText, _selectedVoiceId);
+      String? audioPath =
+          await _checkCachedAudio(enhancedText, _selectedVoiceId);
 
       // If no cache, generate new audio
       if (audioPath == null) {
@@ -389,7 +450,7 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
         });
       }
     } catch (e) {
-      print('Error playing voice message: $e');
+      debugPrint('Error playing voice message: $e');
       if (mounted) {
         setState(() {
           _isPlayingAudio = false;
@@ -412,16 +473,17 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
 
       final cacheFile = File('${cacheDir.path}/$hash.mp3');
       if (await cacheFile.exists()) {
-        print('Using cached audio for: $text');
+        debugPrint('Using cached audio for: $text');
         return cacheFile.path;
       }
     } catch (e) {
-      print('Error checking cache: $e');
+      debugPrint('Error checking cache: $e');
     }
     return null;
   }
 
-  Future<void> _cacheAudio(String text, String voiceId, String audioPath) async {
+  Future<void> _cacheAudio(
+      String text, String voiceId, String audioPath) async {
     try {
       final hash = text.hashCode.toString() + voiceId;
       final dir = await getApplicationDocumentsDirectory();
@@ -435,10 +497,10 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
 
       if (await originalFile.exists()) {
         await originalFile.copy(cacheFile.path);
-        print('Cached audio for: $text');
+        debugPrint('Cached audio for: $text');
       }
     } catch (e) {
-      print('Error caching audio: $e');
+      debugPrint('Error caching audio: $e');
     }
   }
 
@@ -492,7 +554,7 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withValues(alpha: 0.2),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -596,7 +658,7 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                       Column(
                         children: [
                           Text(
-                            '${gridRows}×${gridCols}',
+                            '$gridRows×$gridCols',
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -703,26 +765,89 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
 
               // Enhanced device detection (same as other screens)
               final shortestSide = math.min(screenWidth, screenHeight);
-              final isTablet = shortestSide > 600 || (shortestSide > 500 && devicePixelRatio < 2.5);
+              final isTablet = shortestSide > 600 ||
+                  (shortestSide > 500 && devicePixelRatio < 2.5);
               final isLandscape = screenWidth > screenHeight;
-              final isSmallPhoneLandscape = isLandscape && !isTablet && screenHeight < 380;
+              final isSmallPhoneLandscape =
+                  isLandscape && !isTablet && screenHeight < 380;
 
               // Enhanced responsive sizing with three-tier system
-              final horizontalPadding = isTablet ? 24.0 : (isSmallPhoneLandscape ? 8.0 : (isLandscape ? 12.0 : 18.0));
-              final verticalPadding = isTablet ? 18.0 : (isSmallPhoneLandscape ? 6.0 : (isLandscape ? 8.0 : 12.0));
-              final titleFontSize = isTablet ? 32.0 : (isSmallPhoneLandscape ? 20.0 : (isLandscape ? 24.0 : 28.0));
-              final iconSize = isTablet ? 32.0 : (isSmallPhoneLandscape ? 20.0 : (isLandscape ? 24.0 : 28.0));
-              final statsFontSize = isTablet ? 20.0 : (isSmallPhoneLandscape ? 14.0 : (isLandscape ? 16.0 : 18.0));
-              final dropdownFontSize = isTablet ? 16.0 : (isSmallPhoneLandscape ? 12.0 : (isLandscape ? 14.0 : 16.0));
-              final emojiFontSize = isTablet ? 44.0 : (isSmallPhoneLandscape ? 28.0 : (isLandscape ? 32.0 : 40.0));
+              final horizontalPadding = isTablet
+                  ? 24.0
+                  : (isSmallPhoneLandscape ? 8.0 : (isLandscape ? 12.0 : 18.0));
+              final verticalPadding = isTablet
+                  ? 18.0
+                  : (isSmallPhoneLandscape ? 6.0 : (isLandscape ? 8.0 : 12.0));
+              final titleFontSize = isTablet
+                  ? 32.0
+                  : (isSmallPhoneLandscape
+                      ? 20.0
+                      : (isLandscape ? 24.0 : 28.0));
+              final iconSize = isTablet
+                  ? 32.0
+                  : (isSmallPhoneLandscape
+                      ? 20.0
+                      : (isLandscape ? 24.0 : 28.0));
+              final statsFontSize = isTablet
+                  ? 20.0
+                  : (isSmallPhoneLandscape
+                      ? 14.0
+                      : (isLandscape ? 16.0 : 18.0));
+              final dropdownFontSize = isTablet
+                  ? 16.0
+                  : (isSmallPhoneLandscape
+                      ? 12.0
+                      : (isLandscape ? 14.0 : 16.0));
+              final emojiFontSize = isTablet
+                  ? 44.0
+                  : (isSmallPhoneLandscape
+                      ? 28.0
+                      : (isLandscape ? 32.0 : 40.0));
 
-              final double availableWidth = constraints.maxWidth - (horizontalPadding * 2);
-              final double availableHeight = constraints.maxHeight - (isLandscape ? 180 : 220);
-              final double maxBoardSize = math.min(availableWidth, availableHeight).clamp(isTablet ? 220.0 : (isSmallPhoneLandscape ? 160.0 : (isLandscape ? 180.0 : 200.0)), isTablet ? 520.0 : (isSmallPhoneLandscape ? 300.0 : (isLandscape ? 380.0 : 450.0)));
-              final double cardSize = (maxBoardSize - 16) / math.max(gridRows, gridCols);
+              final double availableWidth =
+                  constraints.maxWidth - (horizontalPadding * 2);
+              final double availableHeight =
+                  constraints.maxHeight - (isLandscape ? 180 : 220);
+              final double maxBoardSize = math
+                  .min(availableWidth, availableHeight)
+                  .clamp(
+                      isTablet
+                          ? 220.0
+                          : (isSmallPhoneLandscape
+                              ? 160.0
+                              : (isLandscape ? 180.0 : 200.0)),
+                      isTablet
+                          ? 520.0
+                          : (isSmallPhoneLandscape
+                              ? 300.0
+                              : (isLandscape ? 380.0 : 450.0)));
+              final double cardSize =
+                  (maxBoardSize - 16) / math.max(gridRows, gridCols);
               return isLandscape
-                  ? _buildLandscapeLayout(horizontalPadding, verticalPadding, titleFontSize, iconSize, statsFontSize, dropdownFontSize, emojiFontSize, maxBoardSize, cardSize, isTablet, isSmallPhoneLandscape)
-                  : _buildPortraitLayout(horizontalPadding, verticalPadding, titleFontSize, iconSize, statsFontSize, dropdownFontSize, emojiFontSize, maxBoardSize, cardSize, isTablet, isSmallPhoneLandscape);
+                  ? _buildLandscapeLayout(
+                      horizontalPadding,
+                      verticalPadding,
+                      titleFontSize,
+                      iconSize,
+                      statsFontSize,
+                      dropdownFontSize,
+                      emojiFontSize,
+                      maxBoardSize,
+                      cardSize,
+                      isTablet,
+                      isSmallPhoneLandscape)
+                  : _buildPortraitLayout(
+                      horizontalPadding,
+                      verticalPadding,
+                      titleFontSize,
+                      iconSize,
+                      statsFontSize,
+                      dropdownFontSize,
+                      emojiFontSize,
+                      maxBoardSize,
+                      cardSize,
+                      isTablet,
+                      isSmallPhoneLandscape);
             },
           ),
         ),
@@ -731,11 +856,23 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
   }
 
   // Landscape layout with two panels
-  Widget _buildLandscapeLayout(double horizontalPadding, double verticalPadding, double titleFontSize, double iconSize, double statsFontSize, double dropdownFontSize, double emojiFontSize, double maxBoardSize, double cardSize, bool isTablet, bool isSmallPhoneLandscape) {
+  Widget _buildLandscapeLayout(
+      double horizontalPadding,
+      double verticalPadding,
+      double titleFontSize,
+      double iconSize,
+      double statsFontSize,
+      double dropdownFontSize,
+      double emojiFontSize,
+      double maxBoardSize,
+      double cardSize,
+      bool isTablet,
+      bool isSmallPhoneLandscape) {
     return Column(children: [
       // Top bar with title and back button
       Container(
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding * 0.5),
+        padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding, vertical: verticalPadding * 0.5),
         child: Row(
           children: [
             GestureDetector(
@@ -752,8 +889,10 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                     ),
                   ],
                 ),
-                padding: EdgeInsets.all(isTablet ? 12.0 : (isSmallPhoneLandscape ? 6.0 : 8.0)),
-                child: Icon(Icons.arrow_back_rounded, color: Colors.white, size: iconSize * 0.7),
+                padding: EdgeInsets.all(
+                    isTablet ? 12.0 : (isSmallPhoneLandscape ? 6.0 : 8.0)),
+                child: Icon(Icons.arrow_back_rounded,
+                    color: Colors.white, size: iconSize * 0.7),
               ),
             ),
             const Spacer(),
@@ -768,7 +907,8 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
               ),
             ),
             const Spacer(),
-            SizedBox(width: isTablet ? 40.0 : (isSmallPhoneLandscape ? 20.0 : 28.0)),
+            SizedBox(
+                width: isTablet ? 40.0 : (isSmallPhoneLandscape ? 20.0 : 28.0)),
           ],
         ),
       ),
@@ -777,27 +917,38 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
         child: Row(
           children: [
             // Left panel - Controls (compact and scrollable)
-            Container(
+            SizedBox(
               width: isTablet ? 220.0 : (isSmallPhoneLandscape ? 160.0 : 180.0),
               child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding * 0.75, vertical: verticalPadding * 0.5),
+                padding: EdgeInsets.symmetric(
+                    horizontal: horizontalPadding * 0.75,
+                    vertical: verticalPadding * 0.5),
                 child: Column(
                   children: [
                     // Grid size selector
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: verticalPadding * 0.75, vertical: verticalPadding * 0.5),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: verticalPadding * 0.75,
+                          vertical: verticalPadding * 0.5),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(isTablet ? 12.0 : 8.0),
+                        color: Colors.white.withValues(alpha: 0.9),
+                        borderRadius:
+                            BorderRadius.circular(isTablet ? 12.0 : 8.0),
                       ),
                       child: Column(
                         children: [
-                          Text('Grid Size', style: TextStyle(fontWeight: FontWeight.bold, fontSize: dropdownFontSize * 0.85, color: const Color(0xFF43C465))),
+                          Text('Grid Size',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: dropdownFontSize * 0.85,
+                                  color: const Color(0xFF43C465))),
                           SizedBox(height: verticalPadding * 0.25),
                           DropdownButton<int>(
                             value: _currentGridIndex,
                             onChanged: (v) => _setGridSize(v!),
-                            style: TextStyle(fontSize: dropdownFontSize * 0.75, color: Colors.black),
+                            style: TextStyle(
+                                fontSize: dropdownFontSize * 0.75,
+                                color: Colors.black),
                             isExpanded: true,
                             isDense: true,
                             items: gridSizes.asMap().entries.map((entry) {
@@ -805,7 +956,10 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                               final size = entry.value;
                               return DropdownMenuItem(
                                 value: index,
-                                child: Text('${size['rows']}×${size['cols']} (${size['pairs']} pairs)', style: TextStyle(fontSize: dropdownFontSize * 0.75)),
+                                child: Text(
+                                    '${size['rows']}×${size['cols']} (${size['pairs']} pairs)',
+                                    style: TextStyle(
+                                        fontSize: dropdownFontSize * 0.75)),
                               );
                             }).toList(),
                           ),
@@ -815,25 +969,46 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                     SizedBox(height: verticalPadding * 0.75),
                     // Voice settings
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: verticalPadding * 0.75, vertical: verticalPadding * 0.5),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: verticalPadding * 0.75,
+                          vertical: verticalPadding * 0.5),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(isTablet ? 12.0 : 8.0),
+                        color: Colors.white.withValues(alpha: 0.9),
+                        borderRadius:
+                            BorderRadius.circular(isTablet ? 12.0 : 8.0),
                       ),
                       child: Column(
                         children: [
-                          Text('Voice', style: TextStyle(fontWeight: FontWeight.bold, fontSize: dropdownFontSize * 0.85, color: const Color(0xFF43C465))),
+                          Text('Voice',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: dropdownFontSize * 0.85,
+                                  color: const Color(0xFF43C465))),
                           SizedBox(height: verticalPadding * 0.25),
                           DropdownButton<String>(
                             value: _selectedVoiceId,
                             onChanged: (v) => _setVoiceId(v!),
-                            style: TextStyle(fontSize: dropdownFontSize * 0.75, color: Colors.black),
+                            style: TextStyle(
+                                fontSize: dropdownFontSize * 0.75,
+                                color: Colors.black),
                             isExpanded: true,
                             isDense: true,
                             items: [
-                              DropdownMenuItem(value: 'mlFsujxZWlk6xPyQJgMb', child: Text('Mary', style: TextStyle(fontSize: dropdownFontSize * 0.75))),
-                              DropdownMenuItem(value: 'N2lVS1w4EtoT3dr4eOWO', child: Text('Callum', style: TextStyle(fontSize: dropdownFontSize * 0.75))),
-                              DropdownMenuItem(value: '9BWtsMINqrJLrRacOk9x', child: Text('Aria', style: TextStyle(fontSize: dropdownFontSize * 0.75))),
+                              DropdownMenuItem(
+                                  value: 'mlFsujxZWlk6xPyQJgMb',
+                                  child: Text('Mary',
+                                      style: TextStyle(
+                                          fontSize: dropdownFontSize * 0.75))),
+                              DropdownMenuItem(
+                                  value: 'N2lVS1w4EtoT3dr4eOWO',
+                                  child: Text('Callum',
+                                      style: TextStyle(
+                                          fontSize: dropdownFontSize * 0.75))),
+                              DropdownMenuItem(
+                                  value: '9BWtsMINqrJLrRacOk9x',
+                                  child: Text('Aria',
+                                      style: TextStyle(
+                                          fontSize: dropdownFontSize * 0.75))),
                             ],
                           ),
                           SizedBox(height: verticalPadding * 0.25),
@@ -841,15 +1016,20 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Transform.scale(
-                                scale: isTablet ? 0.8 : (isSmallPhoneLandscape ? 0.6 : 0.7),
+                                scale: isTablet
+                                    ? 0.8
+                                    : (isSmallPhoneLandscape ? 0.6 : 0.7),
                                 child: Switch(
                                   value: _useVoiceCommentary,
                                   onChanged: _toggleVoiceCommentary,
-                                  activeColor: const Color(0xFF43C465),
+                                  activeThumbColor: const Color(0xFF43C465),
                                 ),
                               ),
                               SizedBox(width: verticalPadding * 0.25),
-                              Text('Commentary', style: TextStyle(fontWeight: FontWeight.w600, fontSize: dropdownFontSize * 0.75)),
+                              Text('Commentary',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: dropdownFontSize * 0.75)),
                             ],
                           ),
                         ],
@@ -858,28 +1038,51 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                     SizedBox(height: verticalPadding * 0.75),
                     // Game stats
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: verticalPadding * 0.75, vertical: verticalPadding * 0.5),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: verticalPadding * 0.75,
+                          vertical: verticalPadding * 0.5),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(isTablet ? 12.0 : 8.0),
+                        color: Colors.white.withValues(alpha: 0.9),
+                        borderRadius:
+                            BorderRadius.circular(isTablet ? 12.0 : 8.0),
                       ),
                       child: Column(
                         children: [
-                          Text('Stats', style: TextStyle(fontWeight: FontWeight.bold, fontSize: dropdownFontSize * 0.85, color: const Color(0xFF43C465))),
+                          Text('Stats',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: dropdownFontSize * 0.85,
+                                  color: const Color(0xFF43C465))),
                           SizedBox(height: verticalPadding * 0.25),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
                               Column(
                                 children: [
-                                  Text('$moves', style: TextStyle(fontSize: statsFontSize * 0.8, fontWeight: FontWeight.bold, color: const Color(0xFF43C465), fontFamily: 'Baloo2')),
-                                  Text('Moves', style: TextStyle(fontSize: dropdownFontSize * 0.65, color: Colors.grey[600])),
+                                  Text('$moves',
+                                      style: TextStyle(
+                                          fontSize: statsFontSize * 0.8,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF43C465),
+                                          fontFamily: 'Baloo2')),
+                                  Text('Moves',
+                                      style: TextStyle(
+                                          fontSize: dropdownFontSize * 0.65,
+                                          color: Colors.grey[600])),
                                 ],
                               ),
                               Column(
                                 children: [
-                                  Text('$pairsFound/$totalPairs', style: TextStyle(fontSize: statsFontSize * 0.8, fontWeight: FontWeight.bold, color: const Color(0xFFFF9F43), fontFamily: 'Baloo2')),
-                                  Text('Pairs', style: TextStyle(fontSize: dropdownFontSize * 0.65, color: Colors.grey[600])),
+                                  Text('$pairsFound/$totalPairs',
+                                      style: TextStyle(
+                                          fontSize: statsFontSize * 0.8,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFFFF9F43),
+                                          fontFamily: 'Baloo2')),
+                                  Text('Pairs',
+                                      style: TextStyle(
+                                          fontSize: dropdownFontSize * 0.65,
+                                          color: Colors.grey[600])),
                                 ],
                               ),
                             ],
@@ -892,7 +1095,10 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                     SizedBox(
                       height: emojiFontSize * 0.6 + 8,
                       child: Center(
-                        child: feedbackEmoji != null ? Text(feedbackEmoji!, style: TextStyle(fontSize: emojiFontSize * 0.6)) : null,
+                        child: feedbackEmoji != null
+                            ? Text(feedbackEmoji!,
+                                style: TextStyle(fontSize: emojiFontSize * 0.6))
+                            : null,
                       ),
                     ),
                   ],
@@ -904,10 +1110,24 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   // Calculate optimal board size using all available space
-                  final availableWidth = constraints.maxWidth - (horizontalPadding);
-                  final availableHeight = constraints.maxHeight - (verticalPadding);
-                  final optimalBoardSize = math.min(availableWidth, availableHeight).clamp(isTablet ? 300.0 : (isSmallPhoneLandscape ? 200.0 : 250.0), isTablet ? 600.0 : (isSmallPhoneLandscape ? 400.0 : 500.0));
-                  final optimalCardSize = (optimalBoardSize - (isTablet ? 16.0 : (isSmallPhoneLandscape ? 8.0 : 12.0))) / math.max(gridRows, gridCols);
+                  final availableWidth =
+                      constraints.maxWidth - (horizontalPadding);
+                  final availableHeight =
+                      constraints.maxHeight - (verticalPadding);
+                  final optimalBoardSize = math
+                      .min(availableWidth, availableHeight)
+                      .clamp(
+                          isTablet
+                              ? 300.0
+                              : (isSmallPhoneLandscape ? 200.0 : 250.0),
+                          isTablet
+                              ? 600.0
+                              : (isSmallPhoneLandscape ? 400.0 : 500.0));
+                  final optimalCardSize = (optimalBoardSize -
+                          (isTablet
+                              ? 16.0
+                              : (isSmallPhoneLandscape ? 8.0 : 12.0))) /
+                      math.max(gridRows, gridCols);
 
                   return Container(
                     padding: EdgeInsets.all(horizontalPadding * 0.5),
@@ -918,23 +1138,32 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                           Container(
                             width: optimalBoardSize,
                             height: optimalBoardSize * (gridRows / gridCols),
-                            padding: EdgeInsets.all(isTablet ? 8.0 : (isSmallPhoneLandscape ? 4.0 : 6.0)),
+                            padding: EdgeInsets.all(isTablet
+                                ? 8.0
+                                : (isSmallPhoneLandscape ? 4.0 : 6.0)),
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(isTablet ? 24.0 : (isSmallPhoneLandscape ? 12.0 : 18.0)),
+                              borderRadius: BorderRadius.circular(isTablet
+                                  ? 24.0
+                                  : (isSmallPhoneLandscape ? 12.0 : 18.0)),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.teal.withOpacity(0.08),
+                                  color: Colors.teal.withValues(alpha: 0.08),
                                   blurRadius: isTablet ? 8.0 : 6.0,
                                   offset: Offset(0, isTablet ? 2.0 : 1.5),
                                 ),
                               ],
                             ),
                             child: GridView.builder(
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: gridCols,
-                                crossAxisSpacing: isTablet ? 8.0 : (isSmallPhoneLandscape ? 3.0 : 5.0),
-                                mainAxisSpacing: isTablet ? 8.0 : (isSmallPhoneLandscape ? 3.0 : 5.0),
+                                crossAxisSpacing: isTablet
+                                    ? 8.0
+                                    : (isSmallPhoneLandscape ? 3.0 : 5.0),
+                                mainAxisSpacing: isTablet
+                                    ? 8.0
+                                    : (isSmallPhoneLandscape ? 3.0 : 5.0),
                                 childAspectRatio: 1.0,
                               ),
                               itemCount: totalCards,
@@ -943,7 +1172,9 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                               itemBuilder: (context, idx) {
                                 return _MemoryCard(
                                   value: cards[idx].value,
-                                  isFlipped: idx == firstFlipped || idx == secondFlipped || cards[idx].isMatched,
+                                  isFlipped: idx == firstFlipped ||
+                                      idx == secondFlipped ||
+                                      cards[idx].isMatched,
                                   onTap: () => _onCardTap(idx),
                                   matched: cards[idx].isMatched,
                                   size: optimalCardSize,
@@ -954,16 +1185,29 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                           // Audio indicator
                           if (_isPlayingAudio)
                             Positioned(
-                              top: isTablet ? 16.0 : (isSmallPhoneLandscape ? 8.0 : 12.0),
-                              right: isTablet ? 16.0 : (isSmallPhoneLandscape ? 8.0 : 12.0),
+                              top: isTablet
+                                  ? 16.0
+                                  : (isSmallPhoneLandscape ? 8.0 : 12.0),
+                              right: isTablet
+                                  ? 16.0
+                                  : (isSmallPhoneLandscape ? 8.0 : 12.0),
                               child: Container(
-                                padding: EdgeInsets.symmetric(horizontal: isTablet ? 12.0 : (isSmallPhoneLandscape ? 6.0 : 8.0), vertical: isTablet ? 8.0 : (isSmallPhoneLandscape ? 4.0 : 6.0)),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: isTablet
+                                        ? 12.0
+                                        : (isSmallPhoneLandscape ? 6.0 : 8.0),
+                                    vertical: isTablet
+                                        ? 8.0
+                                        : (isSmallPhoneLandscape ? 4.0 : 6.0)),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.9),
-                                  borderRadius: BorderRadius.circular(isTablet ? 20.0 : (isSmallPhoneLandscape ? 12.0 : 16.0)),
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  borderRadius: BorderRadius.circular(isTablet
+                                      ? 20.0
+                                      : (isSmallPhoneLandscape ? 12.0 : 16.0)),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.1),
                                       blurRadius: isTablet ? 4.0 : 3.0,
                                       offset: Offset(0, isTablet ? 2.0 : 1.5),
                                     ),
@@ -973,20 +1217,39 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     SizedBox(
-                                      width: isTablet ? 18.0 : (isSmallPhoneLandscape ? 12.0 : 15.0),
-                                      height: isTablet ? 18.0 : (isSmallPhoneLandscape ? 12.0 : 15.0),
+                                      width: isTablet
+                                          ? 18.0
+                                          : (isSmallPhoneLandscape
+                                              ? 12.0
+                                              : 15.0),
+                                      height: isTablet
+                                          ? 18.0
+                                          : (isSmallPhoneLandscape
+                                              ? 12.0
+                                              : 15.0),
                                       child: CircularProgressIndicator(
                                         strokeWidth: isTablet ? 2.0 : 1.5,
-                                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF43C465)),
+                                        valueColor:
+                                            const AlwaysStoppedAnimation<Color>(
+                                                Color(0xFF43C465)),
                                       ),
                                     ),
-                                    SizedBox(width: isTablet ? 8.0 : (isSmallPhoneLandscape ? 4.0 : 6.0)),
+                                    SizedBox(
+                                        width: isTablet
+                                            ? 8.0
+                                            : (isSmallPhoneLandscape
+                                                ? 4.0
+                                                : 6.0)),
                                     Text(
                                       '${_voicePersonalities[_selectedVoiceId]?['name'] ?? 'Voice'} is speaking...',
                                       style: TextStyle(
                                         color: const Color(0xFF43C465),
                                         fontWeight: FontWeight.bold,
-                                        fontSize: isTablet ? 14.0 : (isSmallPhoneLandscape ? 10.0 : 12.0),
+                                        fontSize: isTablet
+                                            ? 14.0
+                                            : (isSmallPhoneLandscape
+                                                ? 10.0
+                                                : 12.0),
                                       ),
                                     ),
                                   ],
@@ -1007,7 +1270,18 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
   }
 
   // Portrait layout (original single-column layout)
-  Widget _buildPortraitLayout(double horizontalPadding, double verticalPadding, double titleFontSize, double iconSize, double statsFontSize, double dropdownFontSize, double emojiFontSize, double maxBoardSize, double cardSize, bool isTablet, bool isSmallPhoneLandscape) {
+  Widget _buildPortraitLayout(
+      double horizontalPadding,
+      double verticalPadding,
+      double titleFontSize,
+      double iconSize,
+      double statsFontSize,
+      double dropdownFontSize,
+      double emojiFontSize,
+      double maxBoardSize,
+      double cardSize,
+      bool isTablet,
+      bool isSmallPhoneLandscape) {
     return Center(
       child: SingleChildScrollView(
         child: Column(
@@ -1032,7 +1306,8 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                       ],
                     ),
                     padding: EdgeInsets.all(isTablet ? 14.0 : 12.0),
-                    child: Icon(Icons.arrow_back_rounded, color: Colors.white, size: iconSize),
+                    child: Icon(Icons.arrow_back_rounded,
+                        color: Colors.white, size: iconSize),
                   ),
                 ),
                 const Spacer(),
@@ -1055,18 +1330,23 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('Grid Size:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: dropdownFontSize)),
+                Text('Grid Size:',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: dropdownFontSize)),
                 SizedBox(width: isTablet ? 8.0 : 6.0),
                 DropdownButton<int>(
                   value: _currentGridIndex,
                   onChanged: (v) => _setGridSize(v!),
-                  style: TextStyle(fontSize: dropdownFontSize, color: Colors.black),
+                  style: TextStyle(
+                      fontSize: dropdownFontSize, color: Colors.black),
                   items: gridSizes.asMap().entries.map((entry) {
                     final index = entry.key;
                     final size = entry.value;
                     return DropdownMenuItem(
                       value: index,
-                      child: Text('${size['rows']}×${size['cols']} (${size['pairs']} pairs)'),
+                      child: Text(
+                          '${size['rows']}×${size['cols']} (${size['pairs']} pairs)'),
                     );
                   }).toList(),
                 ),
@@ -1079,16 +1359,24 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('Voice:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: dropdownFontSize)),
+                    Text('Voice:',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: dropdownFontSize)),
                     SizedBox(width: isTablet ? 8.0 : 6.0),
                     DropdownButton<String>(
                       value: _selectedVoiceId,
                       onChanged: (v) => _setVoiceId(v!),
-                      style: TextStyle(fontSize: dropdownFontSize, color: Colors.black),
+                      style: TextStyle(
+                          fontSize: dropdownFontSize, color: Colors.black),
                       items: [
-                        DropdownMenuItem(value: 'mlFsujxZWlk6xPyQJgMb', child: Text('Mary')),
-                        DropdownMenuItem(value: 'N2lVS1w4EtoT3dr4eOWO', child: Text('Callum')),
-                        DropdownMenuItem(value: '9BWtsMINqrJLrRacOk9x', child: Text('Aria')),
+                        DropdownMenuItem(
+                            value: 'mlFsujxZWlk6xPyQJgMb', child: Text('Mary')),
+                        DropdownMenuItem(
+                            value: 'N2lVS1w4EtoT3dr4eOWO',
+                            child: Text('Callum')),
+                        DropdownMenuItem(
+                            value: '9BWtsMINqrJLrRacOk9x', child: Text('Aria')),
                       ],
                     ),
                     SizedBox(width: isTablet ? 16.0 : 12.0),
@@ -1097,10 +1385,13 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                       child: Switch(
                         value: _useVoiceCommentary,
                         onChanged: _toggleVoiceCommentary,
-                        activeColor: const Color(0xFF43C465),
+                        activeThumbColor: const Color(0xFF43C465),
                       ),
                     ),
-                    Text('Commentary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: dropdownFontSize)),
+                    Text('Commentary',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: dropdownFontSize)),
                   ],
                 ),
               ],
@@ -1110,17 +1401,31 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('Moves: $moves', style: TextStyle(fontSize: statsFontSize, fontWeight: FontWeight.bold, color: const Color(0xFF43C465), fontFamily: 'Baloo2')),
+                Text('Moves: $moves',
+                    style: TextStyle(
+                        fontSize: statsFontSize,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF43C465),
+                        fontFamily: 'Baloo2')),
                 SizedBox(width: isTablet ? 32.0 : 24.0),
-                Text('Pairs: $pairsFound/$totalPairs', style: TextStyle(fontSize: statsFontSize, fontWeight: FontWeight.bold, color: const Color(0xFFFF9F43), fontFamily: 'Baloo2')),
+                Text('Pairs: $pairsFound/$totalPairs',
+                    style: TextStyle(
+                        fontSize: statsFontSize,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFFFF9F43),
+                        fontFamily: 'Baloo2')),
               ],
             ),
             SizedBox(height: verticalPadding),
             // Feedback emoji area (fixed height to prevent layout shift)
             SizedBox(
-              height: emojiFontSize + 8, // Responsive height based on emoji size
+              height:
+                  emojiFontSize + 8, // Responsive height based on emoji size
               child: Center(
-                child: feedbackEmoji != null ? Text(feedbackEmoji!, style: TextStyle(fontSize: emojiFontSize)) : null,
+                child: feedbackEmoji != null
+                    ? Text(feedbackEmoji!,
+                        style: TextStyle(fontSize: emojiFontSize))
+                    : null,
               ),
             ),
             // Responsive Board
@@ -1134,10 +1439,11 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                     padding: EdgeInsets.all(isTablet ? 8.0 : 6.0),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(isTablet ? 24.0 : 18.0),
+                      borderRadius:
+                          BorderRadius.circular(isTablet ? 24.0 : 18.0),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.teal.withOpacity(0.08),
+                          color: Colors.teal.withValues(alpha: 0.08),
                           blurRadius: isTablet ? 8.0 : 6.0,
                           offset: Offset(0, isTablet ? 2.0 : 1.5),
                         ),
@@ -1156,7 +1462,9 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                       itemBuilder: (context, idx) {
                         return _MemoryCard(
                           value: cards[idx].value,
-                          isFlipped: idx == firstFlipped || idx == secondFlipped || cards[idx].isMatched,
+                          isFlipped: idx == firstFlipped ||
+                              idx == secondFlipped ||
+                              cards[idx].isMatched,
                           onTap: () => _onCardTap(idx),
                           matched: cards[idx].isMatched,
                           size: cardSize,
@@ -1170,13 +1478,16 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                       top: isTablet ? 16.0 : 12.0,
                       right: isTablet ? 16.0 : 12.0,
                       child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: isTablet ? 12.0 : 8.0, vertical: isTablet ? 8.0 : 6.0),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: isTablet ? 12.0 : 8.0,
+                            vertical: isTablet ? 8.0 : 6.0),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(isTablet ? 20.0 : 16.0),
+                          color: Colors.white.withValues(alpha: 0.9),
+                          borderRadius:
+                              BorderRadius.circular(isTablet ? 20.0 : 16.0),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withValues(alpha: 0.1),
                               blurRadius: isTablet ? 4.0 : 3.0,
                               offset: Offset(0, isTablet ? 2.0 : 1.5),
                             ),
@@ -1190,7 +1501,8 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
                               height: isTablet ? 18.0 : 15.0,
                               child: CircularProgressIndicator(
                                 strokeWidth: isTablet ? 2.0 : 1.5,
-                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF43C465)),
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                    Color(0xFF43C465)),
                               ),
                             ),
                             SizedBox(width: isTablet ? 8.0 : 6.0),
@@ -1229,7 +1541,12 @@ class _MemoryCard extends StatelessWidget {
   final bool matched;
   final VoidCallback onTap;
   final double? size;
-  const _MemoryCard({required this.value, required this.isFlipped, required this.onTap, required this.matched, this.size});
+  const _MemoryCard(
+      {required this.value,
+      required this.isFlipped,
+      required this.onTap,
+      required this.matched,
+      this.size});
   @override
   Widget build(BuildContext context) {
     final double cardSize = size ?? 54;
@@ -1239,9 +1556,11 @@ class _MemoryCard extends StatelessWidget {
 
     // Enhanced device detection (same as other screens)
     final shortestSide = math.min(screenWidth, screenHeight);
-    final isTablet = shortestSide > 600 || (shortestSide > 500 && devicePixelRatio < 2.5);
+    final isTablet =
+        shortestSide > 600 || (shortestSide > 500 && devicePixelRatio < 2.5);
     final isLandscape = screenWidth > screenHeight;
-    final isSmallPhoneLandscape = isLandscape && !isTablet && screenHeight < 380;
+    final isSmallPhoneLandscape =
+        isLandscape && !isTablet && screenHeight < 380;
 
     final borderRadius = isTablet ? 16.0 : (isSmallPhoneLandscape ? 8.0 : 12.0);
     final shadowBlur = isTablet ? 6.0 : (isSmallPhoneLandscape ? 3.0 : 4.0);
@@ -1259,15 +1578,22 @@ class _MemoryCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(borderRadius),
           boxShadow: [
             BoxShadow(
-              color: Colors.teal.withOpacity(0.10),
+              color: Colors.teal.withValues(alpha: 0.10),
               blurRadius: shadowBlur,
               offset: Offset(0, isTablet ? 2.0 : 1.5),
             ),
           ],
-          border: Border.all(color: matched ? const Color(0xFF43C465) : Colors.teal.shade100, width: borderWidth),
+          border: Border.all(
+              color: matched ? const Color(0xFF43C465) : Colors.teal.shade100,
+              width: borderWidth),
         ),
         child: Center(
-          child: isFlipped ? Text(value, style: TextStyle(fontSize: cardSize * 0.6)) : Text('⭐', style: TextStyle(fontSize: cardSize * 0.5, color: const Color(0xFF43C465))),
+          child: isFlipped
+              ? Text(value, style: TextStyle(fontSize: cardSize * 0.6))
+              : Text('⭐',
+                  style: TextStyle(
+                      fontSize: cardSize * 0.5,
+                      color: const Color(0xFF43C465))),
         ),
       ),
     );

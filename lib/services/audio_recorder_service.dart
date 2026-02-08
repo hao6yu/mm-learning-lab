@@ -6,7 +6,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class AudioRecorderService {
-  static final AudioRecorderService _instance = AudioRecorderService._internal();
+  static final AudioRecorderService _instance =
+      AudioRecorderService._internal();
 
   factory AudioRecorderService() => _instance;
 
@@ -100,7 +101,8 @@ class AudioRecorderService {
       if (Platform.isIOS && _recorder.isRecording) {
         try {
           await _recorder.stopRecorder();
-          debugPrint('Stopped existing recording session before starting new one');
+          debugPrint(
+              'Stopped existing recording session before starting new one');
         } catch (e) {
           debugPrint('Error stopping existing recording: $e');
           // Continue anyway
@@ -183,7 +185,8 @@ class AudioRecorderService {
       return;
     }
 
-    final cutoffTime = DateTime.now().subtract(olderThan ?? const Duration(days: 1));
+    final cutoffTime =
+        DateTime.now().subtract(olderThan ?? const Duration(days: 1));
 
     try {
       final files = await recordingsDir.list().toList();

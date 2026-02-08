@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:flutter/foundation.dart' show kIsWeb;
 
 class SpeechRecognitionService {
-  static final SpeechRecognitionService _instance = SpeechRecognitionService._internal();
+  static final SpeechRecognitionService _instance =
+      SpeechRecognitionService._internal();
 
   factory SpeechRecognitionService() => _instance;
 
@@ -61,10 +61,12 @@ class SpeechRecognitionService {
         },
         listenFor: const Duration(seconds: 30),
         pauseFor: const Duration(seconds: 3),
-        partialResults: true,
         localeId: localeId,
-        cancelOnError: true,
-        listenMode: stt.ListenMode.confirmation,
+        listenOptions: stt.SpeechListenOptions(
+          partialResults: true,
+          cancelOnError: true,
+          listenMode: stt.ListenMode.confirmation,
+        ),
       );
       return _isListening;
     } catch (e) {

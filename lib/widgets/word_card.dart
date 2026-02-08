@@ -23,7 +23,8 @@ class WordCard extends StatefulWidget {
   State<WordCard> createState() => _WordCardState();
 }
 
-class _WordCardState extends State<WordCard> with SingleTickerProviderStateMixin {
+class _WordCardState extends State<WordCard>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   bool _showDefinition = false;
@@ -55,11 +56,13 @@ class _WordCardState extends State<WordCard> with SingleTickerProviderStateMixin
       _isLoadingDefinition = true;
     });
     try {
-      final url = 'https://api.dictionaryapi.dev/api/v2/entries/en/${widget.word.toLowerCase()}';
+      final url =
+          'https://api.dictionaryapi.dev/api/v2/entries/en/${widget.word.toLowerCase()}';
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final definition = data[0]['meanings'][0]['definitions'][0]['definition'];
+        final definition =
+            data[0]['meanings'][0]['definitions'][0]['definition'];
         setState(() {
           _definition = definition;
           _isLoadingDefinition = false;
@@ -129,15 +132,16 @@ class _WordCardState extends State<WordCard> with SingleTickerProviderStateMixin
 
     // Responsive sizing
     final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
     final isTablet = screenWidth > 600;
 
     // Responsive dimensions
     final titleFontSize = isTablet ? 18.0 : 14.0;
     final wordFontSize = isTablet ? 20.0 : 16.0;
     final borderRadius = isTablet ? 10.0 : 8.0;
-    final horizontalPadding = widget.isTitle ? (isTablet ? 10.0 : 6.0) : (isTablet ? 8.0 : 5.0);
-    final verticalPadding = widget.isTitle ? (isTablet ? 6.0 : 3.0) : (isTablet ? 5.0 : 2.0);
+    final horizontalPadding =
+        widget.isTitle ? (isTablet ? 10.0 : 6.0) : (isTablet ? 8.0 : 5.0);
+    final verticalPadding =
+        widget.isTitle ? (isTablet ? 6.0 : 3.0) : (isTablet ? 5.0 : 2.0);
     final blurRadius = isTablet ? 4.0 : 3.0;
     final shadowOffset = isTablet ? 1.5 : 1.0;
 
@@ -154,7 +158,8 @@ class _WordCardState extends State<WordCard> with SingleTickerProviderStateMixin
     }
 
     final wordColor = _getWordColor();
-    final backgroundColor = widget.isCurrentWord ? wordColor.withOpacity(0.3) : Colors.white;
+    final backgroundColor =
+        widget.isCurrentWord ? wordColor.withValues(alpha: 0.3) : Colors.white;
 
     return GestureDetector(
       onTap: _handleTap,
@@ -183,17 +188,20 @@ class _WordCardState extends State<WordCard> with SingleTickerProviderStateMixin
           children: [
             // Main word card
             Container(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+              padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding, vertical: verticalPadding),
               decoration: BoxDecoration(
                 color: backgroundColor,
                 borderRadius: BorderRadius.circular(borderRadius),
                 border: Border.all(
-                  color: widget.isCurrentWord || _isHovered ? wordColor : Colors.transparent,
+                  color: widget.isCurrentWord || _isHovered
+                      ? wordColor
+                      : Colors.transparent,
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
+                    color: Colors.black.withValues(alpha: 0.06),
                     blurRadius: blurRadius,
                     offset: Offset(0, shadowOffset),
                   ),
@@ -208,7 +216,9 @@ class _WordCardState extends State<WordCard> with SingleTickerProviderStateMixin
                     style: TextStyle(
                       fontSize: widget.isTitle ? titleFontSize : wordFontSize,
                       fontWeight: FontWeight.w600,
-                      color: widget.isCurrentWord ? wordColor : const Color(0xFF26324A),
+                      color: widget.isCurrentWord
+                          ? wordColor
+                          : const Color(0xFF26324A),
                     ),
                   ),
                   // Show definition if available
@@ -217,8 +227,9 @@ class _WordCardState extends State<WordCard> with SingleTickerProviderStateMixin
                     Container(
                       padding: EdgeInsets.all(isTablet ? 8.0 : 6.0),
                       decoration: BoxDecoration(
-                        color: wordColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(isTablet ? 6.0 : 4.0),
+                        color: wordColor.withValues(alpha: 0.1),
+                        borderRadius:
+                            BorderRadius.circular(isTablet ? 6.0 : 4.0),
                       ),
                       child: Text(
                         _definition!,
@@ -253,7 +264,7 @@ class _WordCardState extends State<WordCard> with SingleTickerProviderStateMixin
                 child: Icon(
                   Icons.volume_up,
                   size: isTablet ? 14.0 : 12.0,
-                  color: wordColor.withOpacity(0.7),
+                  color: wordColor.withValues(alpha: 0.7),
                 ),
               ),
             // Long press indicator for words
@@ -264,7 +275,7 @@ class _WordCardState extends State<WordCard> with SingleTickerProviderStateMixin
                 child: Icon(
                   Icons.info_outline,
                   size: isTablet ? 12.0 : 10.0,
-                  color: wordColor.withOpacity(0.5),
+                  color: wordColor.withValues(alpha: 0.5),
                 ),
               ),
           ],

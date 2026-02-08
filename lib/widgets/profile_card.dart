@@ -27,7 +27,8 @@ class ProfileCard extends StatelessWidget {
       builder: (BuildContext context) => CupertinoActionSheet(
         title: Text(
           '${profile.name}\'s Profile',
-          style: TextStyle(fontSize: isTablet ? 18.0 : 16.0, fontWeight: FontWeight.w500),
+          style: TextStyle(
+              fontSize: isTablet ? 18.0 : 16.0, fontWeight: FontWeight.w500),
         ),
         actions: <CupertinoActionSheetAction>[
           CupertinoActionSheetAction(
@@ -43,7 +44,8 @@ class ProfileCard extends StatelessWidget {
               children: [
                 const Icon(CupertinoIcons.pencil, color: Color(0xFF007AFF)),
                 SizedBox(width: isTablet ? 10.0 : 8.0),
-                Text('Edit Profile', style: TextStyle(fontSize: isTablet ? 18.0 : 16.0)),
+                Text('Edit Profile',
+                    style: TextStyle(fontSize: isTablet ? 18.0 : 16.0)),
               ],
             ),
           ),
@@ -56,15 +58,18 @@ class ProfileCard extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(CupertinoIcons.delete, color: CupertinoColors.destructiveRed),
+                const Icon(CupertinoIcons.delete,
+                    color: CupertinoColors.destructiveRed),
                 SizedBox(width: isTablet ? 10.0 : 8.0),
-                Text('Delete Profile', style: TextStyle(fontSize: isTablet ? 18.0 : 16.0)),
+                Text('Delete Profile',
+                    style: TextStyle(fontSize: isTablet ? 18.0 : 16.0)),
               ],
             ),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
-          child: Text('Cancel', style: TextStyle(fontSize: isTablet ? 18.0 : 16.0)),
+          child: Text('Cancel',
+              style: TextStyle(fontSize: isTablet ? 18.0 : 16.0)),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -78,14 +83,16 @@ class ProfileCard extends StatelessWidget {
     showCupertinoDialog<void>(
       context: context,
       builder: (BuildContext context) => CupertinoAlertDialog(
-        title: Text('Delete Profile', style: TextStyle(fontSize: isTablet ? 19.0 : 17.0)),
+        title: Text('Delete Profile',
+            style: TextStyle(fontSize: isTablet ? 19.0 : 17.0)),
         content: Text(
           'Are you sure you want to delete ${profile.name}\'s profile? This action cannot be undone.',
           style: TextStyle(fontSize: isTablet ? 15.0 : 13.0),
         ),
         actions: <CupertinoDialogAction>[
           CupertinoDialogAction(
-            child: Text('Cancel', style: TextStyle(fontSize: isTablet ? 18.0 : 16.0)),
+            child: Text('Cancel',
+                style: TextStyle(fontSize: isTablet ? 18.0 : 16.0)),
             onPressed: () => Navigator.pop(context),
           ),
           CupertinoDialogAction(
@@ -94,7 +101,8 @@ class ProfileCard extends StatelessWidget {
               Navigator.pop(context);
               context.read<ProfileProvider>().deleteProfile(profile.id!);
             },
-            child: Text('Delete', style: TextStyle(fontSize: isTablet ? 18.0 : 16.0)),
+            child: Text('Delete',
+                style: TextStyle(fontSize: isTablet ? 18.0 : 16.0)),
           ),
         ],
       ),
@@ -107,7 +115,8 @@ class ProfileCard extends StatelessWidget {
     final isTablet = screenWidth > 600;
 
     // Responsive sizing
-    final cardHeight = isTablet ? 210.0 : 190.0; // Reduced height to prevent overflow
+    final cardHeight =
+        isTablet ? 210.0 : 190.0; // Reduced height to prevent overflow
     final padding = isTablet ? 14.0 : 12.0; // Reduced padding
     final borderRadius = isTablet ? 24.0 : 20.0;
 
@@ -126,7 +135,7 @@ class ProfileCard extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: isTablet ? 16.0 : 12.0,
               offset: Offset(0, isTablet ? 6.0 : 4.0),
             ),
@@ -136,20 +145,23 @@ class ProfileCard extends StatelessWidget {
           children: [
             // Header row with ellipsis button
             SizedBox(
-              height: isTablet ? 32.0 : 28.0, // Increased height for better alignment
+              height: isTablet
+                  ? 32.0
+                  : 28.0, // Increased height for better alignment
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   GestureDetector(
                     onTap: () => _showActionSheet(context),
                     child: Container(
-                      padding: EdgeInsets.all(isTablet ? 8.0 : 6.0), // Increased padding
+                      padding: EdgeInsets.all(
+                          isTablet ? 8.0 : 6.0), // Increased padding
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.10),
+                            color: Colors.black.withValues(alpha: 0.10),
                             blurRadius: 4.0,
                             offset: const Offset(0, 1.5),
                           ),
@@ -176,11 +188,13 @@ class ProfileCard extends StatelessWidget {
                     width: isTablet ? 90.0 : 80.0,
                     height: isTablet ? 90.0 : 80.0,
                     decoration: BoxDecoration(
-                      color: profile.avatarType == 'photo' ? Colors.transparent : _getAvatarColor(profile.avatar),
+                      color: profile.avatarType == 'photo'
+                          ? Colors.transparent
+                          : _getAvatarColor(profile.avatar),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
+                          color: Colors.black.withValues(alpha: 0.08),
                           blurRadius: isTablet ? 10.0 : 8.0,
                           offset: const Offset(0, 2.0),
                         ),
@@ -193,7 +207,8 @@ class ProfileCard extends StatelessWidget {
                     child: Text(
                       profile.name,
                       style: TextStyle(
-                        fontSize: isTablet ? 18.0 : 16.0, // Slightly smaller font
+                        fontSize:
+                            isTablet ? 18.0 : 16.0, // Slightly smaller font
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFFFF6B6B),
                       ),
@@ -207,7 +222,8 @@ class ProfileCard extends StatelessWidget {
                     child: Text(
                       'Age ${profile.age}',
                       style: TextStyle(
-                        fontSize: isTablet ? 14.0 : 12.0, // Slightly smaller font
+                        fontSize:
+                            isTablet ? 14.0 : 12.0, // Slightly smaller font
                         fontWeight: FontWeight.w500,
                         color: const Color(0xFF43C465),
                       ),
@@ -240,7 +256,7 @@ class ProfileCard extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: isTablet ? 10.0 : 8.0,
               offset: const Offset(0, 2.0),
             ),
@@ -340,7 +356,7 @@ class AddProfileCard extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: isTablet ? 16.0 : 12.0,
               offset: Offset(0, isTablet ? 6.0 : 4.0),
             ),

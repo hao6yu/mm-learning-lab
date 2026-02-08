@@ -69,7 +69,14 @@ class _ChessScreenState extends State<ChessScreen> {
       'similarity_boost': 0.75,
       'speed': 1.05,
       'prefix': 'Teacher',
-      'exclamations': ['Interesting!', 'Let me see...', 'Hmm...', 'Oh!', 'Wonderful!', 'Great!'],
+      'exclamations': [
+        'Interesting!',
+        'Let me see...',
+        'Hmm...',
+        'Oh!',
+        'Wonderful!',
+        'Great!'
+      ],
       'name': 'Mary',
     },
     // Callum - Playful buddy
@@ -79,7 +86,14 @@ class _ChessScreenState extends State<ChessScreen> {
       'similarity_boost': 0.8,
       'speed': 1.2,
       'prefix': 'Coach',
-      'exclamations': ['Awesome!', 'Got it!', 'Alright!', 'Let\'s go!', 'Sweet!', 'Cool!'],
+      'exclamations': [
+        'Awesome!',
+        'Got it!',
+        'Alright!',
+        'Let\'s go!',
+        'Sweet!',
+        'Cool!'
+      ],
       'name': 'Callum',
     },
     // Aria - Enthusiastic coach
@@ -89,7 +103,14 @@ class _ChessScreenState extends State<ChessScreen> {
       'similarity_boost': 0.7,
       'speed': 1.15,
       'prefix': 'Coach',
-      'exclamations': ['Amazing!', 'Let\'s do this!', 'Woo!', 'Cool!', 'Fantastic!', 'Brilliant!'],
+      'exclamations': [
+        'Amazing!',
+        'Let\'s do this!',
+        'Woo!',
+        'Cool!',
+        'Fantastic!',
+        'Brilliant!'
+      ],
       'name': 'Aria',
     },
     // Madeline - Patient mentor
@@ -99,7 +120,14 @@ class _ChessScreenState extends State<ChessScreen> {
       'similarity_boost': 0.7,
       'speed': 1.0,
       'prefix': 'Mentor',
-      'exclamations': ['Wonderful!', 'I see...', 'Let\'s think...', 'Interesting choice!', 'Lovely!', 'Delightful!'],
+      'exclamations': [
+        'Wonderful!',
+        'I see...',
+        'Let\'s think...',
+        'Interesting choice!',
+        'Lovely!',
+        'Delightful!'
+      ],
       'name': 'Madeline',
     },
     // Haoziiiiiii - Analytical expert
@@ -109,17 +137,45 @@ class _ChessScreenState extends State<ChessScreen> {
       'similarity_boost': 0.8,
       'speed': 1.1,
       'prefix': 'Master',
-      'exclamations': ['Analyzing...', 'Processing...', 'Calculating...', 'Interesting pattern!', 'Fascinating!', 'Impressive!'],
+      'exclamations': [
+        'Analyzing...',
+        'Processing...',
+        'Calculating...',
+        'Interesting pattern!',
+        'Fascinating!',
+        'Impressive!'
+      ],
       'name': 'Haoziiiiiii',
     },
   };
 
   // AI thinking messages
-  final List<String> _easyThinkingMessages = ["Hmm, where to move?", "Let me try this!", "Is this a good move?", "Let's try here.", "This looks interesting!", "Maybe this piece?"];
+  final List<String> _easyThinkingMessages = [
+    "Hmm, where to move?",
+    "Let me try this!",
+    "Is this a good move?",
+    "Let's try here.",
+    "This looks interesting!",
+    "Maybe this piece?"
+  ];
 
-  final List<String> _mediumThinkingMessages = ["Interesting position...", "I see several options.", "Nice strategy!", "Let me think...", "Hmm, I need to be careful.", "This is getting fun!"];
+  final List<String> _mediumThinkingMessages = [
+    "Interesting position...",
+    "I see several options.",
+    "Nice strategy!",
+    "Let me think...",
+    "Hmm, I need to be careful.",
+    "This is getting fun!"
+  ];
 
-  final List<String> _hardThinkingMessages = ["Calculating...", "I see your strategy.", "Analyzing the board...", "I need to counter that.", "Interesting position!", "Let me focus..."];
+  final List<String> _hardThinkingMessages = [
+    "Calculating...",
+    "I see your strategy.",
+    "Analyzing the board...",
+    "I need to counter that.",
+    "Interesting position!",
+    "Let me focus..."
+  ];
 
   // Final victory/defeat messages
   final List<String> _finalVictoryMessages = [
@@ -151,7 +207,8 @@ class _ChessScreenState extends State<ChessScreen> {
   void initState() {
     super.initState();
     game = chess_lib.Chess();
-    legalMoves = game.moves({'verbose': true}).map((m) => m['to'].toString()).toList();
+    legalMoves =
+        game.moves({'verbose': true}).map((m) => m['to'].toString()).toList();
 
     // Initialize ElevenLabs service
     ElevenLabsService.initialize();
@@ -199,7 +256,8 @@ class _ChessScreenState extends State<ChessScreen> {
     String message;
     do {
       message = messageList[Random().nextInt(messageList.length)];
-    } while (_usedMessages.contains(message) && _usedMessages.length < messageList.length);
+    } while (_usedMessages.contains(message) &&
+        _usedMessages.length < messageList.length);
 
     // Mark this message as used
     _usedMessages.add(message);
@@ -233,9 +291,10 @@ class _ChessScreenState extends State<ChessScreen> {
       // Get the next message from the queue
       String textToSpeak = _pendingAudioMessages.removeAt(0);
       _tempAudioCounter++;
-      int storyId = 99999 + _tempAudioCounter; // Using high numbers to avoid conflicts
+      int storyId =
+          99999 + _tempAudioCounter; // Using high numbers to avoid conflicts
 
-      print('Generating audio for AI message: $textToSpeak');
+      debugPrint('Generating audio for AI message: $textToSpeak');
 
       // Get personality settings for the selected voice
       final personality = _voicePersonalities[_selectedVoiceId] ??
@@ -269,7 +328,9 @@ class _ChessScreenState extends State<ChessScreen> {
 
       // If no cache, generate new audio
       if (audioPath == null) {
-        final result = await _elevenLabsService.generateAudioWithSettings(fullText, storyId, voiceId: _selectedVoiceId, voiceSettings: settings);
+        final result = await _elevenLabsService.generateAudioWithSettings(
+            fullText, storyId,
+            voiceId: _selectedVoiceId, voiceSettings: settings);
 
         if (result == null) {
           if (mounted) {
@@ -306,7 +367,7 @@ class _ChessScreenState extends State<ChessScreen> {
         }
       });
     } catch (e) {
-      print('Error playing AI message: $e');
+      debugPrint('Error playing AI message: $e');
       if (mounted) {
         setState(() {
           _isPlayingAudio = false;
@@ -329,16 +390,17 @@ class _ChessScreenState extends State<ChessScreen> {
 
       final cacheFile = File('${cacheDir.path}/$hash.mp3');
       if (await cacheFile.exists()) {
-        print('Using cached audio for: $text');
+        debugPrint('Using cached audio for: $text');
         return cacheFile.path;
       }
     } catch (e) {
-      print('Error checking cache: $e');
+      debugPrint('Error checking cache: $e');
     }
     return null;
   }
 
-  Future<void> _cacheAudio(String text, String voiceId, String audioPath) async {
+  Future<void> _cacheAudio(
+      String text, String voiceId, String audioPath) async {
     try {
       final hash = text.hashCode.toString() + voiceId;
       final dir = await getApplicationDocumentsDirectory();
@@ -352,10 +414,10 @@ class _ChessScreenState extends State<ChessScreen> {
 
       if (await originalFile.exists()) {
         await originalFile.copy(cacheFile.path);
-        print('Cached audio for: $text');
+        debugPrint('Cached audio for: $text');
       }
     } catch (e) {
-      print('Error caching audio: $e');
+      debugPrint('Error caching audio: $e');
     }
   }
 
@@ -394,31 +456,40 @@ class _ChessScreenState extends State<ChessScreen> {
     _resetGame();
   }
 
-  void _setTheme(int idx) {
-    setState(() {
-      themeIdx = idx;
-    });
-  }
-
   void _onSquareTap(String square) async {
     if (game.game_over) return;
     if (selectedSquare == null) {
       // Select piece
-      if (game.get(square) != null && ((mode == ChessMode.twoPlayer) || (mode == ChessMode.vsAI && game.turn == chess_lib.Color.WHITE))) {
+      if (game.get(square) != null &&
+          ((mode == ChessMode.twoPlayer) ||
+              (mode == ChessMode.vsAI && game.turn == chess_lib.Color.WHITE))) {
         setState(() {
           selectedSquare = square;
-          legalMoves = game.moves({'square': square, 'verbose': true}).map<String>((m) => m['to'] as String).toList();
+          legalMoves = game
+              .moves({'square': square, 'verbose': true})
+              .map<String>((m) => m['to'] as String)
+              .toList();
         });
       }
     } else {
       // Get the piece at destination before move attempt
       final destPiece = game.get(square);
-      final isCapture = destPiece != null && destPiece.color == chess_lib.Color.BLACK;
-      final capturedType = isCapture ? destPiece.type.toString().toLowerCase() : null;
+      final isCapture =
+          destPiece != null && destPiece.color == chess_lib.Color.BLACK;
+      final capturedType =
+          isCapture ? destPiece.type.toString().toLowerCase() : null;
 
       // Try move
-      final moveResult = game.move({'from': selectedSquare, 'to': square, 'promotion': 'q'});
-      if (moveResult != null) {
+      if (!legalMoves.contains(square)) {
+        setState(() {
+          selectedSquare = null;
+          legalMoves = [];
+        });
+        return;
+      }
+
+      game.move({'from': selectedSquare, 'to': square, 'promotion': 'q'});
+      {
         setState(() {
           selectedSquare = null;
           legalMoves = [];
@@ -431,7 +502,8 @@ class _ChessScreenState extends State<ChessScreen> {
           if (isCapture && capturedType != null) {
             switch (capturedType) {
               case 'q':
-                commentary = "You captured my queen! That's a major advantage for you.";
+                commentary =
+                    "You captured my queen! That's a major advantage for you.";
                 break;
               case 'r':
                 commentary = "Good capture of my rook!";
@@ -455,15 +527,12 @@ class _ChessScreenState extends State<ChessScreen> {
         }
 
         _checkGameOver();
-        if (!game.game_over && mode == ChessMode.vsAI && game.turn == chess_lib.Color.BLACK) {
+        if (!game.game_over &&
+            mode == ChessMode.vsAI &&
+            game.turn == chess_lib.Color.BLACK) {
           await Future.delayed(const Duration(milliseconds: 400));
           _aiMove();
         }
-      } else {
-        setState(() {
-          selectedSquare = null;
-          legalMoves = [];
-        });
       }
     }
   }
@@ -542,7 +611,9 @@ class _ChessScreenState extends State<ChessScreen> {
     final moves = game.moves({'verbose': true});
     if (moves.isEmpty) return null;
     moves.shuffle();
-    moves.sort((a, b) => _pieceValue(b['captured']?.toString().toLowerCase()) - _pieceValue(a['captured']?.toString().toLowerCase()));
+    moves.sort((a, b) =>
+        _pieceValue(b['captured']?.toString().toLowerCase()) -
+        _pieceValue(a['captured']?.toString().toLowerCase()));
     return moves.first['san'];
   }
 
@@ -600,8 +671,10 @@ class _ChessScreenState extends State<ChessScreen> {
     final theme = themes[themeIdx];
     // Get profile name
     String profileName = 'You';
-    final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
-    if (profileProvider.selectedProfileId != null && profileProvider.profiles.isNotEmpty) {
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
+    if (profileProvider.selectedProfileId != null &&
+        profileProvider.profiles.isNotEmpty) {
       final profile = profileProvider.profiles.firstWhere(
         (p) => p.id == profileProvider.selectedProfileId,
         orElse: () => profileProvider.profiles.first,
@@ -624,23 +697,72 @@ class _ChessScreenState extends State<ChessScreen> {
                 builder: (context, constraints) {
                   final screenWidth = MediaQuery.of(context).size.width;
                   final screenHeight = MediaQuery.of(context).size.height;
-                  final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+                  final devicePixelRatio =
+                      MediaQuery.of(context).devicePixelRatio;
                   final shortestSide = min(screenWidth, screenHeight);
-                  final isTablet = shortestSide > 600 || (shortestSide > 500 && devicePixelRatio < 2.5);
+                  final isTablet = shortestSide > 600 ||
+                      (shortestSide > 500 && devicePixelRatio < 2.5);
                   final isLandscape = screenWidth > screenHeight;
-                  final isSmallPhoneLandscape = isLandscape && !isTablet && screenHeight < 380;
+                  final isSmallPhoneLandscape =
+                      isLandscape && !isTablet && screenHeight < 380;
 
                   // Responsive sizing
-                  final horizontalPadding = isTablet ? 24.0 : (isSmallPhoneLandscape ? 8.0 : (isLandscape ? 12.0 : 18.0));
-                  final verticalPadding = isTablet ? 18.0 : (isSmallPhoneLandscape ? 6.0 : (isLandscape ? 8.0 : 12.0));
-                  final titleFontSize = isTablet ? 32.0 : (isSmallPhoneLandscape ? 20.0 : (isLandscape ? 24.0 : 32.0));
-                  final iconSize = isTablet ? 32.0 : (isSmallPhoneLandscape ? 20.0 : (isLandscape ? 24.0 : 32.0));
-                  final dropdownFontSize = isTablet ? 16.0 : (isSmallPhoneLandscape ? 12.0 : (isLandscape ? 14.0 : 16.0));
-                  final buttonFontSize = isTablet ? 22.0 : (isSmallPhoneLandscape ? 14.0 : (isLandscape ? 16.0 : 22.0));
+                  final horizontalPadding = isTablet
+                      ? 24.0
+                      : (isSmallPhoneLandscape
+                          ? 8.0
+                          : (isLandscape ? 12.0 : 18.0));
+                  final verticalPadding = isTablet
+                      ? 18.0
+                      : (isSmallPhoneLandscape
+                          ? 6.0
+                          : (isLandscape ? 8.0 : 12.0));
+                  final titleFontSize = isTablet
+                      ? 32.0
+                      : (isSmallPhoneLandscape
+                          ? 20.0
+                          : (isLandscape ? 24.0 : 32.0));
+                  final iconSize = isTablet
+                      ? 32.0
+                      : (isSmallPhoneLandscape
+                          ? 20.0
+                          : (isLandscape ? 24.0 : 32.0));
+                  final dropdownFontSize = isTablet
+                      ? 16.0
+                      : (isSmallPhoneLandscape
+                          ? 12.0
+                          : (isLandscape ? 14.0 : 16.0));
+                  final buttonFontSize = isTablet
+                      ? 22.0
+                      : (isSmallPhoneLandscape
+                          ? 14.0
+                          : (isLandscape ? 16.0 : 22.0));
 
                   return isLandscape
-                      ? _buildLandscapeLayout(horizontalPadding, verticalPadding, titleFontSize, iconSize, dropdownFontSize, buttonFontSize, isTablet, isSmallPhoneLandscape, theme, profileName, constraints)
-                      : _buildPortraitLayout(horizontalPadding, verticalPadding, titleFontSize, iconSize, dropdownFontSize, buttonFontSize, isTablet, isSmallPhoneLandscape, theme, profileName, constraints);
+                      ? _buildLandscapeLayout(
+                          horizontalPadding,
+                          verticalPadding,
+                          titleFontSize,
+                          iconSize,
+                          dropdownFontSize,
+                          buttonFontSize,
+                          isTablet,
+                          isSmallPhoneLandscape,
+                          theme,
+                          profileName,
+                          constraints)
+                      : _buildPortraitLayout(
+                          horizontalPadding,
+                          verticalPadding,
+                          titleFontSize,
+                          iconSize,
+                          dropdownFontSize,
+                          buttonFontSize,
+                          isTablet,
+                          isSmallPhoneLandscape,
+                          theme,
+                          profileName,
+                          constraints);
                 },
               ),
             ),
@@ -672,7 +794,12 @@ class _ChessScreenState extends State<ChessScreen> {
                     ],
                   ),
                   padding: const EdgeInsets.all(14),
-                  child: const Text('?', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Baloo2')),
+                  child: const Text('?',
+                      style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontFamily: 'Baloo2')),
                 ),
               ),
             ),
@@ -684,12 +811,23 @@ class _ChessScreenState extends State<ChessScreen> {
 
   // Landscape layout with two panels
   Widget _buildLandscapeLayout(
-      double horizontalPadding, double verticalPadding, double titleFontSize, double iconSize, double dropdownFontSize, double buttonFontSize, bool isTablet, bool isSmallPhoneLandscape, Map<String, Color> theme, String profileName, BoxConstraints constraints) {
+      double horizontalPadding,
+      double verticalPadding,
+      double titleFontSize,
+      double iconSize,
+      double dropdownFontSize,
+      double buttonFontSize,
+      bool isTablet,
+      bool isSmallPhoneLandscape,
+      Map<String, Color> theme,
+      String profileName,
+      BoxConstraints constraints) {
     return Column(
       children: [
         // Top bar
         Container(
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding * 0.5),
+          padding: EdgeInsets.symmetric(
+              horizontal: horizontalPadding, vertical: verticalPadding * 0.5),
           child: Row(
             children: [
               GestureDetector(
@@ -700,14 +838,16 @@ class _ChessScreenState extends State<ChessScreen> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: theme['dark']!.withOpacity(0.2),
+                        color: theme['dark']!.withValues(alpha: 0.2),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                  padding: EdgeInsets.all(isTablet ? 12.0 : (isSmallPhoneLandscape ? 6.0 : 8.0)),
-                  child: Icon(Icons.arrow_back_rounded, color: Colors.white, size: iconSize * 0.7),
+                  padding: EdgeInsets.all(
+                      isTablet ? 12.0 : (isSmallPhoneLandscape ? 6.0 : 8.0)),
+                  child: Icon(Icons.arrow_back_rounded,
+                      color: Colors.white, size: iconSize * 0.7),
                 ),
               ),
               const Spacer(),
@@ -722,7 +862,9 @@ class _ChessScreenState extends State<ChessScreen> {
                 ),
               ),
               const Spacer(),
-              SizedBox(width: isTablet ? 40.0 : (isSmallPhoneLandscape ? 20.0 : 28.0)),
+              SizedBox(
+                  width:
+                      isTablet ? 40.0 : (isSmallPhoneLandscape ? 20.0 : 28.0)),
             ],
           ),
         ),
@@ -732,33 +874,53 @@ class _ChessScreenState extends State<ChessScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Left panel: Controls/settings
-              Container(
-                width: isTablet ? 240.0 : (isSmallPhoneLandscape ? 160.0 : 190.0),
+              SizedBox(
+                width:
+                    isTablet ? 240.0 : (isSmallPhoneLandscape ? 160.0 : 190.0),
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding * 0.75, vertical: verticalPadding * 0.5),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding * 0.75,
+                      vertical: verticalPadding * 0.5),
                   child: Column(
                     children: [
                       // Legend
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: verticalPadding * 0.75, vertical: verticalPadding * 0.5),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: verticalPadding * 0.75,
+                            vertical: verticalPadding * 0.5),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(isTablet ? 12.0 : 8.0),
+                          color: Colors.white.withValues(alpha: 0.9),
+                          borderRadius:
+                              BorderRadius.circular(isTablet ? 12.0 : 8.0),
                         ),
                         child: Column(
                           children: [
-                            Text('Players', style: TextStyle(fontWeight: FontWeight.bold, fontSize: dropdownFontSize * 0.85, color: const Color(0xFF8E6CFF))),
+                            Text('Players',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: dropdownFontSize * 0.85,
+                                    color: const Color(0xFF8E6CFF))),
                             SizedBox(height: verticalPadding * 0.25),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: const [
-                                Icon(Icons.circle, color: Colors.black, size: 16),
+                                Icon(Icons.circle,
+                                    color: Colors.black, size: 16),
                                 SizedBox(width: 4),
-                                Text('You', style: TextStyle(fontSize: 14, fontFamily: 'Baloo2', color: Colors.black)),
+                                Text('You',
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        fontFamily: 'Baloo2',
+                                        color: Colors.black)),
                                 SizedBox(width: 12),
-                                Icon(Icons.circle_outlined, color: Colors.orange, size: 16),
+                                Icon(Icons.circle_outlined,
+                                    color: Colors.orange, size: 16),
                                 SizedBox(width: 4),
-                                Text('AI', style: TextStyle(fontSize: 14, fontFamily: 'Baloo2', color: Colors.orange)),
+                                Text('AI',
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        fontFamily: 'Baloo2',
+                                        color: Colors.orange)),
                               ],
                             ),
                           ],
@@ -767,14 +929,21 @@ class _ChessScreenState extends State<ChessScreen> {
                       SizedBox(height: verticalPadding * 0.75),
                       // Game modes and settings
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: verticalPadding * 0.75, vertical: verticalPadding * 0.5),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: verticalPadding * 0.75,
+                            vertical: verticalPadding * 0.5),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(isTablet ? 12.0 : 8.0),
+                          color: Colors.white.withValues(alpha: 0.9),
+                          borderRadius:
+                              BorderRadius.circular(isTablet ? 12.0 : 8.0),
                         ),
                         child: Column(
                           children: [
-                            Text('Game Mode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: dropdownFontSize * 0.85, color: const Color(0xFF8E6CFF))),
+                            Text('Game Mode',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: dropdownFontSize * 0.85,
+                                    color: const Color(0xFF8E6CFF))),
                             SizedBox(height: verticalPadding * 0.25),
                             Column(
                               children: [
@@ -782,9 +951,16 @@ class _ChessScreenState extends State<ChessScreen> {
                                   children: [
                                     Expanded(
                                       child: ChoiceChip(
-                                        label: Text('2 Players', style: TextStyle(fontFamily: 'Baloo2', fontWeight: FontWeight.bold, color: Colors.black, fontSize: dropdownFontSize * 0.7)),
+                                        label: Text('2 Players',
+                                            style: TextStyle(
+                                                fontFamily: 'Baloo2',
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black,
+                                                fontSize:
+                                                    dropdownFontSize * 0.7)),
                                         selected: mode == ChessMode.twoPlayer,
-                                        onSelected: (_) => _setMode(ChessMode.twoPlayer),
+                                        onSelected: (_) =>
+                                            _setMode(ChessMode.twoPlayer),
                                       ),
                                     ),
                                   ],
@@ -794,9 +970,16 @@ class _ChessScreenState extends State<ChessScreen> {
                                   children: [
                                     Expanded(
                                       child: ChoiceChip(
-                                        label: Text('vs chatGPT', style: TextStyle(fontFamily: 'Baloo2', fontWeight: FontWeight.bold, color: Colors.black, fontSize: dropdownFontSize * 0.7)),
+                                        label: Text('vs chatGPT',
+                                            style: TextStyle(
+                                                fontFamily: 'Baloo2',
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black,
+                                                fontSize:
+                                                    dropdownFontSize * 0.7)),
                                         selected: mode == ChessMode.vsAI,
-                                        onSelected: (_) => _setMode(ChessMode.vsAI),
+                                        onSelected: (_) =>
+                                            _setMode(ChessMode.vsAI),
                                       ),
                                     ),
                                   ],
@@ -806,21 +989,29 @@ class _ChessScreenState extends State<ChessScreen> {
                                   DropdownButton<ChessAIDifficulty>(
                                     value: aiDifficulty,
                                     onChanged: (v) => _setAIDifficulty(v!),
-                                    style: TextStyle(fontSize: dropdownFontSize * 0.75, color: Colors.black),
+                                    style: TextStyle(
+                                        fontSize: dropdownFontSize * 0.75,
+                                        color: Colors.black),
                                     isExpanded: true,
                                     isDense: true,
                                     items: const [
                                       DropdownMenuItem(
                                         value: ChessAIDifficulty.easy,
-                                        child: Text('Easy', style: TextStyle(color: Colors.black)),
+                                        child: Text('Easy',
+                                            style:
+                                                TextStyle(color: Colors.black)),
                                       ),
                                       DropdownMenuItem(
                                         value: ChessAIDifficulty.medium,
-                                        child: Text('Medium', style: TextStyle(color: Colors.black)),
+                                        child: Text('Medium',
+                                            style:
+                                                TextStyle(color: Colors.black)),
                                       ),
                                       DropdownMenuItem(
                                         value: ChessAIDifficulty.hard,
-                                        child: Text('Hard', style: TextStyle(color: Colors.black)),
+                                        child: Text('Hard',
+                                            style:
+                                                TextStyle(color: Colors.black)),
                                       ),
                                     ],
                                   ),
@@ -834,27 +1025,67 @@ class _ChessScreenState extends State<ChessScreen> {
                       if (mode == ChessMode.vsAI) ...[
                         SizedBox(height: verticalPadding * 0.75),
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: verticalPadding * 0.75, vertical: verticalPadding * 0.5),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: verticalPadding * 0.75,
+                              vertical: verticalPadding * 0.5),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.9),
-                            borderRadius: BorderRadius.circular(isTablet ? 12.0 : 8.0),
+                            color: Colors.white.withValues(alpha: 0.9),
+                            borderRadius:
+                                BorderRadius.circular(isTablet ? 12.0 : 8.0),
                           ),
                           child: Column(
                             children: [
-                              Text('Voice', style: TextStyle(fontWeight: FontWeight.bold, fontSize: dropdownFontSize * 0.85, color: const Color(0xFF8E6CFF))),
+                              Text('Voice',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: dropdownFontSize * 0.85,
+                                      color: const Color(0xFF8E6CFF))),
                               SizedBox(height: verticalPadding * 0.25),
                               DropdownButton<String>(
                                 value: _selectedVoiceId,
-                                onChanged: (v) => setState(() => _selectedVoiceId = v!),
-                                style: TextStyle(fontSize: dropdownFontSize * 0.75, color: Colors.black),
+                                onChanged: (v) =>
+                                    setState(() => _selectedVoiceId = v!),
+                                style: TextStyle(
+                                    fontSize: dropdownFontSize * 0.75,
+                                    color: Colors.black),
                                 isExpanded: true,
                                 isDense: true,
                                 items: [
-                                  DropdownMenuItem(value: 'mlFsujxZWlk6xPyQJgMb', child: Text('Mary', style: TextStyle(color: Colors.black, fontSize: dropdownFontSize * 0.75))),
-                                  DropdownMenuItem(value: 'N2lVS1w4EtoT3dr4eOWO', child: Text('Callum', style: TextStyle(color: Colors.black, fontSize: dropdownFontSize * 0.75))),
-                                  DropdownMenuItem(value: '9BWtsMINqrJLrRacOk9x', child: Text('Aria', style: TextStyle(color: Colors.black, fontSize: dropdownFontSize * 0.75))),
-                                  DropdownMenuItem(value: 'x7Pz9CsHMAlHFwKlPxu8', child: Text('Madeline', style: TextStyle(color: Colors.black, fontSize: dropdownFontSize * 0.75))),
-                                  DropdownMenuItem(value: 'iV5XeqzOeJzUHmdQ8FLK', child: Text('Haoziiiiiii', style: TextStyle(color: Colors.black, fontSize: dropdownFontSize * 0.75))),
+                                  DropdownMenuItem(
+                                      value: 'mlFsujxZWlk6xPyQJgMb',
+                                      child: Text('Mary',
+                                          style: TextStyle(
+                                              color: Colors.black,
+                                              fontSize:
+                                                  dropdownFontSize * 0.75))),
+                                  DropdownMenuItem(
+                                      value: 'N2lVS1w4EtoT3dr4eOWO',
+                                      child: Text('Callum',
+                                          style: TextStyle(
+                                              color: Colors.black,
+                                              fontSize:
+                                                  dropdownFontSize * 0.75))),
+                                  DropdownMenuItem(
+                                      value: '9BWtsMINqrJLrRacOk9x',
+                                      child: Text('Aria',
+                                          style: TextStyle(
+                                              color: Colors.black,
+                                              fontSize:
+                                                  dropdownFontSize * 0.75))),
+                                  DropdownMenuItem(
+                                      value: 'x7Pz9CsHMAlHFwKlPxu8',
+                                      child: Text('Madeline',
+                                          style: TextStyle(
+                                              color: Colors.black,
+                                              fontSize:
+                                                  dropdownFontSize * 0.75))),
+                                  DropdownMenuItem(
+                                      value: 'iV5XeqzOeJzUHmdQ8FLK',
+                                      child: Text('Haoziiiiiii',
+                                          style: TextStyle(
+                                              color: Colors.black,
+                                              fontSize:
+                                                  dropdownFontSize * 0.75))),
                                 ],
                               ),
                               SizedBox(height: verticalPadding * 0.25),
@@ -862,7 +1093,9 @@ class _ChessScreenState extends State<ChessScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Transform.scale(
-                                    scale: isTablet ? 0.8 : (isSmallPhoneLandscape ? 0.6 : 0.7),
+                                    scale: isTablet
+                                        ? 0.8
+                                        : (isSmallPhoneLandscape ? 0.6 : 0.7),
                                     child: Switch(
                                       value: _useVoiceCommentary,
                                       onChanged: (value) {
@@ -871,11 +1104,14 @@ class _ChessScreenState extends State<ChessScreen> {
                                           if (!value) _stopAudio();
                                         });
                                       },
-                                      activeColor: const Color(0xFF8E6CFF),
+                                      activeThumbColor: const Color(0xFF8E6CFF),
                                     ),
                                   ),
                                   SizedBox(width: verticalPadding * 0.25),
-                                  Text('Commentary', style: TextStyle(fontWeight: FontWeight.w600, fontSize: dropdownFontSize * 0.75)),
+                                  Text('Commentary',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: dropdownFontSize * 0.75)),
                                 ],
                               ),
                             ],
@@ -886,14 +1122,21 @@ class _ChessScreenState extends State<ChessScreen> {
                       if (message != null) ...[
                         SizedBox(height: verticalPadding * 0.75),
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: verticalPadding * 0.75, vertical: verticalPadding * 0.5),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: verticalPadding * 0.75,
+                              vertical: verticalPadding * 0.5),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.9),
-                            borderRadius: BorderRadius.circular(isTablet ? 12.0 : 8.0),
+                            color: Colors.white.withValues(alpha: 0.9),
+                            borderRadius:
+                                BorderRadius.circular(isTablet ? 12.0 : 8.0),
                           ),
                           child: Text(
                             _getWinMessage(message, profileName),
-                            style: TextStyle(fontSize: dropdownFontSize * 0.9, fontWeight: FontWeight.bold, color: Color(0xFF8E6CFF), fontFamily: 'Baloo2'),
+                            style: TextStyle(
+                                fontSize: dropdownFontSize * 0.9,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF8E6CFF),
+                                fontFamily: 'Baloo2'),
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -903,11 +1146,18 @@ class _ChessScreenState extends State<ChessScreen> {
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF8E6CFF),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(28)),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
                           ),
                           onPressed: _resetGame,
-                          child: Text('Play Again', style: TextStyle(fontSize: dropdownFontSize * 0.9, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Baloo2')),
+                          child: Text('Play Again',
+                              style: TextStyle(
+                                  fontSize: dropdownFontSize * 0.9,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  fontFamily: 'Baloo2')),
                         ),
                       ],
                     ],
@@ -920,7 +1170,13 @@ class _ChessScreenState extends State<ChessScreen> {
                   builder: (context, rightPanelConstraints) {
                     return Padding(
                       padding: EdgeInsets.all(horizontalPadding * 0.5),
-                      child: _buildBoardPanel(rightPanelConstraints, isTablet, isSmallPhoneLandscape, verticalPadding, buttonFontSize, theme),
+                      child: _buildBoardPanel(
+                          rightPanelConstraints,
+                          isTablet,
+                          isSmallPhoneLandscape,
+                          verticalPadding,
+                          buttonFontSize,
+                          theme),
                     );
                   },
                 ),
@@ -934,7 +1190,17 @@ class _ChessScreenState extends State<ChessScreen> {
 
   // Portrait layout (original single-column layout)
   Widget _buildPortraitLayout(
-      double horizontalPadding, double verticalPadding, double titleFontSize, double iconSize, double dropdownFontSize, double buttonFontSize, bool isTablet, bool isSmallPhoneLandscape, Map<String, Color> theme, String profileName, BoxConstraints constraints) {
+      double horizontalPadding,
+      double verticalPadding,
+      double titleFontSize,
+      double iconSize,
+      double dropdownFontSize,
+      double buttonFontSize,
+      bool isTablet,
+      bool isSmallPhoneLandscape,
+      Map<String, Color> theme,
+      String profileName,
+      BoxConstraints constraints) {
     return Column(
       children: [
         const SizedBox(height: 18),
@@ -949,14 +1215,15 @@ class _ChessScreenState extends State<ChessScreen> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: theme['dark']!.withOpacity(0.2),
+                      color: theme['dark']!.withValues(alpha: 0.2),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
                   ],
                 ),
                 padding: const EdgeInsets.all(14),
-                child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 32),
+                child: const Icon(Icons.arrow_back_rounded,
+                    color: Colors.white, size: 32),
               ),
             ),
             const Spacer(),
@@ -977,10 +1244,12 @@ class _ChessScreenState extends State<ChessScreen> {
         const SizedBox(height: 10),
         _buildLegend(theme),
         const SizedBox(height: 8),
-        _buildControlsPanel(dropdownFontSize, buttonFontSize, verticalPadding, isSmallPhoneLandscape, theme, profileName),
+        _buildControlsPanel(dropdownFontSize, buttonFontSize, verticalPadding,
+            isSmallPhoneLandscape, theme, profileName),
         const SizedBox(height: 10),
         Expanded(
-          child: _buildBoardPanel(constraints, isTablet, isSmallPhoneLandscape, verticalPadding, buttonFontSize, theme),
+          child: _buildBoardPanel(constraints, isTablet, isSmallPhoneLandscape,
+              verticalPadding, buttonFontSize, theme),
         ),
         const SizedBox(height: 18),
         if (message != null)
@@ -988,18 +1257,28 @@ class _ChessScreenState extends State<ChessScreen> {
             padding: const EdgeInsets.all(12.0),
             child: Text(
               _getWinMessage(message, profileName),
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF8E6CFF), fontFamily: 'Baloo2'),
+              style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF8E6CFF),
+                  fontFamily: 'Baloo2'),
             ),
           ),
         if (game.game_over)
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF8E6CFF),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28)),
               padding: const EdgeInsets.symmetric(horizontal: 44, vertical: 18),
             ),
             onPressed: _resetGame,
-            child: const Text('Play Again', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Baloo2')),
+            child: const Text('Play Again',
+                style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    fontFamily: 'Baloo2')),
           ),
         const SizedBox(height: 18),
       ],
@@ -1013,17 +1292,27 @@ class _ChessScreenState extends State<ChessScreen> {
       children: const [
         Icon(Icons.circle, color: Colors.black, size: 18),
         SizedBox(width: 6),
-        Text('You', style: TextStyle(fontSize: 16, fontFamily: 'Baloo2', color: Colors.black)),
+        Text('You',
+            style: TextStyle(
+                fontSize: 16, fontFamily: 'Baloo2', color: Colors.black)),
         SizedBox(width: 18),
         Icon(Icons.circle_outlined, color: Colors.orange, size: 18),
         SizedBox(width: 6),
-        Text('chatGPT', style: TextStyle(fontSize: 16, fontFamily: 'Baloo2', color: Colors.orange)),
+        Text('chatGPT',
+            style: TextStyle(
+                fontSize: 16, fontFamily: 'Baloo2', color: Colors.orange)),
       ],
     );
   }
 
   // Controls/settings panel (mode, difficulty, voice, etc.)
-  Widget _buildControlsPanel(double dropdownFontSize, double buttonFontSize, double verticalPadding, bool isSmallPhoneLandscape, Map<String, Color> theme, [String profileName = 'You']) {
+  Widget _buildControlsPanel(
+      double dropdownFontSize,
+      double buttonFontSize,
+      double verticalPadding,
+      bool isSmallPhoneLandscape,
+      Map<String, Color> theme,
+      [String profileName = 'You']) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -1036,12 +1325,20 @@ class _ChessScreenState extends State<ChessScreen> {
           spacing: 6,
           children: [
             ChoiceChip(
-              label: const Text('2 Players', style: TextStyle(fontFamily: 'Baloo2', fontWeight: FontWeight.bold, color: Colors.black)),
+              label: const Text('2 Players',
+                  style: TextStyle(
+                      fontFamily: 'Baloo2',
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black)),
               selected: mode == ChessMode.twoPlayer,
               onSelected: (_) => _setMode(ChessMode.twoPlayer),
             ),
             ChoiceChip(
-              label: const Text('Play vs chatGPT', style: TextStyle(fontFamily: 'Baloo2', fontWeight: FontWeight.bold, color: Colors.black)),
+              label: const Text('Play vs chatGPT',
+                  style: TextStyle(
+                      fontFamily: 'Baloo2',
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black)),
               selected: mode == ChessMode.vsAI,
               onSelected: (_) => _setMode(ChessMode.vsAI),
             ),
@@ -1050,7 +1347,8 @@ class _ChessScreenState extends State<ChessScreen> {
               DropdownButton<ChessAIDifficulty>(
                 value: aiDifficulty,
                 onChanged: (v) => _setAIDifficulty(v!),
-                style: TextStyle(fontSize: dropdownFontSize, color: Colors.black),
+                style:
+                    TextStyle(fontSize: dropdownFontSize, color: Colors.black),
                 dropdownColor: Colors.white,
                 items: const [
                   DropdownMenuItem(
@@ -1059,7 +1357,8 @@ class _ChessScreenState extends State<ChessScreen> {
                   ),
                   DropdownMenuItem(
                     value: ChessAIDifficulty.medium,
-                    child: Text('Medium', style: TextStyle(color: Colors.black)),
+                    child:
+                        Text('Medium', style: TextStyle(color: Colors.black)),
                   ),
                   DropdownMenuItem(
                     value: ChessAIDifficulty.hard,
@@ -1076,19 +1375,37 @@ class _ChessScreenState extends State<ChessScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('AI Voice:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+              const Text('AI Voice:',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, color: Colors.black)),
               const SizedBox(width: 8),
               DropdownButton<String>(
                 value: _selectedVoiceId,
                 onChanged: (v) => setState(() => _selectedVoiceId = v!),
-                style: TextStyle(fontSize: dropdownFontSize, color: Colors.black),
+                style:
+                    TextStyle(fontSize: dropdownFontSize, color: Colors.black),
                 dropdownColor: Colors.white,
                 items: [
-                  DropdownMenuItem(value: 'mlFsujxZWlk6xPyQJgMb', child: Text('Mary', style: TextStyle(color: Colors.black))),
-                  DropdownMenuItem(value: 'N2lVS1w4EtoT3dr4eOWO', child: Text('Callum', style: TextStyle(color: Colors.black))),
-                  DropdownMenuItem(value: '9BWtsMINqrJLrRacOk9x', child: Text('Aria', style: TextStyle(color: Colors.black))),
-                  DropdownMenuItem(value: 'x7Pz9CsHMAlHFwKlPxu8', child: Text('Madeline', style: TextStyle(color: Colors.black))),
-                  DropdownMenuItem(value: 'iV5XeqzOeJzUHmdQ8FLK', child: Text('Haoziiiiiii', style: TextStyle(color: Colors.black))),
+                  DropdownMenuItem(
+                      value: 'mlFsujxZWlk6xPyQJgMb',
+                      child:
+                          Text('Mary', style: TextStyle(color: Colors.black))),
+                  DropdownMenuItem(
+                      value: 'N2lVS1w4EtoT3dr4eOWO',
+                      child: Text('Callum',
+                          style: TextStyle(color: Colors.black))),
+                  DropdownMenuItem(
+                      value: '9BWtsMINqrJLrRacOk9x',
+                      child:
+                          Text('Aria', style: TextStyle(color: Colors.black))),
+                  DropdownMenuItem(
+                      value: 'x7Pz9CsHMAlHFwKlPxu8',
+                      child: Text('Madeline',
+                          style: TextStyle(color: Colors.black))),
+                  DropdownMenuItem(
+                      value: 'iV5XeqzOeJzUHmdQ8FLK',
+                      child: Text('Haoziiiiiii',
+                          style: TextStyle(color: Colors.black))),
                 ],
               ),
             ],
@@ -1104,7 +1421,9 @@ class _ChessScreenState extends State<ChessScreen> {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
-                    fontSize: isSmallPhoneLandscape ? dropdownFontSize * 0.95 : dropdownFontSize,
+                    fontSize: isSmallPhoneLandscape
+                        ? dropdownFontSize * 0.95
+                        : dropdownFontSize,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -1118,7 +1437,7 @@ class _ChessScreenState extends State<ChessScreen> {
                         if (!value) _stopAudio();
                       });
                     },
-                    activeColor: const Color(0xFF8E6CFF),
+                    activeThumbColor: const Color(0xFF8E6CFF),
                   ),
                 ),
               ],
@@ -1131,7 +1450,11 @@ class _ChessScreenState extends State<ChessScreen> {
             padding: const EdgeInsets.all(8.0),
             child: Text(
               _getWinMessage(message, profileName),
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF8E6CFF), fontFamily: 'Baloo2'),
+              style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF8E6CFF),
+                  fontFamily: 'Baloo2'),
               textAlign: TextAlign.center,
             ),
           ),
@@ -1142,11 +1465,17 @@ class _ChessScreenState extends State<ChessScreen> {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF8E6CFF),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28)),
                 padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
               onPressed: _resetGame,
-              child: Text('Play Again', style: TextStyle(fontSize: buttonFontSize, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Baloo2')),
+              child: Text('Play Again',
+                  style: TextStyle(
+                      fontSize: buttonFontSize,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontFamily: 'Baloo2')),
             ),
           ),
       ],
@@ -1154,11 +1483,18 @@ class _ChessScreenState extends State<ChessScreen> {
   }
 
   // Board panel (chess board, overlays, audio indicator)
-  Widget _buildBoardPanel(BoxConstraints constraints, bool isTablet, bool isSmallPhoneLandscape, double verticalPadding, double buttonFontSize, Map<String, Color> theme) {
+  Widget _buildBoardPanel(
+      BoxConstraints constraints,
+      bool isTablet,
+      bool isSmallPhoneLandscape,
+      double verticalPadding,
+      double buttonFontSize,
+      Map<String, Color> theme) {
     // Calculate board size based on available space
     final double availableWidth = constraints.maxWidth - 32; // padding
     final double availableHeight = constraints.maxHeight - 32; // padding
-    final double maxBoard = min(availableWidth, availableHeight).clamp(200.0, 600.0);
+    final double maxBoard =
+        min(availableWidth, availableHeight).clamp(200.0, 600.0);
 
     return Center(
       child: Stack(
@@ -1173,7 +1509,7 @@ class _ChessScreenState extends State<ChessScreen> {
               border: Border.all(color: theme['highlight']!, width: 5),
               boxShadow: [
                 BoxShadow(
-                  color: theme['highlight']!.withOpacity(0.10),
+                  color: theme['highlight']!.withValues(alpha: 0.10),
                   blurRadius: 18,
                   offset: const Offset(0, 6),
                 ),
@@ -1206,26 +1542,34 @@ class _ChessScreenState extends State<ChessScreen> {
                       color: isSelected
                           ? theme['highlight']
                           : isLegal
-                              ? theme['highlight']!.withOpacity(0.7)
+                              ? theme['highlight']!.withValues(alpha: 0.7)
                               : isLight
                                   ? theme['light']
                                   : theme['dark'],
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: theme['highlight']!.withOpacity(0.18), width: 2),
+                      border: Border.all(
+                          color: theme['highlight']!.withValues(alpha: 0.18),
+                          width: 2),
                     ),
                     child: Center(
                       child: piece == null
                           ? const SizedBox.shrink()
                           : Text(
-                              piece.color == chess_lib.Color.WHITE ? _playerPieceSymbol(piece.type.toString().toLowerCase()) : _aiPieceSymbol(piece.type.toString().toLowerCase()),
+                              piece.color == chess_lib.Color.WHITE
+                                  ? _playerPieceSymbol(
+                                      piece.type.toString().toLowerCase())
+                                  : _aiPieceSymbol(
+                                      piece.type.toString().toLowerCase()),
                               style: TextStyle(
                                 fontSize: maxBoard / 10,
                                 fontWeight: FontWeight.w900,
                                 fontFamily: 'Baloo2',
-                                color: piece.color == chess_lib.Color.WHITE ? Colors.black : Colors.orange,
+                                color: piece.color == chess_lib.Color.WHITE
+                                    ? Colors.black
+                                    : Colors.orange,
                                 shadows: [
                                   Shadow(
-                                    color: Colors.black.withOpacity(0.08),
+                                    color: Colors.black.withValues(alpha: 0.08),
                                     blurRadius: 4,
                                     offset: const Offset(1, 2),
                                   ),
@@ -1243,7 +1587,7 @@ class _ChessScreenState extends State<ChessScreen> {
             Container(
               width: maxBoard,
               height: maxBoard,
-              color: Colors.black.withOpacity(0.18),
+              color: Colors.black.withValues(alpha: 0.18),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1266,7 +1610,7 @@ class _ChessScreenState extends State<ChessScreen> {
                         color: Colors.white,
                         shadows: [
                           Shadow(
-                            color: Colors.black.withOpacity(0.5),
+                            color: Colors.black.withValues(alpha: 0.5),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -1329,7 +1673,14 @@ class _ChessScreenState extends State<ChessScreen> {
 
   // Helper method to get a thinking verb
   String _getThinkingVerb() {
-    final verbs = ['thinking', 'pondering', 'calculating', 'planning', 'strategizing', 'contemplating'];
+    final verbs = [
+      'thinking',
+      'pondering',
+      'calculating',
+      'planning',
+      'strategizing',
+      'contemplating'
+    ];
     return verbs[Random().nextInt(verbs.length)];
   }
 }
@@ -1348,7 +1699,12 @@ class _ChessInstructionsDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Text('How to Play Chess', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF8E6CFF), fontFamily: 'Baloo2')),
+              const Text('How to Play Chess',
+                  style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF8E6CFF),
+                      fontFamily: 'Baloo2')),
               const SizedBox(height: 18),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1367,13 +1723,19 @@ class _ChessInstructionsDialog extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              const Text('Move your pieces to try to checkmate the orange king!', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontFamily: 'Baloo2')),
+              const Text(
+                  'Move your pieces to try to checkmate the orange king!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 18, fontFamily: 'Baloo2')),
               const SizedBox(height: 18),
               Row(
                 children: const [
                   Text('♟', style: TextStyle(fontSize: 28)),
                   SizedBox(width: 8),
-                  Expanded(child: Text('Pawns move forward, capture diagonally.', style: TextStyle(fontSize: 16, fontFamily: 'Baloo2'))),
+                  Expanded(
+                      child: Text('Pawns move forward, capture diagonally.',
+                          style:
+                              TextStyle(fontSize: 16, fontFamily: 'Baloo2'))),
                 ],
               ),
               SizedBox(height: 8),
@@ -1381,7 +1743,10 @@ class _ChessInstructionsDialog extends StatelessWidget {
                 children: const [
                   Text('♜', style: TextStyle(fontSize: 28)),
                   SizedBox(width: 8),
-                  Expanded(child: Text('Rooks move in straight lines.', style: TextStyle(fontSize: 16, fontFamily: 'Baloo2'))),
+                  Expanded(
+                      child: Text('Rooks move in straight lines.',
+                          style:
+                              TextStyle(fontSize: 16, fontFamily: 'Baloo2'))),
                 ],
               ),
               SizedBox(height: 8),
@@ -1389,7 +1754,10 @@ class _ChessInstructionsDialog extends StatelessWidget {
                 children: const [
                   Text('♞', style: TextStyle(fontSize: 28)),
                   SizedBox(width: 8),
-                  Expanded(child: Text('Knights jump in an L-shape.', style: TextStyle(fontSize: 16, fontFamily: 'Baloo2'))),
+                  Expanded(
+                      child: Text('Knights jump in an L-shape.',
+                          style:
+                              TextStyle(fontSize: 16, fontFamily: 'Baloo2'))),
                 ],
               ),
               SizedBox(height: 8),
@@ -1397,7 +1765,10 @@ class _ChessInstructionsDialog extends StatelessWidget {
                 children: const [
                   Text('♝', style: TextStyle(fontSize: 28)),
                   SizedBox(width: 8),
-                  Expanded(child: Text('Bishops move diagonally.', style: TextStyle(fontSize: 16, fontFamily: 'Baloo2'))),
+                  Expanded(
+                      child: Text('Bishops move diagonally.',
+                          style:
+                              TextStyle(fontSize: 16, fontFamily: 'Baloo2'))),
                 ],
               ),
               SizedBox(height: 8),
@@ -1405,7 +1776,10 @@ class _ChessInstructionsDialog extends StatelessWidget {
                 children: const [
                   Text('♛', style: TextStyle(fontSize: 28)),
                   SizedBox(width: 8),
-                  Expanded(child: Text('The Queen can go any direction!', style: TextStyle(fontSize: 16, fontFamily: 'Baloo2'))),
+                  Expanded(
+                      child: Text('The Queen can go any direction!',
+                          style:
+                              TextStyle(fontSize: 16, fontFamily: 'Baloo2'))),
                 ],
               ),
               SizedBox(height: 8),
@@ -1413,22 +1787,44 @@ class _ChessInstructionsDialog extends StatelessWidget {
                 children: const [
                   Text('♚', style: TextStyle(fontSize: 28)),
                   SizedBox(width: 8),
-                  Expanded(child: Text('Protect your King! If he is trapped, you lose.', style: TextStyle(fontSize: 16, fontFamily: 'Baloo2'))),
+                  Expanded(
+                      child: Text(
+                          'Protect your King! If he is trapped, you lose.',
+                          style:
+                              TextStyle(fontSize: 16, fontFamily: 'Baloo2'))),
                 ],
               ),
               const SizedBox(height: 18),
-              const Text('Tip: Try to control the center squares and work together with your pieces!', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, fontFamily: 'Baloo2', color: Color(0xFF43C465))),
+              const Text(
+                  'Tip: Try to control the center squares and work together with your pieces!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontFamily: 'Baloo2',
+                      color: Color(0xFF43C465))),
               const SizedBox(height: 18),
-              const Text('Have fun and good luck! 🎉', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, fontFamily: 'Baloo2', color: Color(0xFFFF9F43))),
+              const Text('Have fun and good luck! 🎉',
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Baloo2',
+                      color: Color(0xFFFF9F43))),
               const SizedBox(height: 12),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF8E6CFF),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                  padding: const EdgeInsets.symmetric(horizontal: 44, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 44, vertical: 14),
                 ),
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Got it!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Baloo2')),
+                child: const Text('Got it!',
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontFamily: 'Baloo2')),
               ),
             ],
           ),

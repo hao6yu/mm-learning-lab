@@ -46,13 +46,19 @@ class ResponsiveSizerDemo extends StatelessWidget {
 
                 Expanded(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                    child: Device.orientation == Orientation.landscape ? _buildLandscapeWelcome() : _buildPortraitWelcome(),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                    child: Device.orientation == Orientation.landscape
+                        ? _buildLandscapeWelcome()
+                        : _buildPortraitWelcome(),
                   ),
                 ),
 
                 // Bottom spacing
-                SizedBox(height: Device.orientation == Orientation.landscape ? 2.h : 8.h),
+                SizedBox(
+                    height: Device.orientation == Orientation.landscape
+                        ? 2.h
+                        : 8.h),
               ],
             ),
           ),
@@ -158,14 +164,15 @@ class ResponsiveSizerDemo extends StatelessWidget {
 
   Widget _buildAvatar() {
     return Container(
-      width: Device.orientation == Orientation.landscape ? 20.w : 30.w, // Perfect!
+      width:
+          Device.orientation == Orientation.landscape ? 20.w : 30.w, // Perfect!
       height: Device.orientation == Orientation.landscape ? 20.w : 30.w,
       decoration: BoxDecoration(
         color: const Color(0xFFFFE066),
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 15.sp, // Scales automatically
             offset: Offset(0, 6.sp),
           ),
@@ -174,7 +181,9 @@ class ResponsiveSizerDemo extends StatelessWidget {
       child: Center(
         child: Text(
           '👧',
-          style: TextStyle(fontSize: Device.orientation == Orientation.landscape ? 45.sp : 60.sp),
+          style: TextStyle(
+              fontSize:
+                  Device.orientation == Orientation.landscape ? 45.sp : 60.sp),
         ),
       ),
     );
@@ -182,15 +191,19 @@ class ResponsiveSizerDemo extends StatelessWidget {
 
   Widget _buildWelcomeText() {
     return Text(
-      Device.orientation == Orientation.landscape ? 'Welcome, Madeline' : 'Welcome,\nMadeline',
+      Device.orientation == Orientation.landscape
+          ? 'Welcome, Madeline'
+          : 'Welcome,\nMadeline',
       textAlign: TextAlign.center,
       style: GoogleFonts.baloo2(
-        fontSize: Device.orientation == Orientation.landscape ? 28.sp : 36.sp, // Clean!
+        fontSize: Device.orientation == Orientation.landscape
+            ? 28.sp
+            : 36.sp, // Clean!
         fontWeight: FontWeight.bold,
         color: Colors.white,
         shadows: [
           Shadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 4.sp,
             offset: Offset(0, 2.sp),
           ),
@@ -253,7 +266,7 @@ class ResponsiveSizerDemo extends StatelessWidget {
           borderRadius: BorderRadius.circular(20.sp),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.25),
+              color: color.withValues(alpha: 0.25),
               blurRadius: 12.sp,
               offset: Offset(0, 4.sp),
             ),

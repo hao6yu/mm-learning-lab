@@ -133,7 +133,6 @@ class MathProblem {
 
   static MathProblem _generateMultiplicationProblem(String grade) {
     final random = Random();
-    final range = MathBuddy.gradeDifficultyRanges[grade]!;
     int num1, num2;
 
     // Adjust multiplication difficulty based on grade
@@ -201,7 +200,8 @@ class MathProblem {
       // Create a division problem with a clean answer (no remainders for simplicity)
       num2 = random.nextInt(10) + 2; // Divisor between 2 and 11
       int result = random.nextInt(10) + 1; // Result between 1 and 10
-      num1 = num2 * result; // Dividend is divisor * result to ensure clean division
+      num1 = num2 *
+          result; // Dividend is divisor * result to ensure clean division
     } else {
       // Fallback for lower grades (this shouldn't happen but just in case)
       num2 = random.nextInt(5) + 2;
@@ -256,7 +256,8 @@ class MathProblem {
     final allowedOperations = MathBuddy.gradeOperations[grade]!.toList();
 
     // Select a random operation from the allowed operations for this grade
-    final operation = allowedOperations[random.nextInt(allowedOperations.length)];
+    final operation =
+        allowedOperations[random.nextInt(allowedOperations.length)];
 
     return generateProblemForGrade(grade, operation);
   }

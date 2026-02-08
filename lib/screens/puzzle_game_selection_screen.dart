@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
-import 'chess_maze_screen.dart';
-import 'memory_match_screen.dart';
-import 'tic_tac_toe_screen.dart';
-import 'gobang_screen.dart';
-import 'chess_screen.dart';
-import 'sudoku_screen.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/profile_provider.dart';
+import '../services/activity_progress_service.dart';
+import '../utils/activity_launcher.dart';
+import '../utils/kid_layout_tokens.dart';
+import '../widgets/kid_game_card.dart';
+import '../widgets/kid_screen_header.dart';
 
 class PuzzleGameSelectionScreen extends StatelessWidget {
   const PuzzleGameSelectionScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isLandscape = screenSize.width > screenSize.height;
-    final isTablet = screenSize.width > 600;
+    final layout = KidSelectionLayout.fromContext(context);
 
     return Scaffold(
       body: Container(
@@ -28,11 +28,33 @@ class PuzzleGameSelectionScreen extends StatelessWidget {
           child: Column(
             children: [
               // Header
-              _buildHeader(context, isTablet),
+              KidScreenHeader(
+                title: 'Puzzle Games',
+                isTablet: layout.isTablet,
+                onBack: () => Navigator.pop(context),
+                onHome: () =>
+                    Navigator.of(context).popUntil((route) => route.isFirst),
+              ),
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: layout.horizontalPadding,
+                ),
+                child: Text(
+                  'Challenge your brain with one puzzle game.',
+                  style: TextStyle(
+                    fontSize: layout.subtitleFontSize,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF355C7D),
+                    fontFamily: 'Baloo2',
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              SizedBox(height: layout.sectionSpacing),
 
               // Game cards with responsive layout
               Expanded(
-                child: _buildGameGrid(context, isLandscape, isTablet),
+                child: _buildGameGrid(context, layout),
               ),
             ],
           ),
@@ -41,127 +63,86 @@ class PuzzleGameSelectionScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isTablet) {
-    final headerPadding = 12.0;
-    final buttonSize = isTablet ? 16.0 : 14.0;
-    final titleSize = isTablet ? 32.0 : 28.0;
-
-    return Padding(
-      padding: EdgeInsets.all(headerPadding),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFF8E6CFF),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x338E6CFF),
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              padding: EdgeInsets.all(buttonSize),
-              child: Icon(Icons.arrow_back_rounded, color: Colors.white, size: isTablet ? 28.0 : 24.0),
-            ),
-          ),
-          Expanded(
-            child: Center(
-              child: Text(
-                'Puzzle Games',
-                style: TextStyle(
-                  fontFamily: 'Baloo2',
-                  fontSize: titleSize,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF8E6CFF),
-                  letterSpacing: 0.8,
-                ),
-              ),
-            ),
-          ),
-          SizedBox(width: isTablet ? 56.0 : 48.0), // Balance the back button
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGameGrid(BuildContext context, bool isLandscape, bool isTablet) {
+  Widget _buildGameGrid(BuildContext context, KidSelectionLayout layout) {
     final games = [
       _GameData(
         title: 'Sudoku',
+        subtitle: 'Fill the grid with logic',
         color: const Color(0xFFE91E63),
         icon: Icons.grid_4x4,
-        route: 'sudoku',
+        route: ActivityIds.sudoku,
         isNew: true,
       ),
       _GameData(
         title: 'Memory Match',
+        subtitle: 'Find all matching pairs',
         color: const Color(0xFF43C465),
         icon: Icons.memory_rounded,
-        route: 'memory_match',
+        route: ActivityIds.memoryMatch,
       ),
       _GameData(
         title: 'Tic-Tac-Toe',
+        subtitle: 'Get 3 in a row',
         color: const Color(0xFFFF9F43),
         icon: Icons.grid_3x3,
-        route: 'tic_tac_toe',
+        route: ActivityIds.ticTacToe,
       ),
       _GameData(
         title: 'Gobang',
+        subtitle: 'Build 5 in a row',
         color: const Color(0xFF00B8D4),
         icon: Icons.blur_circular,
-        route: 'gobang',
+        route: ActivityIds.gobang,
       ),
       _GameData(
         title: 'Chess',
+        subtitle: 'Plan smart moves',
         color: const Color(0xFF8E6CFF),
         icon: Icons.emoji_events,
-        route: 'chess',
+        route: ActivityIds.chess,
       ),
     ];
 
     return Padding(
       padding: EdgeInsets.symmetric(
-        horizontal: isTablet ? 32.0 : 20.0,
-        vertical: isTablet ? 16.0 : 8.0,
+        horizontal: layout.horizontalPadding,
+        vertical: layout.verticalPadding,
       ),
-      child: isLandscape ? _buildLandscapeGrid(games, isTablet) : _buildPortraitGrid(context, games, isTablet),
+      child: layout.isLandscape
+          ? _buildLandscapeGrid(games, layout)
+          : _buildPortraitGrid(context, games, layout),
     );
   }
 
-  Widget _buildLandscapeGrid(List<_GameData> games, bool isTablet) {
-    // Landscape: Use 3 columns to fit all 5 games nicely
+  Widget _buildLandscapeGrid(List<_GameData> games, KidSelectionLayout layout) {
+    final crossAxisCount = layout.columnsForLandscape(games.length);
     return GridView.builder(
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: isTablet ? 20.0 : 12.0,
-        mainAxisSpacing: isTablet ? 20.0 : 12.0,
-        childAspectRatio: isTablet ? 2.2 : 2.0,
+        crossAxisCount: crossAxisCount,
+        crossAxisSpacing: layout.gridSpacing,
+        mainAxisSpacing: layout.gridSpacing,
+        childAspectRatio: layout.landscapeAspectRatio(crossAxisCount),
       ),
       itemCount: games.length,
       itemBuilder: (context, index) {
         final game = games[index];
-        return _GameCard(
+        return KidGameCard(
           title: game.title,
+          subtitle: game.subtitle,
           color: game.color,
           icon: game.icon,
           isNew: game.isNew,
           onTap: () => _navigateToGame(context, game.route),
-          isTablet: isTablet,
+          isTablet: layout.isTablet,
           isLandscape: true,
         );
       },
     );
   }
 
-  Widget _buildPortraitGrid(BuildContext context, List<_GameData> games, bool isTablet) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final availableHeight = screenHeight - 200; // Account for header and padding
-    final cardHeight = (availableHeight / 5) - (isTablet ? 16.0 : 12.0); // Divide by 5 games with spacing
-
+  Widget _buildPortraitGrid(
+      BuildContext context, List<_GameData> games, KidSelectionLayout layout) {
+    final cardHeight = layout.portraitCardHeight(games.length);
     return SingleChildScrollView(
       child: Column(
         children: games.asMap().entries.map((entry) {
@@ -170,17 +151,18 @@ class PuzzleGameSelectionScreen extends StatelessWidget {
           final isLast = index == games.length - 1;
 
           return Container(
-            height: cardHeight.clamp(isTablet ? 80.0 : 70.0, isTablet ? 120.0 : 100.0),
+            height: cardHeight,
             margin: EdgeInsets.only(
-              bottom: isLast ? 0 : (isTablet ? 16.0 : 12.0),
+              bottom: isLast ? 0 : layout.gridSpacing,
             ),
-            child: _GameCard(
+            child: KidGameCard(
               title: game.title,
+              subtitle: game.subtitle,
               color: game.color,
               icon: game.icon,
               isNew: game.isNew,
               onTap: () => _navigateToGame(context, game.route),
-              isTablet: isTablet,
+              isTablet: layout.isTablet,
               isLandscape: false,
             ),
           );
@@ -189,54 +171,38 @@ class PuzzleGameSelectionScreen extends StatelessWidget {
     );
   }
 
-  void _navigateToGame(BuildContext context, String route) {
-    switch (route) {
-      case 'memory_match':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const MemoryMatchScreen(),
-          ),
+  Future<void> _navigateToGame(BuildContext context, String activityId) async {
+    final profileProvider = context.read<ProfileProvider>();
+    final selectedProfileId = profileProvider.selectedProfileId;
+    final profileName = profileProvider.profiles
+        .where((profile) => profile.id == selectedProfileId)
+        .map((profile) => profile.name)
+        .firstWhere(
+          (name) => name.isNotEmpty,
+          orElse: () => 'Learner',
         );
-        break;
-      case 'tic_tac_toe':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const TicTacToeScreen(),
-          ),
-        );
-        break;
-      case 'sudoku':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const SudokuScreen(),
-          ),
-        );
-        break;
-      case 'gobang':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const GobangScreen(),
-          ),
-        );
-        break;
-      case 'chess':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const ChessScreen(),
-          ),
-        );
-        break;
+    final activityService = ActivityProgressService();
+
+    if (selectedProfileId != null) {
+      await activityService.saveLastActivity(
+        profileId: selectedProfileId,
+        activityId: activityId,
+        activityTitle: activityTitle(activityId),
+      );
     }
+
+    if (!context.mounted) return;
+    await launchActivity(
+      context,
+      activityId,
+      profileName: profileName,
+    );
   }
 }
 
 class _GameData {
   final String title;
+  final String subtitle;
   final Color color;
   final IconData icon;
   final String route;
@@ -244,98 +210,10 @@ class _GameData {
 
   _GameData({
     required this.title,
+    required this.subtitle,
     required this.color,
     required this.icon,
     required this.route,
     this.isNew = false,
   });
-}
-
-class _GameCard extends StatelessWidget {
-  final String title;
-  final Color color;
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool isNew;
-  final bool isTablet;
-  final bool isLandscape;
-
-  const _GameCard({
-    required this.title,
-    required this.color,
-    required this.icon,
-    required this.onTap,
-    required this.isTablet,
-    required this.isLandscape,
-    this.isNew = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // More compact sizing for better fit
-    final verticalPadding = isLandscape ? (isTablet ? 16.0 : 12.0) : (isTablet ? 20.0 : 16.0);
-    final horizontalPadding = isTablet ? 16.0 : 12.0;
-    final borderRadius = isTablet ? 28.0 : 24.0;
-    final iconSize = isLandscape ? (isTablet ? 28.0 : 24.0) : (isTablet ? 32.0 : 28.0);
-    final fontSize = isLandscape ? (isTablet ? 18.0 : 16.0) : (isTablet ? 22.0 : 20.0);
-    final spacing = isLandscape ? (isTablet ? 10.0 : 8.0) : (isTablet ? 16.0 : 14.0);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: horizontalPadding),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(borderRadius),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.18),
-              blurRadius: isTablet ? 20.0 : 16.0,
-              offset: Offset(0, isTablet ? 6.0 : 4.0),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.white, size: iconSize),
-            SizedBox(width: spacing),
-            Flexible(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: fontSize,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  fontFamily: 'Baloo2',
-                ),
-                textAlign: TextAlign.center,
-                maxLines: isLandscape ? 1 : 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (isNew) ...[
-              SizedBox(width: spacing / 2),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                child: Text(
-                  "NEW",
-                  style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: isTablet ? 12.0 : 10.0,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
 }

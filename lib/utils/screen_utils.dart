@@ -28,7 +28,8 @@ extension ScreenUtils on BuildContext {
   double get largeSpacing => responsive(32, tablet: 48, landscape: 24);
 
   // Font scaling
-  double scaledFont(double baseSize) => responsive(baseSize, tablet: baseSize * 1.2, landscape: baseSize * 0.8);
+  double scaledFont(double baseSize) =>
+      responsive(baseSize, tablet: baseSize * 1.2, landscape: baseSize * 0.8);
 }
 
 // Alternative: Simple breakpoint constants

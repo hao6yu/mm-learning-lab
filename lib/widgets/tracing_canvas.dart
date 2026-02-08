@@ -1,4 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
+import '../utils/tracing_completion_evaluator.dart';
 
 class TracingCanvas extends StatefulWidget {
   final String letter;
@@ -20,33 +24,21 @@ class TracingCanvas extends StatefulWidget {
   State<TracingCanvas> createState() => _TracingCanvasState();
 }
 
-class _TracingCanvasState extends State<TracingCanvas> with SingleTickerProviderStateMixin {
+class _TracingCanvasState extends State<TracingCanvas>
+    with SingleTickerProviderStateMixin {
   final List<List<Offset>> _strokes = [];
   List<Offset>? _currentStroke;
 
-  AnimationController? _demoController;
-  List<Offset>? _demoPath;
-  int _demoPathLength = 0;
+  late final AnimationController _demoController;
+  List<Offset> _demoPath = [];
+  bool _hasCompleted = false;
 
   @override
   void initState() {
     super.initState();
-    _initDemoController();
-  }
-
-  @override
-  void didUpdateWidget(covariant TracingCanvas oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.animateDemo && !oldWidget.animateDemo) {
-      _startDemoAnimation();
-    }
-  }
-
-  void _initDemoController() {
-    _demoController?.dispose();
     _demoController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 2200),
     )
       ..addListener(() {
         setState(() {});
@@ -58,126 +50,393 @@ class _TracingCanvasState extends State<TracingCanvas> with SingleTickerProvider
       });
   }
 
-  void _startDemoAnimation() {
-    _demoPath = _getDemoPath(widget.letter);
-    _demoPathLength = _demoPath?.length ?? 0;
-    _demoController?.reset();
-    _demoController?.forward();
-  }
-
-  List<Offset> _getDemoPath(String letter) {
-    // Simple demo paths for A, B, C. Others: diagonal line.
-    switch (letter) {
-      case 'A':
-        return [
-          const Offset(60, 320),
-          const Offset(150, 80),
-          const Offset(240, 320),
-          const Offset(110, 200),
-          const Offset(190, 200),
-        ];
-      case 'B':
-        return [
-          const Offset(80, 80),
-          const Offset(80, 320),
-          const Offset(80, 200),
-          const Offset(180, 160),
-          const Offset(80, 200),
-          const Offset(180, 240),
-          const Offset(80, 320),
-        ];
-      case 'C':
-        return [
-          const Offset(220, 100),
-          const Offset(120, 80),
-          const Offset(80, 200),
-          const Offset(120, 320),
-          const Offset(220, 300),
-        ];
-      default:
-        return [
-          const Offset(60, 320),
-          const Offset(240, 80),
-        ];
+  @override
+  void didUpdateWidget(covariant TracingCanvas oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.letter != oldWidget.letter) {
+      _strokes.clear();
+      _currentStroke = null;
+      _hasCompleted = false;
+      _demoPath = [];
+      _demoController.reset();
     }
   }
 
   @override
   void dispose() {
-    _demoController?.dispose();
+    _demoController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 300,
-      height: 400,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
+        final letterPath = _scaledPath(widget.letter, canvasSize);
+
+        if (widget.animateDemo && !_demoController.isAnimating) {
+          _startDemoAnimation(letterPath);
+        }
+
+        final demoPath = _demoPath.isEmpty
+            ? null
+            : _demoPath
+                .take(
+                  (_demoPath.length * _demoController.value)
+                      .clamp(0, _demoPath.length)
+                      .toInt(),
+                )
+                .toList();
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          if (widget.showGuide)
-            Center(
-              child: Text(
-                widget.letter,
-                style: TextStyle(
-                  fontSize: 200,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.grey.withOpacity(0.2),
+          child: Stack(
+            children: [
+              if (widget.showGuide)
+                Center(
+                  child: Text(
+                    widget.letter,
+                    style: TextStyle(
+                      fontFamily: 'Baloo2',
+                      fontSize:
+                          math.min(canvasSize.width, canvasSize.height) * 0.64,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.grey.withValues(alpha: 0.2),
+                    ),
+                  ),
+                ),
+              GestureDetector(
+                onPanStart: (details) {
+                  setState(() {
+                    _currentStroke = [details.localPosition];
+                    _strokes.add(_currentStroke!);
+                  });
+                },
+                onPanUpdate: (details) {
+                  if (!_isInsideCanvas(details.localPosition, canvasSize)) {
+                    return;
+                  }
+                  setState(() {
+                    _currentStroke?.add(details.localPosition);
+                  });
+                },
+                onPanEnd: (_) {
+                  _currentStroke = null;
+                  if (_hasCompleted) {
+                    return;
+                  }
+
+                  if (_isTracingComplete(canvasSize, letterPath)) {
+                    _hasCompleted = true;
+                    widget.onCompleted();
+                  }
+                },
+                child: CustomPaint(
+                  size: canvasSize,
+                  painter: _TracingPainter(
+                    strokes: _strokes,
+                    demoPath: demoPath,
+                  ),
                 ),
               ),
-            ),
-          GestureDetector(
-            onPanStart: (details) {
-              setState(() {
-                _currentStroke = [details.localPosition];
-                _strokes.add(_currentStroke!);
-              });
-            },
-            onPanUpdate: (details) {
-              setState(() {
-                _currentStroke?.add(details.localPosition);
-              });
-            },
-            onPanEnd: (details) {
-              _currentStroke = null;
-              // TODO: Check if the tracing is complete
-              // widget.onCompleted();
-            },
-            child: CustomPaint(
-              size: const Size(300, 400),
-              painter: _TracingPainter(
-                strokes: _strokes,
-                demoPath: (widget.animateDemo && _demoPath != null && _demoController != null) ? _demoPath!.sublist(0, (_demoPathLength * (_demoController!.value)).clamp(0, _demoPathLength).toInt()) : null,
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _strokes.clear();
+                      _currentStroke = null;
+                      _hasCompleted = false;
+                    });
+                  },
+                  icon: const Icon(Icons.refresh_rounded),
+                  color: const Color(0xFF6D7A8A),
+                ),
               ),
-            ),
+            ],
           ),
-          Positioned(
-            top: 8,
-            right: 8,
-            child: IconButton(
-              onPressed: () {
-                setState(() {
-                  _strokes.clear();
-                });
-              },
-              icon: const Icon(Icons.refresh),
-              color: Colors.grey,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
+  }
+
+  void _startDemoAnimation(List<Offset> path) {
+    _demoPath = path;
+    _demoController
+      ..reset()
+      ..forward();
+  }
+
+  bool _isInsideCanvas(Offset point, Size size) {
+    return point.dx >= 0 &&
+        point.dy >= 0 &&
+        point.dx <= size.width &&
+        point.dy <= size.height;
+  }
+
+  bool _isTracingComplete(Size canvasSize, List<Offset> referencePath) {
+    final userPoints = _strokes.expand((stroke) => stroke).toList();
+    return TracingCompletionEvaluator.isTracingComplete(
+      userPoints: userPoints,
+      canvasSize: canvasSize,
+      referencePath: referencePath,
+    );
+  }
+
+  List<Offset> _scaledPath(String letter, Size size) {
+    final normalizedPath = _normalizedLetterPath(letter.toUpperCase());
+    return normalizedPath
+        .map(
+          (point) => Offset(point.dx * size.width, point.dy * size.height),
+        )
+        .toList();
+  }
+
+  List<Offset> _normalizedLetterPath(String letter) {
+    switch (letter) {
+      case 'A':
+        return const [
+          Offset(0.2, 0.88),
+          Offset(0.5, 0.12),
+          Offset(0.8, 0.88),
+          Offset(0.65, 0.53),
+          Offset(0.35, 0.53),
+        ];
+      case 'B':
+        return const [
+          Offset(0.28, 0.12),
+          Offset(0.28, 0.88),
+          Offset(0.68, 0.75),
+          Offset(0.28, 0.5),
+          Offset(0.7, 0.25),
+          Offset(0.28, 0.12),
+        ];
+      case 'C':
+        return const [
+          Offset(0.75, 0.2),
+          Offset(0.58, 0.12),
+          Offset(0.32, 0.2),
+          Offset(0.22, 0.5),
+          Offset(0.32, 0.8),
+          Offset(0.58, 0.88),
+          Offset(0.75, 0.8),
+        ];
+      case 'D':
+        return const [
+          Offset(0.28, 0.12),
+          Offset(0.28, 0.88),
+          Offset(0.65, 0.76),
+          Offset(0.78, 0.5),
+          Offset(0.65, 0.24),
+          Offset(0.28, 0.12),
+        ];
+      case 'E':
+        return const [
+          Offset(0.75, 0.12),
+          Offset(0.28, 0.12),
+          Offset(0.28, 0.88),
+          Offset(0.75, 0.88),
+          Offset(0.28, 0.5),
+          Offset(0.62, 0.5),
+        ];
+      case 'F':
+        return const [
+          Offset(0.28, 0.88),
+          Offset(0.28, 0.12),
+          Offset(0.75, 0.12),
+          Offset(0.28, 0.48),
+          Offset(0.62, 0.48),
+        ];
+      case 'G':
+        return const [
+          Offset(0.75, 0.26),
+          Offset(0.58, 0.12),
+          Offset(0.32, 0.18),
+          Offset(0.22, 0.5),
+          Offset(0.32, 0.82),
+          Offset(0.65, 0.88),
+          Offset(0.78, 0.62),
+          Offset(0.58, 0.62),
+        ];
+      case 'H':
+        return const [
+          Offset(0.28, 0.12),
+          Offset(0.28, 0.88),
+          Offset(0.28, 0.5),
+          Offset(0.72, 0.5),
+          Offset(0.72, 0.12),
+          Offset(0.72, 0.88),
+        ];
+      case 'I':
+        return const [
+          Offset(0.25, 0.12),
+          Offset(0.75, 0.12),
+          Offset(0.5, 0.12),
+          Offset(0.5, 0.88),
+          Offset(0.25, 0.88),
+          Offset(0.75, 0.88),
+        ];
+      case 'J':
+        return const [
+          Offset(0.25, 0.12),
+          Offset(0.75, 0.12),
+          Offset(0.6, 0.12),
+          Offset(0.6, 0.75),
+          Offset(0.5, 0.88),
+          Offset(0.3, 0.8),
+        ];
+      case 'K':
+        return const [
+          Offset(0.28, 0.12),
+          Offset(0.28, 0.88),
+          Offset(0.72, 0.12),
+          Offset(0.28, 0.5),
+          Offset(0.72, 0.88),
+        ];
+      case 'L':
+        return const [
+          Offset(0.3, 0.12),
+          Offset(0.3, 0.88),
+          Offset(0.75, 0.88),
+        ];
+      case 'M':
+        return const [
+          Offset(0.2, 0.88),
+          Offset(0.2, 0.12),
+          Offset(0.5, 0.52),
+          Offset(0.8, 0.12),
+          Offset(0.8, 0.88),
+        ];
+      case 'N':
+        return const [
+          Offset(0.22, 0.88),
+          Offset(0.22, 0.12),
+          Offset(0.78, 0.88),
+          Offset(0.78, 0.12),
+        ];
+      case 'O':
+        return const [
+          Offset(0.5, 0.12),
+          Offset(0.72, 0.22),
+          Offset(0.8, 0.5),
+          Offset(0.72, 0.78),
+          Offset(0.5, 0.88),
+          Offset(0.28, 0.78),
+          Offset(0.2, 0.5),
+          Offset(0.28, 0.22),
+          Offset(0.5, 0.12),
+        ];
+      case 'P':
+        return const [
+          Offset(0.28, 0.88),
+          Offset(0.28, 0.12),
+          Offset(0.68, 0.2),
+          Offset(0.68, 0.45),
+          Offset(0.28, 0.5),
+        ];
+      case 'Q':
+        return const [
+          Offset(0.5, 0.12),
+          Offset(0.72, 0.22),
+          Offset(0.8, 0.5),
+          Offset(0.72, 0.78),
+          Offset(0.5, 0.88),
+          Offset(0.28, 0.78),
+          Offset(0.2, 0.5),
+          Offset(0.28, 0.22),
+          Offset(0.5, 0.12),
+          Offset(0.65, 0.72),
+          Offset(0.8, 0.88),
+        ];
+      case 'R':
+        return const [
+          Offset(0.28, 0.88),
+          Offset(0.28, 0.12),
+          Offset(0.68, 0.2),
+          Offset(0.68, 0.45),
+          Offset(0.28, 0.5),
+          Offset(0.72, 0.88),
+        ];
+      case 'S':
+        return const [
+          Offset(0.72, 0.2),
+          Offset(0.52, 0.12),
+          Offset(0.3, 0.24),
+          Offset(0.5, 0.5),
+          Offset(0.7, 0.76),
+          Offset(0.48, 0.88),
+          Offset(0.28, 0.8),
+        ];
+      case 'T':
+        return const [
+          Offset(0.2, 0.12),
+          Offset(0.8, 0.12),
+          Offset(0.5, 0.12),
+          Offset(0.5, 0.88),
+        ];
+      case 'U':
+        return const [
+          Offset(0.25, 0.12),
+          Offset(0.25, 0.7),
+          Offset(0.5, 0.88),
+          Offset(0.75, 0.7),
+          Offset(0.75, 0.12),
+        ];
+      case 'V':
+        return const [
+          Offset(0.22, 0.12),
+          Offset(0.5, 0.88),
+          Offset(0.78, 0.12),
+        ];
+      case 'W':
+        return const [
+          Offset(0.16, 0.12),
+          Offset(0.32, 0.88),
+          Offset(0.5, 0.35),
+          Offset(0.68, 0.88),
+          Offset(0.84, 0.12),
+        ];
+      case 'X':
+        return const [
+          Offset(0.2, 0.12),
+          Offset(0.8, 0.88),
+          Offset(0.5, 0.5),
+          Offset(0.8, 0.12),
+          Offset(0.2, 0.88),
+        ];
+      case 'Y':
+        return const [
+          Offset(0.2, 0.12),
+          Offset(0.5, 0.48),
+          Offset(0.8, 0.12),
+          Offset(0.5, 0.48),
+          Offset(0.5, 0.88),
+        ];
+      case 'Z':
+        return const [
+          Offset(0.2, 0.12),
+          Offset(0.8, 0.12),
+          Offset(0.2, 0.88),
+          Offset(0.8, 0.88),
+        ];
+      default:
+        return const [
+          Offset(0.2, 0.88),
+          Offset(0.8, 0.12),
+        ];
+    }
   }
 }
 
@@ -189,41 +448,40 @@ class _TracingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
+    final strokePaint = Paint()
       ..color = const Color(0xFF8E6CFF)
-      ..strokeWidth = 8
+      ..strokeWidth = math.max(5, size.shortestSide * 0.02)
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
 
     for (final stroke in strokes) {
       if (stroke.length < 2) continue;
-      final path = Path();
-      path.moveTo(stroke[0].dx, stroke[0].dy);
-
+      final path = Path()..moveTo(stroke.first.dx, stroke.first.dy);
       for (int i = 1; i < stroke.length; i++) {
         path.lineTo(stroke[i].dx, stroke[i].dy);
       }
-
-      canvas.drawPath(path, paint);
+      canvas.drawPath(path, strokePaint);
     }
 
     if (demoPath != null && demoPath!.length > 1) {
       final demoPaint = Paint()
-        ..color = Colors.orange
-        ..strokeWidth = 10
+        ..color = const Color(0xFFFF9F43)
+        ..strokeWidth = math.max(6, size.shortestSide * 0.024)
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..style = PaintingStyle.stroke;
-      final demo = Path();
-      demo.moveTo(demoPath![0].dx, demoPath![0].dy);
+
+      final path = Path()..moveTo(demoPath!.first.dx, demoPath!.first.dy);
       for (int i = 1; i < demoPath!.length; i++) {
-        demo.lineTo(demoPath![i].dx, demoPath![i].dy);
+        path.lineTo(demoPath![i].dx, demoPath![i].dy);
       }
-      canvas.drawPath(demo, demoPaint);
+      canvas.drawPath(path, demoPaint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _TracingPainter oldDelegate) {
+    return oldDelegate.strokes != strokes || oldDelegate.demoPath != demoPath;
+  }
 }

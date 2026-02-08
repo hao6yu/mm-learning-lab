@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:responsive_sizer/responsive_sizer.dart';
+import 'dart:developer' as developer;
 
 import 'providers/profile_provider.dart';
 import 'screens/profile_selection_screen.dart';
@@ -15,8 +16,10 @@ import 'screens/ai_chat_screen.dart';
 import 'services/elevenlabs_service.dart';
 import 'services/openai_service.dart';
 import 'services/database_service.dart';
+import 'services/performance_warmup_service.dart';
 import 'services/subscription_service.dart';
 import 'widgets/subscription_guard.dart';
+import 'screens/kid_progress_screen.dart';
 import 'screens/subscription_screen.dart';
 
 Future<void> main() async {
@@ -26,25 +29,27 @@ Future<void> main() async {
   DateTime startTime = DateTime.now();
   debugPrint = (String? message, {int? wrapWidth}) {
     if (message == null) return;
-    String timestamp = DateTime.now().difference(startTime).toString().padLeft(10);
+    String timestamp =
+        DateTime.now().difference(startTime).toString().padLeft(10);
     String formattedMessage = '[$timestamp] $message';
-    print(formattedMessage);
+    developer.log(formattedMessage, name: 'MM Learning Lab');
   };
-  print('====== MM LEARNING LAB APP STARTED ======');
+  developer.log('====== MM LEARNING LAB APP STARTED ======',
+      name: 'MM Learning Lab');
 
   // Load environment variables
   await dotenv.load(fileName: ".env");
 
   // Check database integrity and repair if needed
   try {
-    print("Checking database integrity...");
+    debugPrint("Checking database integrity...");
     final dbService = DatabaseService();
     final wasRepaired = await dbService.checkAndRepairDatabase();
     if (wasRepaired) {
-      print("Database was reset due to integrity issues");
+      debugPrint("Database was reset due to integrity issues");
     }
   } catch (e) {
-    print("Error during database check: $e");
+    debugPrint("Error during database check: $e");
   }
 
   // Initialize services
@@ -71,28 +76,43 @@ class MMLearningLabApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             showSemanticsDebugger: false,
             builder: (context, child) {
-              // Remove any debug overlays
+              PerformanceWarmupService.scheduleWarmup(context);
+              final mediaQuery = MediaQuery.of(context);
               return MediaQuery(
-                data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
-                child: child!,
+                data: mediaQuery.copyWith(
+                  textScaler: mediaQuery.textScaler.clamp(
+                    minScaleFactor: 1.0,
+                    maxScaleFactor: 1.35,
+                  ),
+                ),
+                child: child ?? const SizedBox.shrink(),
               );
             },
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
               textTheme: GoogleFonts.nunitoTextTheme(),
               useMaterial3: true,
-              // Disable debug indicators
               visualDensity: VisualDensity.adaptivePlatformDensity,
+              materialTapTargetSize: MaterialTapTargetSize.padded,
             ),
             initialRoute: '/',
             routes: {
-              '/': (context) => const SubscriptionGuard(child: ProfileSelectionScreen()),
-              '/games': (context) => const SubscriptionGuard(child: GameSelectionScreen()),
-              '/tracing': (context) => const SubscriptionGuard(child: LetterTracingScreen()),
-              '/phonics': (context) => const SubscriptionGuard(child: PhonicsScreen()),
-              '/bubble-pop': (context) => const SubscriptionGuard(child: BubblePopScreen()),
-              '/story-adventure': (context) => const SubscriptionGuard(child: StoryAdventureScreen()),
-              '/ai-chat': (context) => const SubscriptionGuard(child: AiChatScreen()),
+              '/': (context) =>
+                  const SubscriptionGuard(child: ProfileSelectionScreen()),
+              '/games': (context) =>
+                  const SubscriptionGuard(child: GameSelectionScreen()),
+              '/tracing': (context) =>
+                  const SubscriptionGuard(child: LetterTracingScreen()),
+              '/phonics': (context) =>
+                  const SubscriptionGuard(child: PhonicsScreen()),
+              '/bubble-pop': (context) =>
+                  const SubscriptionGuard(child: BubblePopScreen()),
+              '/story-adventure': (context) =>
+                  const SubscriptionGuard(child: StoryAdventureScreen()),
+              '/ai-chat': (context) =>
+                  const SubscriptionGuard(child: AiChatScreen()),
+              '/progress': (context) =>
+                  const SubscriptionGuard(child: KidProgressScreen()),
               '/subscription': (context) => const SubscriptionScreen(),
             },
           );

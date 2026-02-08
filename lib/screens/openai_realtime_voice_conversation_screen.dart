@@ -1,29 +1,33 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:async';
-import 'dart:typed_data';
 import '../services/native_audio_stream.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter_sound/flutter_sound.dart';
 import 'package:http/http.dart' as http;
+import '../services/ai_proxy_config.dart';
 
 class OpenAIRealtimeVoiceConversationScreen extends StatefulWidget {
   const OpenAIRealtimeVoiceConversationScreen({super.key});
 
   @override
-  State<OpenAIRealtimeVoiceConversationScreen> createState() => _OpenAIRealtimeVoiceConversationScreenState();
+  State<OpenAIRealtimeVoiceConversationScreen> createState() =>
+      _OpenAIRealtimeVoiceConversationScreenState();
 }
 
-class _OpenAIRealtimeVoiceConversationScreenState extends State<OpenAIRealtimeVoiceConversationScreen> {
+class _OpenAIRealtimeVoiceConversationScreenState
+    extends State<OpenAIRealtimeVoiceConversationScreen> {
   bool _isPaused = false;
   bool _isConnected = false;
   String? _currentTranscript;
   String? _error;
   late String _realtimeModel;
+  late AiProxyConfig _proxyConfig;
+  String? _openAiApiKey;
 
   WebSocket? _socket;
   StreamSubscription? _recorderSubscription;
@@ -33,11 +37,15 @@ class _OpenAIRealtimeVoiceConversationScreenState extends State<OpenAIRealtimeVo
   void initState() {
     super.initState();
     // Get realtime model from env or use default
-    _realtimeModel = dotenv.env['OPENAI_REALTIME_MODEL'] ?? 'gpt-4o-realtime-preview-2024-12-17';
+    _realtimeModel = dotenv.env['OPENAI_REALTIME_MODEL'] ??
+        'gpt-4o-realtime-preview-2024-12-17';
+    _proxyConfig = AiProxyConfig.fromEnv();
+    _openAiApiKey = dotenv.env['OPENAI_API_KEY'];
     _startConversation();
   }
 
-  Future<String> _writeBytesToTempFile(Uint8List bytes, String extension) async {
+  Future<String> _writeBytesToTempFile(
+      Uint8List bytes, String extension) async {
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/openai_audio.$extension');
     await file.writeAsBytes(bytes, flush: true);
@@ -54,59 +62,48 @@ class _OpenAIRealtimeVoiceConversationScreenState extends State<OpenAIRealtimeVo
     try {
       // First, ensure microphone permission is granted
       final initialStatus = await Permission.microphone.status;
-      print('Initial microphone permission status: $initialStatus');
+      debugPrint('Initial microphone permission status: $initialStatus');
       final status = await Permission.microphone.request();
       if (status != PermissionStatus.granted) {
-        setState(() => _error = 'Microphone permission denied. Please enable it in settings.');
+        setState(() => _error =
+            'Microphone permission denied. Please enable it in settings.');
         return;
       }
 
-      final apiKey = dotenv.env['OPENAI_API_KEY'];
-      if (apiKey == null) {
-        setState(() => _error = 'OpenAI API key not found.');
+      final sessionData = await _createRealtimeSession();
+      if (sessionData == null) {
+        setState(() {
+          _error =
+              'Failed to create realtime session. Check proxy config or fallback settings.';
+        });
         return;
       }
 
-      // Step 1: Create a session
-      print('Creating OpenAI realtime session...');
-      final sessionResponse = await http.post(
-        Uri.parse('https://api.openai.com/v1/realtime/sessions'),
-        headers: {
-          'Authorization': 'Bearer $apiKey',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          "model": _realtimeModel,
-          // Add any other required params here
-        }),
-      );
-
-      print('Session creation status: ${sessionResponse.statusCode}');
-      if (sessionResponse.statusCode != 200) {
-        setState(() => _error = 'Failed to create session: ${sessionResponse.statusCode} ${sessionResponse.body}');
-        return;
-      }
-
-      final sessionData = jsonDecode(sessionResponse.body);
-      print('Session response JSON: $sessionData');
       final sessionId = sessionData['id'];
-      final clientSecret = sessionData['client_secret']?['value'];
-      if (sessionId == null) {
-        setState(() => _error = 'Missing session ID from API response');
+      final dynamic clientSecretField = sessionData['client_secret'];
+      final String? clientSecret = clientSecretField is Map<String, dynamic>
+          ? clientSecretField['value'] as String?
+          : clientSecretField as String?;
+      final String? wsUrl = sessionData['ws_url'] as String? ??
+          (sessionId != null
+              ? 'wss://api.openai.com/v1/realtime/sessions/$sessionId'
+              : null);
+      if (wsUrl == null) {
+        setState(() => _error = 'Missing realtime websocket URL');
         return;
       }
-
-      final wsUrl = 'wss://api.openai.com/v1/realtime/sessions/$sessionId';
-      print('WebSocket URL at runtime: $wsUrl');
 
       // Step 2: Connect to WebSocket
       try {
-        final headers = {
-          'Authorization': 'Bearer $clientSecret',
-        };
-        print('Attempting to connect to WebSocket...');
-        _socket = await WebSocket.connect(wsUrl, headers: headers);
-        print('WebSocket connection established.');
+        final headers = <String, dynamic>{};
+        if (clientSecret != null && clientSecret.isNotEmpty) {
+          headers['Authorization'] = 'Bearer $clientSecret';
+        }
+        debugPrint('Attempting to connect to WebSocket...');
+        _socket = headers.isEmpty
+            ? await WebSocket.connect(wsUrl)
+            : await WebSocket.connect(wsUrl, headers: headers);
+        debugPrint('WebSocket connection established.');
 
         setState(() => _isConnected = true);
 
@@ -118,9 +115,9 @@ class _OpenAIRealtimeVoiceConversationScreenState extends State<OpenAIRealtimeVo
 
         // Step 3: Initialize audio streaming with retry logic
         try {
-          print('Starting native audio stream...');
+          debugPrint('Starting native audio stream...');
           await NativeAudioStream.start(sampleRate: 16000);
-          print('Native audio stream started successfully');
+          debugPrint('Native audio stream started successfully');
 
           _recorderSubscription = NativeAudioStream.audioStream.listen(
             (pcmBytes) {
@@ -129,18 +126,18 @@ class _OpenAIRealtimeVoiceConversationScreenState extends State<OpenAIRealtimeVo
               }
             },
             onError: (e) {
-              print('Audio stream error: $e');
+              debugPrint('Audio stream error: $e');
               setState(() => _error = 'Audio stream error: $e');
             },
           );
         } catch (audioError) {
-          print('Failed to start audio stream: $audioError');
+          debugPrint('Failed to start audio stream: $audioError');
 
           // Try once more after a delay
           if (Platform.isIOS) {
             try {
               await Future.delayed(const Duration(seconds: 1));
-              print('Retrying audio stream initialization...');
+              debugPrint('Retrying audio stream initialization...');
               await NativeAudioStream.start(sampleRate: 16000);
 
               _recorderSubscription = NativeAudioStream.audioStream.listen(
@@ -150,13 +147,14 @@ class _OpenAIRealtimeVoiceConversationScreenState extends State<OpenAIRealtimeVo
                   }
                 },
                 onError: (e) {
-                  print('Audio stream error on retry: $e');
+                  debugPrint('Audio stream error on retry: $e');
                   setState(() => _error = 'Audio error: $e');
                 },
               );
             } catch (retryError) {
-              print('Retry also failed: $retryError');
-              setState(() => _error = 'Could not access microphone. Please restart the app.');
+              debugPrint('Retry also failed: $retryError');
+              setState(() => _error =
+                  'Could not access microphone. Please restart the app.');
               return;
             }
           } else {
@@ -176,7 +174,7 @@ class _OpenAIRealtimeVoiceConversationScreenState extends State<OpenAIRealtimeVo
                 await _audioPlayer!.setFilePath(path);
                 await _audioPlayer!.play();
               } catch (e) {
-                print('Audio playback error: $e');
+                debugPrint('Audio playback error: $e');
                 setState(() => _error = 'Audio playback error: $e');
               }
             } else if (data is String) {
@@ -187,7 +185,7 @@ class _OpenAIRealtimeVoiceConversationScreenState extends State<OpenAIRealtimeVo
                   setState(() => _currentTranscript = msg['text']);
                 } else if (msg['type'] == 'status') {
                   // Optionally handle status updates
-                  print('Status update: $msg');
+                  debugPrint('Status update: $msg');
                 } else {
                   setState(() => _currentTranscript = data);
                 }
@@ -197,22 +195,73 @@ class _OpenAIRealtimeVoiceConversationScreenState extends State<OpenAIRealtimeVo
             }
           },
           onError: (e) {
-            print('WebSocket error: $e');
+            debugPrint('WebSocket error: $e');
             setState(() => _error = 'Connection error: $e');
           },
           onDone: () {
-            print('WebSocket connection closed');
+            debugPrint('WebSocket connection closed');
             setState(() => _isConnected = false);
           },
         );
       } catch (wsError) {
-        print('WebSocket connection failed: $wsError');
+        debugPrint('WebSocket connection failed: $wsError');
         setState(() => _error = 'Failed to connect: $wsError');
       }
     } catch (e) {
-      print('Unexpected error in conversation start: $e');
+      debugPrint('Unexpected error in conversation start: $e');
       setState(() => _error = 'Error: $e');
     }
+  }
+
+  Future<Map<String, dynamic>?> _createRealtimeSession() async {
+    final payload = jsonEncode({
+      'model': _realtimeModel,
+    });
+
+    if (_proxyConfig.hasProxy) {
+      try {
+        final proxyResponse = await http.post(
+          _proxyConfig.proxyUri('/openai/realtime/sessions'),
+          headers: _proxyConfig.proxyHeaders(),
+          body: payload,
+        );
+        if (proxyResponse.statusCode >= 200 && proxyResponse.statusCode < 300) {
+          return jsonDecode(proxyResponse.body) as Map<String, dynamic>;
+        }
+      } catch (e) {
+        debugPrint('Proxy realtime session creation failed: $e');
+      }
+    }
+
+    if (!_canCallDirectProvider) {
+      return null;
+    }
+
+    try {
+      final directResponse = await http.post(
+        Uri.parse('https://api.openai.com/v1/realtime/sessions'),
+        headers: {
+          'Authorization': 'Bearer $_openAiApiKey',
+          'Content-Type': 'application/json',
+        },
+        body: payload,
+      );
+      if (directResponse.statusCode >= 200 && directResponse.statusCode < 300) {
+        return jsonDecode(directResponse.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('Direct realtime session creation failed: $e');
+    }
+
+    return null;
+  }
+
+  bool get _canCallDirectProvider {
+    final hasKey = _openAiApiKey != null && _openAiApiKey!.isNotEmpty;
+    if (!hasKey) return false;
+    if (!_proxyConfig.allowDirectFallback) return false;
+    if (_proxyConfig.requireProxy && kReleaseMode) return false;
+    return true;
   }
 
   void _pauseConversation() async {
@@ -230,33 +279,33 @@ class _OpenAIRealtimeVoiceConversationScreenState extends State<OpenAIRealtimeVo
 
     // Clean up resources in a safe order
     try {
-      print('Closing conversation and cleaning up resources...');
+      debugPrint('Closing conversation and cleaning up resources...');
 
       // Cancel recorder subscription first
       if (_recorderSubscription != null) {
-        print('Cancelling recorder subscription');
+        debugPrint('Cancelling recorder subscription');
         await _recorderSubscription!.cancel();
         _recorderSubscription = null;
       }
 
       // Stop native audio stream
       try {
-        print('Stopping native audio stream');
+        debugPrint('Stopping native audio stream');
         await NativeAudioStream.stop();
       } catch (e) {
-        print('Error stopping native audio stream: $e');
+        debugPrint('Error stopping native audio stream: $e');
         // Continue with cleanup despite errors
       }
 
       // Stop and dispose audio player
       if (_audioPlayer != null) {
         try {
-          print('Stopping audio player');
+          debugPrint('Stopping audio player');
           await _audioPlayer!.stop();
           await Future.delayed(const Duration(milliseconds: 100));
           await _audioPlayer!.dispose();
         } catch (e) {
-          print('Error cleaning up audio player: $e');
+          debugPrint('Error cleaning up audio player: $e');
         }
         _audioPlayer = null;
       }
@@ -264,17 +313,17 @@ class _OpenAIRealtimeVoiceConversationScreenState extends State<OpenAIRealtimeVo
       // Close WebSocket connection last
       if (_socket != null) {
         try {
-          print('Closing WebSocket connection');
+          debugPrint('Closing WebSocket connection');
           await _socket!.close();
         } catch (e) {
-          print('Error closing WebSocket: $e');
+          debugPrint('Error closing WebSocket: $e');
         }
         _socket = null;
       }
 
-      print('Cleanup completed');
+      debugPrint('Cleanup completed');
     } catch (e) {
-      print('Error during conversation cleanup: $e');
+      debugPrint('Error during conversation cleanup: $e');
     }
 
     // If we're in a navigation context, pop
@@ -285,7 +334,7 @@ class _OpenAIRealtimeVoiceConversationScreenState extends State<OpenAIRealtimeVo
 
   @override
   void dispose() {
-    print('Disposing OpenAIRealtimeVoiceConversationScreen');
+    debugPrint('Disposing OpenAIRealtimeVoiceConversationScreen');
     // Ensure cleanup happens when widget is disposed
     _closeConversation();
     super.dispose();
@@ -350,7 +399,9 @@ class _OpenAIRealtimeVoiceConversationScreenState extends State<OpenAIRealtimeVo
                 child: Text(_error!, style: const TextStyle(color: Colors.red)),
               ),
             const SizedBox(height: 40),
-            if (!_isPaused && _isConnected) const Text('Listening and responding in real time...', style: TextStyle(color: Colors.blueGrey)),
+            if (!_isPaused && _isConnected)
+              const Text('Listening and responding in real time...',
+                  style: TextStyle(color: Colors.blueGrey)),
           ],
         ),
       ),

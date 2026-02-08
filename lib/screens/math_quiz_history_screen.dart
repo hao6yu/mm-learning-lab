@@ -1,8 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/database_service.dart';
+import '../providers/profile_provider.dart';
+
+typedef MathQuizHistoryLoader = Future<List<Map<String, dynamic>>> Function(
+  int profileId,
+);
 
 class MathQuizHistoryScreen extends StatefulWidget {
-  const MathQuizHistoryScreen({Key? key}) : super(key: key);
+  const MathQuizHistoryScreen({
+    super.key,
+    this.loadHistory,
+  });
+
+  final MathQuizHistoryLoader? loadHistory;
 
   @override
   State<MathQuizHistoryScreen> createState() => _MathQuizHistoryScreenState();
@@ -10,11 +21,27 @@ class MathQuizHistoryScreen extends StatefulWidget {
 
 class _MathQuizHistoryScreenState extends State<MathQuizHistoryScreen> {
   late Future<List<Map<String, dynamic>>> _historyFuture;
+  int? _resolvedProfileId;
 
   @override
-  void initState() {
-    super.initState();
-    _historyFuture = DatabaseService().getMathQuizAttempts();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final selectedProfileId = context.read<ProfileProvider>().selectedProfileId;
+
+    if (selectedProfileId == _resolvedProfileId) {
+      return;
+    }
+    _resolvedProfileId = selectedProfileId;
+
+    if (selectedProfileId == null) {
+      _historyFuture = Future.value([]);
+      return;
+    }
+
+    final loader = widget.loadHistory ??
+        (int profileId) =>
+            DatabaseService().getMathQuizAttempts(profileId: profileId);
+    _historyFuture = loader(selectedProfileId);
   }
 
   @override
@@ -90,10 +117,13 @@ class _MathQuizHistoryScreenState extends State<MathQuizHistoryScreen> {
                     final history = snapshot.data!;
                     return ListView.separated(
                       itemCount: history.length,
-                      separatorBuilder: (context, i) => const SizedBox(height: 18),
+                      separatorBuilder: (context, i) =>
+                          const SizedBox(height: 18),
                       itemBuilder: (context, i) {
                         final attempt = history[i];
-                        final date = DateTime.tryParse(attempt['datetime'] ?? '') ?? DateTime.now();
+                        final date =
+                            DateTime.tryParse(attempt['datetime'] ?? '') ??
+                                DateTime.now();
                         final ops = attempt['operations'] ?? '';
                         final grade = attempt['grade'] ?? '';
                         final numQuestions = attempt['num_questions'] ?? 0;
@@ -106,7 +136,8 @@ class _MathQuizHistoryScreenState extends State<MathQuizHistoryScreen> {
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF8E6CFF).withOpacity(0.10),
+                                color: const Color(0xFF8E6CFF)
+                                    .withValues(alpha: 0.10),
                                 blurRadius: 8,
                                 offset: const Offset(0, 4),
                               ),
@@ -116,10 +147,12 @@ class _MathQuizHistoryScreenState extends State<MathQuizHistoryScreen> {
                               width: 2,
                             ),
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 18),
                           child: Row(
                             children: [
-                              const Icon(Icons.emoji_events_rounded, color: Color(0xFF8E6CFF), size: 38),
+                              const Icon(Icons.emoji_events_rounded,
+                                  color: Color(0xFF8E6CFF), size: 38),
                               const SizedBox(width: 16),
                               Expanded(
                                 child: Column(

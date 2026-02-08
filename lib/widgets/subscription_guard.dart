@@ -2,25 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/subscription_service.dart';
 import '../screens/subscription_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class SubscriptionGuard extends StatefulWidget {
   final Widget child;
 
-  const SubscriptionGuard({Key? key, required this.child}) : super(key: key);
+  const SubscriptionGuard({super.key, required this.child});
 
   @override
   State<SubscriptionGuard> createState() => _SubscriptionGuardState();
 }
 
 class _SubscriptionGuardState extends State<SubscriptionGuard> {
-  // When the app first launches, we don't want to immediately show the paywall
-  // We'll set this in initState after checking the free trial status
   bool _showPaywall = false;
-
-  // Track the first time the app is used
-  static const String _firstLaunchTimeKey = 'first_launch_time';
-  static const int _freeTrialDurationDays = 14;
+  bool _isCheckingAccess = true;
 
   @override
   void initState() {
@@ -29,50 +23,40 @@ class _SubscriptionGuardState extends State<SubscriptionGuard> {
   }
 
   Future<void> _checkSubscriptionStatus() async {
-    final subscriptionService = Provider.of<SubscriptionService>(context, listen: false);
-    final isSubscribed = await subscriptionService.checkSubscriptionStatus();
+    try {
+      final subscriptionService =
+          Provider.of<SubscriptionService>(context, listen: false);
+      final hasAccess =
+          await subscriptionService.hasActiveAccess(refreshSubscription: false);
 
-    if (!isSubscribed) {
-      final inFreeTrial = await _isInFreeTrial();
+      if (!mounted) return;
 
-      // Only show paywall if not subscribed and not in free trial
-      if (!inFreeTrial) {
-        setState(() {
-          _showPaywall = true;
-        });
-      }
+      setState(() {
+        _showPaywall = !hasAccess;
+        _isCheckingAccess = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _showPaywall = false;
+        _isCheckingAccess = false;
+      });
     }
-  }
-
-  // Check if the user is in the free trial period
-  Future<bool> _isInFreeTrial() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    // Get the first launch time, or set it if it doesn't exist
-    int? firstLaunchTime = prefs.getInt(_firstLaunchTimeKey);
-    if (firstLaunchTime == null) {
-      firstLaunchTime = DateTime.now().millisecondsSinceEpoch;
-      await prefs.setInt(_firstLaunchTimeKey, firstLaunchTime);
-      print('First launch time set: $firstLaunchTime');
-      // Always in free trial on first launch
-      return true;
-    }
-
-    // Calculate how many days since first launch
-    final firstLaunchDate = DateTime.fromMillisecondsSinceEpoch(firstLaunchTime);
-    final today = DateTime.now();
-    final difference = today.difference(firstLaunchDate).inDays;
-
-    print('Days since first launch: $difference');
-
-    // In free trial if within the trial period
-    return difference < _freeTrialDurationDays;
   }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<SubscriptionService>(
       builder: (context, subscriptionService, child) {
+        if (_isCheckingAccess || subscriptionService.isLoading) {
+          return const ColoredBox(
+            color: Colors.white,
+            child: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
         // Show the child if subscribed or not showing paywall yet
         if (subscriptionService.isSubscribed || !_showPaywall) {
           return widget.child;

@@ -5,7 +5,6 @@ import 'dart:async';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 
 class MathBuddy {
   final String name;
@@ -81,10 +80,10 @@ class MathBuddy {
   // Initialize the voice system
   static void initialize() {
     _disposed = false;
-    print("Initializing Math Buddy audio system");
+    debugPrint("Initializing Math Buddy audio system");
     ElevenLabsService.initialize();
     _setupAudioPlayerListener();
-    print("Math Buddy audio system initialized");
+    debugPrint("Math Buddy audio system initialized");
   }
 
   static void _setupAudioPlayerListener() {
@@ -92,41 +91,45 @@ class MathBuddy {
     _playerStateSubscription?.cancel();
     _playerStateSubscription = null;
 
-    print("Setting up audio player listener");
+    debugPrint("Setting up audio player listener");
 
     // Create a new subscription
     _playerStateSubscription = _audioPlayer.playerStateStream.listen(
       (state) {
-        print("Audio player state change: ${state.processingState}, playing: ${state.playing}");
+        debugPrint(
+            "Audio player state change: ${state.processingState}, playing: ${state.playing}");
 
         bool previousPlayingState = _isPlayingAudio;
 
         if (state.processingState == ProcessingState.completed) {
           _isPlayingAudio = false;
-          print('Math buddy audio playback completed');
+          debugPrint('Math buddy audio playback completed');
 
           // Process the next message in the queue
           _processNextAudioMessage();
-        } else if (state.processingState == ProcessingState.idle && _isPlayingAudio) {
+        } else if (state.processingState == ProcessingState.idle &&
+            _isPlayingAudio) {
           // Check if we were previously playing - this could indicate an error
-          print('Audio playback ended unexpectedly (idle state)');
+          debugPrint('Audio playback ended unexpectedly (idle state)');
           _isPlayingAudio = false;
           _processNextAudioMessage();
-        } else if (state.processingState == ProcessingState.ready && state.playing) {
+        } else if (state.processingState == ProcessingState.ready &&
+            state.playing) {
           _isPlayingAudio = true;
-          print('Audio playback is active');
+          debugPrint('Audio playback is active');
         }
 
         // If playing state changed, trigger a notification
         if (previousPlayingState != _isPlayingAudio) {
-          print('Broadcasting audio playing state change: $_isPlayingAudio');
+          debugPrint(
+              'Broadcasting audio playing state change: $_isPlayingAudio');
           // Force notifying listeners about this change by using additional methods
           _notifyAudioStateChange();
         }
       },
       onError: (error) {
         // Handle errors in the stream itself
-        print('Error in audio player stream: $error');
+        debugPrint('Error in audio player stream: $error');
         _isPlayingAudio = false;
         _notifyAudioStateChange();
         _processNextAudioMessage();
@@ -136,7 +139,7 @@ class MathBuddy {
     // Also listen to position updates as a sanity check
     _audioPlayer.positionStream.listen((position) {
       if (position.inMilliseconds > 0 && _isPlayingAudio) {
-        print("Audio playback position: ${position.inSeconds}s");
+        debugPrint("Audio playback position: ${position.inSeconds}s");
       }
     });
   }
@@ -157,7 +160,7 @@ class MathBuddy {
       try {
         listener();
       } catch (e) {
-        print('Error in audio state listener: $e');
+        debugPrint('Error in audio state listener: $e');
       }
     }
   }
@@ -166,7 +169,8 @@ class MathBuddy {
     if (_pendingAudioMessages.isNotEmpty) {
       // Use the first character as the default buddy
       // The actual voice ID will be determined by the queue message
-      Future.microtask(() => _processAudioQueue(MathBuddyCharacters.characters.first));
+      Future.microtask(
+          () => _processAudioQueue(MathBuddyCharacters.characters.first));
     } else {
       _processingAudioQueue = false;
     }
@@ -178,7 +182,7 @@ class MathBuddy {
   // Set voice usage preference
   static void setUseVoice(bool useVoice) {
     _useVoice = useVoice;
-    print("MathBuddy voice setting changed to: $_useVoice");
+    debugPrint("MathBuddy voice setting changed to: $_useVoice");
     if (!_useVoice) {
       stopAudio();
     }
@@ -189,7 +193,7 @@ class MathBuddy {
     if (_disposed) return;
     try {
       if (_isPlayingAudio) {
-        print("Stopping audio playback");
+        debugPrint("Stopping audio playback");
         // Cancel the current audio player state subscription if it exists
         _playerStateSubscription?.cancel();
 
@@ -203,10 +207,10 @@ class MathBuddy {
         await Future.delayed(const Duration(milliseconds: 200));
 
         _isPlayingAudio = false;
-        print("Audio playback stopped successfully");
+        debugPrint("Audio playback stopped successfully");
       }
     } catch (e) {
-      print('Error stopping audio: $e');
+      debugPrint('Error stopping audio: $e');
       // Force reset audio state in case of error
       _isPlayingAudio = false;
     }
@@ -234,14 +238,14 @@ class MathBuddy {
     _processingAudioQueue = false;
     _isPlayingAudio = false;
 
-    print("Math Buddy resources disposed properly");
+    debugPrint("Math Buddy resources disposed properly");
   }
 
   // Main method to speak a message
   Future<void> speak(String message, {bool addExclamation = false}) async {
-    print("Speak method called with useVoice=$_useVoice");
+    debugPrint("Speak method called with useVoice=$_useVoice");
     if (!_useVoice) {
-      print("Voice is disabled, not speaking: $message");
+      debugPrint("Voice is disabled, not speaking: $message");
       return;
     }
 
@@ -253,16 +257,16 @@ class MathBuddy {
       finalMessage = "$phrase $message";
     }
 
-    print("Adding message to audio queue: $finalMessage");
+    debugPrint("Adding message to audio queue: $finalMessage");
     // Add message to the queue
     _pendingAudioMessages.add(finalMessage);
 
     // Start processing the queue if not already doing so
     if (!_processingAudioQueue) {
-      print("Starting audio queue processing");
+      debugPrint("Starting audio queue processing");
       _processAudioQueue(this);
     } else {
-      print("Audio queue already processing");
+      debugPrint("Audio queue already processing");
     }
   }
 
@@ -273,7 +277,7 @@ class MathBuddy {
       _processingAudioQueue = false;
       _isPlayingAudio = false;
       _notifyAudioStateChange();
-      print("Audio queue empty - processing complete");
+      debugPrint("Audio queue empty - processing complete");
       return;
     }
 
@@ -285,8 +289,9 @@ class MathBuddy {
       String textToSpeak = _pendingAudioMessages.removeAt(0);
       _tempAudioCounter++;
       int storyId = 99999 + _tempAudioCounter;
-      print('Generating math buddy audio: $textToSpeak');
-      print('Current voice state: useVoice=${_useVoice}, isPlaying=${_isPlayingAudio}');
+      debugPrint('Generating math buddy audio: $textToSpeak');
+      debugPrint(
+          'Current voice state: useVoice=$_useVoice, isPlaying=$_isPlayingAudio');
 
       // Check if running on iOS simulator
       bool isIosSimulator = false;
@@ -295,14 +300,15 @@ class MathBuddy {
         String documentsPath = (await getApplicationDocumentsDirectory()).path;
         isIosSimulator = documentsPath.contains('CoreSimulator');
         if (isIosSimulator) {
-          print('⚠️ WARNING: Running on iOS simulator - audio may not play correctly');
+          debugPrint(
+              '⚠️ WARNING: Running on iOS simulator - audio may not play correctly');
         }
       }
 
       String? audioPath = await _checkCachedAudio(textToSpeak, buddy.voiceId);
       if (_disposed) return;
       if (audioPath == null) {
-        print('No cached audio found, generating new audio file');
+        debugPrint('No cached audio found, generating new audio file');
         final result = await _elevenLabsService.generateAudio(
           textToSpeak,
           storyId,
@@ -310,7 +316,7 @@ class MathBuddy {
         );
         if (_disposed) return;
         if (result == null) {
-          print('Failed to generate audio');
+          debugPrint('Failed to generate audio');
           _isPlayingAudio = false;
           _notifyAudioStateChange();
           if (!_disposed) {
@@ -321,21 +327,21 @@ class MathBuddy {
           return;
         }
         audioPath = result;
-        print('Successfully generated audio file at: $audioPath');
+        debugPrint('Successfully generated audio file at: $audioPath');
         await _cacheAudio(textToSpeak, buddy.voiceId, audioPath);
         if (_disposed) return;
       }
       Timer? timeoutTimer = Timer(const Duration(seconds: 30), () {
-        print('Playback timeout triggered');
+        debugPrint('Playback timeout triggered');
         _isPlayingAudio = false;
         _notifyAudioStateChange();
         if (!_disposed) _processNextAudioMessage();
       });
       try {
-        print('Setting file path: $audioPath');
+        debugPrint('Setting file path: $audioPath');
         final audioFile = File(audioPath);
         if (!audioFile.existsSync()) {
-          print('Audio file does not exist: $audioPath');
+          debugPrint('Audio file does not exist: $audioPath');
           _isPlayingAudio = false;
           _notifyAudioStateChange();
           if (!_disposed) _processNextAudioMessage();
@@ -343,31 +349,32 @@ class MathBuddy {
           return;
         }
 
-        print('Audio file exists, size: ${audioFile.lengthSync()} bytes');
+        debugPrint('Audio file exists, size: ${audioFile.lengthSync()} bytes');
         await _audioPlayer.setFilePath(audioPath);
-        print('File path set, starting playback');
+        debugPrint('File path set, starting playback');
         if (_disposed) {
           timeoutTimer.cancel();
           return;
         }
         _isPlayingAudio = true;
         _notifyAudioStateChange();
-        print('Calling play()');
+        debugPrint('Calling play()');
 
         // Special handling for iOS simulator
         if (isIosSimulator) {
           // On iOS simulator, fake playback completion after a delay
-          print('iOS simulator detected - faking audio playback');
+          debugPrint('iOS simulator detected - faking audio playback');
           await Future.delayed(Duration(milliseconds: 500));
-          print('Simulating audio playback - duration would be ${await _audioPlayer.duration}');
+          debugPrint(
+              'Simulating audio playback - duration would be ${_audioPlayer.duration}');
 
           // Still try to play in case audio actually works
           await _audioPlayer.play();
 
           // Schedule a fake completion after calculated duration
-          final duration = await _audioPlayer.duration ?? Duration(seconds: 3);
+          final duration = _audioPlayer.duration ?? Duration(seconds: 3);
           Future.delayed(duration, () {
-            print('iOS simulator - faking playback completion');
+            debugPrint('iOS simulator - faking playback completion');
             if (_isPlayingAudio) {
               _isPlayingAudio = false;
               _notifyAudioStateChange();
@@ -380,17 +387,17 @@ class MathBuddy {
           await _audioPlayer.play();
         }
 
-        print('Playback started');
+        debugPrint('Playback started');
         timeoutTimer.cancel();
       } catch (playbackError) {
-        print('Error during audio playback setup: $playbackError');
+        debugPrint('Error during audio playback setup: $playbackError');
         timeoutTimer.cancel();
         _isPlayingAudio = false;
         _notifyAudioStateChange();
         if (!_disposed) _processNextAudioMessage();
       }
     } catch (e) {
-      print('Error playing math buddy audio: $e');
+      debugPrint('Error playing math buddy audio: $e');
       _isPlayingAudio = false;
       _notifyAudioStateChange();
       if (!_disposed) {
@@ -413,16 +420,17 @@ class MathBuddy {
 
       final cacheFile = File('${cacheDir.path}/$hash.mp3');
       if (await cacheFile.exists()) {
-        print('Using cached audio for: $text');
+        debugPrint('Using cached audio for: $text');
         return cacheFile.path;
       }
     } catch (e) {
-      print('Error checking cache: $e');
+      debugPrint('Error checking cache: $e');
     }
     return null;
   }
 
-  static Future<void> _cacheAudio(String text, String voiceId, String audioPath) async {
+  static Future<void> _cacheAudio(
+      String text, String voiceId, String audioPath) async {
     try {
       final hash = text.hashCode.toString() + voiceId;
       final dir = await getApplicationDocumentsDirectory();
@@ -436,10 +444,10 @@ class MathBuddy {
 
       if (await originalFile.exists()) {
         await originalFile.copy(cacheFile.path);
-        print('Cached audio for: $text');
+        debugPrint('Cached audio for: $text');
       }
     } catch (e) {
-      print('Error caching audio: $e');
+      debugPrint('Error caching audio: $e');
     }
   }
 
@@ -454,7 +462,8 @@ class MathBuddy {
     String message;
     do {
       message = messageList[Random().nextInt(messageList.length)];
-    } while (_usedMessages.contains(message) && _usedMessages.length < messageList.length);
+    } while (_usedMessages.contains(message) &&
+        _usedMessages.length < messageList.length);
 
     // Mark this message as used
     _usedMessages.add(message);
@@ -552,17 +561,20 @@ class MathBuddy {
   }
 
   Future<void> explainAddition(int num1, int num2) async {
-    final explanation = "To add $num1 and $num2, I count $num1 and then add $num2 more. That gives me ${num1 + num2}.";
+    final explanation =
+        "To add $num1 and $num2, I count $num1 and then add $num2 more. That gives me ${num1 + num2}.";
     await speak(explanation, addExclamation: false);
   }
 
   Future<void> explainSubtraction(int num1, int num2) async {
-    final explanation = "To subtract $num2 from $num1, I start at $num1 and count back $num2. That gives me ${num1 - num2}.";
+    final explanation =
+        "To subtract $num2 from $num1, I start at $num1 and count back $num2. That gives me ${num1 - num2}.";
     await speak(explanation, addExclamation: false);
   }
 
   Future<void> explainMultiplication(int num1, int num2) async {
-    final explanation = "To multiply $num1 by $num2, I can add $num1 together $num2 times: ${List.filled(num2, num1).join(' + ')} = ${num1 * num2}.";
+    final explanation =
+        "To multiply $num1 by $num2, I can add $num1 together $num2 times: ${List.filled(num2, num1).join(' + ')} = ${num1 * num2}.";
     await speak(explanation, addExclamation: false);
   }
 
@@ -572,9 +584,11 @@ class MathBuddy {
 
     String explanation;
     if (remainder == 0) {
-      explanation = "To divide $num1 by $num2, I can see how many groups of $num2 fit into $num1. That gives me $result.";
+      explanation =
+          "To divide $num1 by $num2, I can see how many groups of $num2 fit into $num1. That gives me $result.";
     } else {
-      explanation = "To divide $num1 by $num2, I get $result with a remainder of $remainder.";
+      explanation =
+          "To divide $num1 by $num2, I get $result with a remainder of $remainder.";
     }
 
     await speak(explanation, addExclamation: false);
@@ -602,15 +616,18 @@ class MathBuddy {
   Future<void> introduceYourself({String? profileName}) async {
     String introduction;
     if (profileName != null && profileName.isNotEmpty) {
-      introduction = "Hi there, $profileName! I'm $name, your math buddy! $personality I love helping with $specialty. Let's have fun with math!";
+      introduction =
+          "Hi there, $profileName! I'm $name, your math buddy! $personality I love helping with $specialty. Let's have fun with math!";
     } else {
-      introduction = "Hi there! I'm $name, your math buddy! $personality I love helping with $specialty. Let's have fun with math!";
+      introduction =
+          "Hi there! I'm $name, your math buddy! $personality I love helping with $specialty. Let's have fun with math!";
     }
     await speak(introduction, addExclamation: true);
   }
 
   Future<void> sayGoodbye() async {
-    final goodbye = "Thanks for learning with me today! You did an awesome job. Come back soon for more math fun!";
+    final goodbye =
+        "Thanks for learning with me today! You did an awesome job. Come back soon for more math fun!";
     await speak(goodbye, addExclamation: true);
   }
 
@@ -630,10 +647,14 @@ class MathBuddy {
         // Explain the problem and solution
         await explainProblem(operation, num1, num2);
       } catch (e) {
-        await speak("I'm not sure how to solve this problem. Can you show me a different way?", addExclamation: false);
+        await speak(
+            "I'm not sure how to solve this problem. Can you show me a different way?",
+            addExclamation: false);
       }
     } else {
-      await speak("Could you please show me the problem in a format like '5 + 3 = ?'?", addExclamation: false);
+      await speak(
+          "Could you please show me the problem in a format like '5 + 3 = ?'?",
+          addExclamation: false);
     }
   }
 
@@ -671,7 +692,8 @@ class MathBuddyCharacters {
       name: "Coach Callum",
       imageAsset: "assets/images/math_buddy/luna.png",
       voiceId: "N2lVS1w4EtoT3dr4eOWO", // Callum voice
-      personality: "I'm an energetic coach who makes math feel like a fun game!",
+      personality:
+          "I'm an energetic coach who makes math feel like a fun game!",
       voiceSettings: {
         'stability': 0.35,
         'similarity_boost': 0.8,
@@ -694,7 +716,8 @@ class MathBuddyCharacters {
       name: "Aria Star",
       imageAsset: "assets/images/math_buddy/pi.png",
       voiceId: "9BWtsMINqrJLrRacOk9x", // Aria voice
-      personality: "I'm your supportive math friend who believes you can solve anything!",
+      personality:
+          "I'm your supportive math friend who believes you can solve anything!",
       voiceSettings: {
         'stability': 0.4,
         'similarity_boost': 0.7,

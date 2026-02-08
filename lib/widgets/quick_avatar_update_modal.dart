@@ -38,7 +38,7 @@ class _QuickAvatarUpdateModalState extends State<QuickAvatarUpdateModal> {
     final fontSize = isTablet ? 19.0 : 17.0;
 
     return Material(
-      color: Colors.black.withOpacity(0.5),
+      color: Colors.black.withValues(alpha: 0.5),
       child: Center(
         child: Container(
           margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
@@ -104,7 +104,9 @@ class _QuickAvatarUpdateModalState extends State<QuickAvatarUpdateModal> {
                             avatarType: _selectedAvatarType,
                             createdAt: widget.profile.createdAt,
                           );
-                          context.read<ProfileProvider>().updateProfile(updatedProfile);
+                          context
+                              .read<ProfileProvider>()
+                              .updateProfile(updatedProfile);
                           Navigator.pop(context);
                         },
                         child: Text(

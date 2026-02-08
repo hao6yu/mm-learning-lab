@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/profile.dart';
@@ -22,7 +23,7 @@ class DatabaseService {
     String path = join(await getDatabasesPath(), 'mm_learning_lab.db');
     return await openDatabase(
       path,
-      version: 6,
+      version: 8,
       onCreate: _createDb,
       onUpgrade: _onUpgrade,
     );
@@ -61,7 +62,9 @@ class DatabaseService {
         num_questions INTEGER NOT NULL,
         time_limit INTEGER NOT NULL,
         num_correct INTEGER NOT NULL,
-        time_used INTEGER NOT NULL
+        time_used INTEGER NOT NULL,
+        profile_id INTEGER,
+        FOREIGN KEY (profile_id) REFERENCES profiles (id)
       )
     ''');
 
@@ -75,9 +78,18 @@ class DatabaseService {
         difficulty TEXT NOT NULL,
         word_of_day TEXT,
         is_user_created INTEGER DEFAULT 0,
-        audio_path TEXT
+        audio_path TEXT,
+        profile_id INTEGER,
+        FOREIGN KEY (profile_id) REFERENCES profiles (id)
       )
     ''');
+
+    await db.execute(
+        'CREATE INDEX idx_math_quiz_attempts_profile_id ON math_quiz_attempts(profile_id)');
+    await db
+        .execute('CREATE INDEX idx_stories_profile_id ON stories(profile_id)');
+
+    await _createProfileProgressTable(db);
 
     // Create chat_messages table
     await _createChatMessagesTable(db);
@@ -113,7 +125,8 @@ class DatabaseService {
   }*/
 
   Future<void> _preloadDefaultStories(Database db) async {
-    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM stories'));
+    final count = Sqflite.firstIntValue(
+        await db.rawQuery('SELECT COUNT(*) FROM stories'));
     if (count == 0) {
       final List<Map<String, dynamic>> initialStories = [
         {
@@ -420,7 +433,7 @@ class DatabaseService {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    print('Upgrading database from $oldVersion to $newVersion');
+    debugPrint('Upgrading database from $oldVersion to $newVersion');
 
     if (oldVersion < 2) {
       await db.execute('''
@@ -448,20 +461,128 @@ class DatabaseService {
     // For version 5, ensure chat_messages table exists regardless of previous versions
     if (oldVersion < 5) {
       // First check if the table exists
-      final tableCheck = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='chat_messages'");
+      final tableCheck = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='chat_messages'");
 
       if (tableCheck.isEmpty) {
-        print('Creating missing chat_messages table');
+        debugPrint('Creating missing chat_messages table');
         await _createChatMessagesTable(db);
       } else {
-        print('chat_messages table already exists');
+        debugPrint('chat_messages table already exists');
       }
     }
 
     // For version 6, add avatar_type column to profiles table
     if (oldVersion < 6) {
-      await db.execute('ALTER TABLE profiles ADD COLUMN avatar_type TEXT DEFAULT "emoji"');
+      await db.execute(
+          'ALTER TABLE profiles ADD COLUMN avatar_type TEXT DEFAULT "emoji"');
     }
+
+    // For version 7, isolate child data with profile_id columns.
+    if (oldVersion < 7) {
+      if (!await _columnExists(db, 'math_quiz_attempts', 'profile_id')) {
+        await db.execute(
+            'ALTER TABLE math_quiz_attempts ADD COLUMN profile_id INTEGER');
+      }
+      if (!await _columnExists(db, 'stories', 'profile_id')) {
+        await db.execute('ALTER TABLE stories ADD COLUMN profile_id INTEGER');
+      }
+
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_math_quiz_attempts_profile_id ON math_quiz_attempts(profile_id)');
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_stories_profile_id ON stories(profile_id)');
+
+      final fallbackProfileId = await _resolveFallbackProfileIdForMigration(db);
+      if (fallbackProfileId != null) {
+        await db.rawUpdate(
+          'UPDATE math_quiz_attempts SET profile_id = ? WHERE profile_id IS NULL',
+          [fallbackProfileId],
+        );
+        await db.rawUpdate(
+          'UPDATE stories SET profile_id = ? WHERE profile_id IS NULL AND is_user_created = 1',
+          [fallbackProfileId],
+        );
+      }
+    }
+
+    // For version 8, persist profile progress snapshots and badges.
+    if (oldVersion < 8) {
+      await _createProfileProgressTable(db);
+      await _seedProfileProgressRowsForExistingProfiles(db);
+    }
+  }
+
+  Future<bool> _columnExists(Database db, String table, String column) async {
+    final results = await db.rawQuery('PRAGMA table_info($table)');
+    for (final row in results) {
+      if ((row['name'] as String?) == column) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<int?> _resolveFallbackProfileIdForMigration(Database db) async {
+    final profiles = await db.query(
+      'profiles',
+      columns: ['id'],
+      orderBy: 'created_at ASC, id ASC',
+      limit: 1,
+    );
+    if (profiles.isNotEmpty) {
+      return profiles.first['id'] as int;
+    }
+
+    final now = DateTime.now().toIso8601String();
+    return db.insert('profiles', {
+      'name': 'Legacy Learner',
+      'age': 6,
+      'avatar': '🧒',
+      'avatar_type': 'emoji',
+      'created_at': now,
+    });
+  }
+
+  Future<void> _createProfileProgressTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS profile_progress(
+        profile_id INTEGER PRIMARY KEY,
+        stars INTEGER NOT NULL DEFAULT 0,
+        level INTEGER NOT NULL DEFAULT 1,
+        badge_math_explorer INTEGER NOT NULL DEFAULT 0,
+        badge_story_maker INTEGER NOT NULL DEFAULT 0,
+        badge_ai_buddy INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (profile_id) REFERENCES profiles (id) ON DELETE CASCADE
+      )
+    ''');
+  }
+
+  Future<void> _seedProfileProgressRowsForExistingProfiles(Database db) async {
+    final profiles = await db.query('profiles', columns: ['id']);
+    for (final profile in profiles) {
+      final id = profile['id'];
+      if (id is int) {
+        await _ensureProfileProgressRow(db, id);
+      }
+    }
+  }
+
+  Future<void> _ensureProfileProgressRow(Database db, int profileId) async {
+    await db.insert(
+      'profile_progress',
+      {
+        'profile_id': profileId,
+        'stars': 0,
+        'level': 1,
+        'badge_math_explorer': 0,
+        'badge_story_maker': 0,
+        'badge_ai_buddy': 0,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
   }
 
   // Helper method to create chat_messages table
@@ -482,7 +603,9 @@ class DatabaseService {
   // Profile CRUD operations
   Future<int> insertProfile(Profile profile) async {
     final db = await database;
-    return await db.insert('profiles', profile.toMap());
+    final id = await db.insert('profiles', profile.toMap());
+    await _ensureProfileProgressRow(db, id);
+    return id;
   }
 
   Future<List<Profile>> getProfiles() async {
@@ -535,6 +658,7 @@ class DatabaseService {
     required int timeLimit,
     required int numCorrect,
     required int timeUsed,
+    required int profileId,
   }) async {
     final db = await database;
     await db.insert('math_quiz_attempts', {
@@ -545,12 +669,164 @@ class DatabaseService {
       'time_limit': timeLimit,
       'num_correct': numCorrect,
       'time_used': timeUsed,
+      'profile_id': profileId,
     });
   }
 
-  Future<List<Map<String, dynamic>>> getMathQuizAttempts() async {
+  Future<List<Map<String, dynamic>>> getMathQuizAttempts({
+    required int profileId,
+  }) async {
     final db = await database;
-    return await db.query('math_quiz_attempts', orderBy: 'datetime DESC');
+    return await db.query(
+      'math_quiz_attempts',
+      where: 'profile_id = ?',
+      whereArgs: [profileId],
+      orderBy: 'datetime DESC',
+    );
+  }
+
+  Future<int> getMathQuizAttemptCount({required int profileId}) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM math_quiz_attempts WHERE profile_id = ?',
+      [profileId],
+    );
+    return (result.first['count'] as int?) ?? 0;
+  }
+
+  Future<double> getMathQuizAverageScorePercent(
+      {required int profileId}) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      '''
+      SELECT AVG(
+        CASE
+          WHEN num_questions > 0 THEN (num_correct * 100.0) / num_questions
+          ELSE 0
+        END
+      ) AS avg_score
+      FROM math_quiz_attempts
+      WHERE profile_id = ?
+      ''',
+      [profileId],
+    );
+    final value = result.first['avg_score'];
+    if (value == null) {
+      return 0;
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    return double.tryParse(value.toString()) ?? 0;
+  }
+
+  Future<Map<String, dynamic>> getProfileProgress(
+      {required int profileId}) async {
+    final db = await database;
+    await _ensureProfileProgressRow(db, profileId);
+    final rows = await db.query(
+      'profile_progress',
+      where: 'profile_id = ?',
+      whereArgs: [profileId],
+      limit: 1,
+    );
+
+    if (rows.isNotEmpty) {
+      return rows.first;
+    }
+
+    return {
+      'profile_id': profileId,
+      'stars': 0,
+      'level': 1,
+      'badge_math_explorer': 0,
+      'badge_story_maker': 0,
+      'badge_ai_buddy': 0,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+  }
+
+  Future<void> upsertProfileProgress({
+    required int profileId,
+    required int stars,
+    required int level,
+    required bool badgeMathExplorer,
+    required bool badgeStoryMaker,
+    required bool badgeAiBuddy,
+  }) async {
+    final db = await database;
+    await _ensureProfileProgressRow(db, profileId);
+    await db.update(
+      'profile_progress',
+      {
+        'stars': stars,
+        'level': level,
+        'badge_math_explorer': badgeMathExplorer ? 1 : 0,
+        'badge_story_maker': badgeStoryMaker ? 1 : 0,
+        'badge_ai_buddy': badgeAiBuddy ? 1 : 0,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'profile_id = ?',
+      whereArgs: [profileId],
+    );
+  }
+
+  Future<List<int>> getWeeklyLearningActivityCounts({
+    required int profileId,
+    int days = 7,
+  }) async {
+    final db = await database;
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day).subtract(
+      Duration(days: days - 1),
+    );
+    final startIso = start.toIso8601String();
+
+    final dayCounts = <String, int>{};
+
+    final mathRows = await db.rawQuery(
+      '''
+      SELECT substr(datetime, 1, 10) AS day, COUNT(*) AS count
+      FROM math_quiz_attempts
+      WHERE profile_id = ? AND datetime >= ?
+      GROUP BY substr(datetime, 1, 10)
+      ''',
+      [profileId, startIso],
+    );
+
+    for (final row in mathRows) {
+      final day = row['day'] as String?;
+      final count = row['count'];
+      if (day == null) continue;
+      dayCounts[day] =
+          (dayCounts[day] ?? 0) + (count is num ? count.toInt() : 0);
+    }
+
+    final chatRows = await db.rawQuery(
+      '''
+      SELECT substr(timestamp, 1, 10) AS day, COUNT(*) AS count
+      FROM chat_messages
+      WHERE profile_id = ? AND timestamp >= ?
+      GROUP BY substr(timestamp, 1, 10)
+      ''',
+      [profileId, startIso],
+    );
+
+    for (final row in chatRows) {
+      final day = row['day'] as String?;
+      final count = row['count'];
+      if (day == null) continue;
+      dayCounts[day] =
+          (dayCounts[day] ?? 0) + (count is num ? count.toInt() : 0);
+    }
+
+    final series = <int>[];
+    for (int index = 0; index < days; index++) {
+      final day = start.add(Duration(days: index));
+      final key = day.toIso8601String().substring(0, 10);
+      series.add(dayCounts[key] ?? 0);
+    }
+    return series;
   }
 
   // Story CRUD operations
@@ -559,22 +835,45 @@ class DatabaseService {
     return await db.insert('stories', story.toMap());
   }
 
-  Future<int> updateStory(Story story) async {
+  Future<List<Story>> getStories({required int profileId}) async {
+    final db = await database;
+    final rows = await db.query(
+      'stories',
+      where: 'is_user_created = 0 OR profile_id = ?',
+      whereArgs: [profileId],
+    );
+    return rows.map(Story.fromMap).toList();
+  }
+
+  Future<int> getUserCreatedStoryCount({required int profileId}) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      '''
+      SELECT COUNT(*) AS count
+      FROM stories
+      WHERE is_user_created = 1 AND profile_id = ?
+      ''',
+      [profileId],
+    );
+    return (result.first['count'] as int?) ?? 0;
+  }
+
+  Future<int> updateStory(Story story, {required int profileId}) async {
     final db = await database;
     return await db.update(
       'stories',
       story.toMap(),
-      where: 'id = ?',
-      whereArgs: [story.id],
+      where: 'id = ? AND profile_id = ?',
+      whereArgs: [story.id, profileId],
     );
   }
 
-  Future<int> deleteStory(int id) async {
+  Future<int> deleteStory(int id, {required int profileId}) async {
     final db = await database;
     return await db.delete(
       'stories',
-      where: 'id = ?',
-      whereArgs: [id],
+      where: 'id = ? AND profile_id = ?',
+      whereArgs: [id, profileId],
     );
   }
 
@@ -594,7 +893,8 @@ class DatabaseService {
     );
   }
 
-  Future<List<ChatMessage>> getChatMessages({int? profileId, int limit = 100}) async {
+  Future<List<ChatMessage>> getChatMessages(
+      {int? profileId, int limit = 100}) async {
     final db = await database;
     final List<Map<String, dynamic>> maps;
 
@@ -614,8 +914,18 @@ class DatabaseService {
       );
     }
 
-    final messages = List.generate(maps.length, (i) => ChatMessage.fromMap(maps[i]));
+    final messages =
+        List.generate(maps.length, (i) => ChatMessage.fromMap(maps[i]));
     return messages.reversed.toList(); // Return in chronological order
+  }
+
+  Future<int> getChatMessageCount({required int profileId}) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) AS count FROM chat_messages WHERE profile_id = ?',
+      [profileId],
+    );
+    return (result.first['count'] as int?) ?? 0;
   }
 
   Future<int> deleteAllChatMessages({int? profileId}) async {
@@ -665,18 +975,19 @@ class DatabaseService {
       final db = await database;
 
       // Check if chat_messages table exists
-      final tableCheck = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='chat_messages'");
+      final tableCheck = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='chat_messages'");
 
       if (tableCheck.isEmpty) {
-        print('chat_messages table missing, resetting database');
+        debugPrint('chat_messages table missing, resetting database');
         await resetDatabase();
         return true;
       }
 
-      print('Database integrity check passed');
+      debugPrint('Database integrity check passed');
       return false;
     } catch (e) {
-      print('Error checking database: $e');
+      debugPrint('Error checking database: $e');
       await resetDatabase();
       return true;
     }
@@ -695,12 +1006,12 @@ class DatabaseService {
       String path = join(await getDatabasesPath(), 'mm_learning_lab.db');
       await databaseFactory.deleteDatabase(path);
 
-      print('Database deleted, will be recreated on next access');
+      debugPrint('Database deleted, will be recreated on next access');
 
       // Reinitialize database (this will trigger onCreate)
       _database = await _initDatabase();
     } catch (e) {
-      print('Error resetting database: $e');
+      debugPrint('Error resetting database: $e');
     }
   }
 }

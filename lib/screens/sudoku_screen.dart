@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'dart:math' as math;
 
 class SudokuScreen extends StatefulWidget {
@@ -52,7 +51,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
     puzzle = _createPuzzleFromSolution(solution, difficulty);
 
     // Track which cells are fixed (given) and which have errors
-    isFixed = List.generate(9, (i) => List.generate(9, (j) => puzzle[i][j] != 0));
+    isFixed =
+        List.generate(9, (i) => List.generate(9, (j) => puzzle[i][j] != 0));
     isError = List.generate(9, (i) => List.generate(9, (j) => false));
 
     selectedRow = null;
@@ -92,8 +92,10 @@ class _SudokuScreenState extends State<SudokuScreen> {
     return true;
   }
 
-  List<List<int>> _createPuzzleFromSolution(List<List<int>> solution, SudokuDifficulty difficulty) {
-    List<List<int>> puzzle = solution.map((row) => List<int>.from(row)).toList();
+  List<List<int>> _createPuzzleFromSolution(
+      List<List<int>> solution, SudokuDifficulty difficulty) {
+    List<List<int>> puzzle =
+        solution.map((row) => List<int>.from(row)).toList();
 
     int cellsToRemove;
     switch (difficulty) {
@@ -239,12 +241,17 @@ class _SudokuScreenState extends State<SudokuScreen> {
     final isLandscape = screenSize.width > screenSize.height;
 
     // More accurate tablet detection
-    final shortestSide = screenSize.width < screenSize.height ? screenSize.width : screenSize.height;
-    final isTablet = shortestSide > 600 || (shortestSide > 500 && devicePixelRatio < 2.5);
-    final isSmallPhoneLandscape = isLandscape && !isTablet && screenSize.height < 380;
+    final shortestSide = screenSize.width < screenSize.height
+        ? screenSize.width
+        : screenSize.height;
+    final isTablet =
+        shortestSide > 600 || (shortestSide > 500 && devicePixelRatio < 2.5);
+    final isSmallPhoneLandscape =
+        isLandscape && !isTablet && screenSize.height < 380;
 
     // Debug print to see what's happening
-    print('Sudoku Screen - Width: ${screenSize.width}, Height: ${screenSize.height}, shortestSide: $shortestSide, devicePixelRatio: $devicePixelRatio, isLandscape: $isLandscape, isTablet: $isTablet');
+    debugPrint(
+        'Sudoku Screen - Width: ${screenSize.width}, Height: ${screenSize.height}, shortestSide: $shortestSide, devicePixelRatio: $devicePixelRatio, isLandscape: $isLandscape, isTablet: $isTablet');
 
     return Scaffold(
       body: Container(
@@ -256,7 +263,9 @@ class _SudokuScreenState extends State<SudokuScreen> {
           ),
         ),
         child: SafeArea(
-          child: isLandscape ? _buildLandscapeLayout(isTablet, isSmallPhoneLandscape) : _buildPortraitLayout(isTablet),
+          child: isLandscape
+              ? _buildLandscapeLayout(isTablet, isSmallPhoneLandscape)
+              : _buildPortraitLayout(isTablet),
         ),
       ),
     );
@@ -271,17 +280,22 @@ class _SudokuScreenState extends State<SudokuScreen> {
             children: [
               // Left panel: Expanded controls to better utilize space
               Container(
-                width: isTablet ? 280.0 : (isSmallPhoneLandscape ? 200.0 : 240.0),
+                width:
+                    isTablet ? 280.0 : (isSmallPhoneLandscape ? 200.0 : 240.0),
                 padding: EdgeInsets.symmetric(
-                  horizontal: isTablet ? 16.0 : (isSmallPhoneLandscape ? 8.0 : 12.0),
-                  vertical: isTablet ? 12.0 : (isSmallPhoneLandscape ? 6.0 : 8.0),
+                  horizontal:
+                      isTablet ? 16.0 : (isSmallPhoneLandscape ? 8.0 : 12.0),
+                  vertical:
+                      isTablet ? 12.0 : (isSmallPhoneLandscape ? 6.0 : 8.0),
                 ),
-                child: _buildLandscapeControlsPanel(isTablet, isSmallPhoneLandscape),
+                child: _buildLandscapeControlsPanel(
+                    isTablet, isSmallPhoneLandscape),
               ),
               // Right panel: Game board
               Expanded(
                 child: Padding(
-                  padding: EdgeInsets.all(isTablet ? 12.0 : (isSmallPhoneLandscape ? 6.0 : 8.0)),
+                  padding: EdgeInsets.all(
+                      isTablet ? 12.0 : (isSmallPhoneLandscape ? 6.0 : 8.0)),
                   child: _buildGameBoard(isTablet, isSmallPhoneLandscape, true),
                 ),
               ),
@@ -294,7 +308,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
 
   Widget _buildPortraitLayout(bool isTablet) {
     final screenSize = MediaQuery.of(context).size;
-    final hasEnoughHeightForSideBySide = screenSize.height > 700; // Ensure enough height for side-by-side
+    final hasEnoughHeightForSideBySide =
+        screenSize.height > 700; // Ensure enough height for side-by-side
 
     if (isTablet && hasEnoughHeightForSideBySide) {
       // iPad: Use side-by-side layout for better space utilization
@@ -361,7 +376,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
   }
 
   Widget _buildHeader(bool isTablet, bool isSmallPhoneLandscape) {
-    final headerPadding = isTablet ? 20.0 : (isSmallPhoneLandscape ? 8.0 : 12.0);
+    final headerPadding =
+        isTablet ? 20.0 : (isSmallPhoneLandscape ? 8.0 : 12.0);
     final titleSize = isTablet ? 32.0 : (isSmallPhoneLandscape ? 20.0 : 28.0);
     final iconSize = isTablet ? 24.0 : (isSmallPhoneLandscape ? 16.0 : 20.0);
     final buttonPadding = isTablet ? 12.0 : (isSmallPhoneLandscape ? 6.0 : 8.0);
@@ -385,7 +401,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
                 ],
               ),
               padding: EdgeInsets.all(buttonPadding),
-              child: Icon(Icons.arrow_back_rounded, color: Colors.white, size: iconSize),
+              child: Icon(Icons.arrow_back_rounded,
+                  color: Colors.white, size: iconSize),
             ),
           ),
           Expanded(
@@ -417,7 +434,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
                 ],
               ),
               padding: EdgeInsets.all(buttonPadding),
-              child: Icon(Icons.help_outline, color: Colors.white, size: iconSize),
+              child:
+                  Icon(Icons.help_outline, color: Colors.white, size: iconSize),
             ),
           ),
         ],
@@ -430,14 +448,15 @@ class _SudokuScreenState extends State<SudokuScreen> {
     final padding = isTablet ? 16.0 : (isSmallPhoneLandscape ? 8.0 : 12.0);
 
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: padding, vertical: padding * 0.5),
+      margin:
+          EdgeInsets.symmetric(horizontal: padding, vertical: padding * 0.5),
       padding: EdgeInsets.all(padding * 0.75),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -454,9 +473,12 @@ class _SudokuScreenState extends State<SudokuScreen> {
                 child: Wrap(
                   spacing: 6,
                   children: [
-                    _buildDifficultyChip('Easy', SudokuDifficulty.easy, fontSize),
-                    _buildDifficultyChip('Medium', SudokuDifficulty.medium, fontSize),
-                    _buildDifficultyChip('Hard', SudokuDifficulty.hard, fontSize),
+                    _buildDifficultyChip(
+                        'Easy', SudokuDifficulty.easy, fontSize),
+                    _buildDifficultyChip(
+                        'Medium', SudokuDifficulty.medium, fontSize),
+                    _buildDifficultyChip(
+                        'Hard', SudokuDifficulty.hard, fontSize),
                   ],
                 ),
               ),
@@ -465,7 +487,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF43C465),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   padding: EdgeInsets.symmetric(
                     horizontal: padding,
                     vertical: padding * 0.5,
@@ -492,7 +515,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
             children: [
               _buildStatItem('Filled', '${_getFilledCells()}/81', fontSize),
               Container(width: 1, height: 20, color: Colors.grey[300]),
-              _buildStatItem('Mistakes', '$mistakes/$maxMistakes', fontSize, mistakes >= maxMistakes ? Colors.red : null),
+              _buildStatItem('Mistakes', '$mistakes/$maxMistakes', fontSize,
+                  mistakes >= maxMistakes ? Colors.red : null),
               if (isCompleted) ...[
                 Container(width: 1, height: 20, color: Colors.grey[300]),
                 Text(
@@ -512,7 +536,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
     );
   }
 
-  Widget _buildStatItem(String label, String value, double fontSize, [Color? valueColor]) {
+  Widget _buildStatItem(String label, String value, double fontSize,
+      [Color? valueColor]) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -536,7 +561,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
     );
   }
 
-  Widget _buildLandscapeControlsPanel(bool isTablet, bool isSmallPhoneLandscape) {
+  Widget _buildLandscapeControlsPanel(
+      bool isTablet, bool isSmallPhoneLandscape) {
     final fontSize = isTablet ? 14.0 : (isSmallPhoneLandscape ? 10.0 : 12.0);
     final spacing = isTablet ? 12.0 : (isSmallPhoneLandscape ? 6.0 : 8.0);
 
@@ -546,7 +572,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
         Container(
           padding: EdgeInsets.all(spacing * 0.75),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.9),
+            color: Colors.white.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
@@ -613,7 +639,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF43C465),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
                         padding: EdgeInsets.symmetric(
                           horizontal: spacing * 0.5,
                           vertical: spacing * 0.6,
@@ -675,7 +702,9 @@ class _SudokuScreenState extends State<SudokuScreen> {
                         style: TextStyle(
                           fontSize: fontSize,
                           fontWeight: FontWeight.bold,
-                          color: mistakes >= maxMistakes ? Colors.red : const Color(0xFF8E6CFF),
+                          color: mistakes >= maxMistakes
+                              ? Colors.red
+                              : const Color(0xFF8E6CFF),
                         ),
                       ),
                     ],
@@ -689,13 +718,15 @@ class _SudokuScreenState extends State<SudokuScreen> {
 
         // Expanded number pad to fill remaining space
         Expanded(
-          child: _buildCompactLandscapeNumberPad(isTablet, isSmallPhoneLandscape),
+          child:
+              _buildCompactLandscapeNumberPad(isTablet, isSmallPhoneLandscape),
         ),
       ],
     );
   }
 
-  Widget _buildDifficultyChip(String label, SudokuDifficulty value, double fontSize) {
+  Widget _buildDifficultyChip(
+      String label, SudokuDifficulty value, double fontSize) {
     return ChoiceChip(
       label: Text(
         label,
@@ -719,7 +750,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
     );
   }
 
-  Widget _buildGameBoard(bool isTablet, bool isSmallPhoneLandscape, bool isLandscape) {
+  Widget _buildGameBoard(
+      bool isTablet, bool isSmallPhoneLandscape, bool isLandscape) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxSize = math.min(constraints.maxWidth, constraints.maxHeight);
@@ -751,7 +783,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withValues(alpha: 0.2),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -794,9 +826,9 @@ class _SudokuScreenState extends State<SudokuScreen> {
         child: Container(
           decoration: BoxDecoration(
             color: hasError
-                ? Colors.red.withOpacity(0.3)
+                ? Colors.red.withValues(alpha: 0.3)
                 : isSelected
-                    ? const Color(0xFF8E6CFF).withOpacity(0.3)
+                    ? const Color(0xFF8E6CFF).withValues(alpha: 0.3)
                     : Colors.transparent,
           ),
           child: Center(
@@ -817,6 +849,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildLandscapeNumberPad(bool isTablet, bool isSmallPhoneLandscape) {
     final buttonSize = isTablet ? 32.0 : (isSmallPhoneLandscape ? 24.0 : 28.0);
     final fontSize = isTablet ? 16.0 : (isSmallPhoneLandscape ? 12.0 : 14.0);
@@ -825,11 +858,11 @@ class _SudokuScreenState extends State<SudokuScreen> {
     return Container(
       padding: EdgeInsets.all(spacing * 0.5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -864,7 +897,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF8E6CFF).withOpacity(0.3),
+                            color:
+                                const Color(0xFF8E6CFF).withValues(alpha: 0.3),
                             blurRadius: 3,
                             offset: const Offset(0, 1),
                           ),
@@ -892,20 +926,20 @@ class _SudokuScreenState extends State<SudokuScreen> {
     );
   }
 
-  Widget _buildCompactLandscapeNumberPad(bool isTablet, bool isSmallPhoneLandscape) {
+  Widget _buildCompactLandscapeNumberPad(
+      bool isTablet, bool isSmallPhoneLandscape) {
     if (isTablet) {
       // iPad landscape: Better proportioned number pad
       return _buildTabletLandscapeNumberPad();
     } else {
       // Phone landscape: Keep compact design
-      final buttonSize = isSmallPhoneLandscape ? 32.0 : 38.0;
       final fontSize = isSmallPhoneLandscape ? 14.0 : 16.0;
       final spacing = isSmallPhoneLandscape ? 5.0 : 7.0;
 
       return Container(
         padding: EdgeInsets.all(spacing * 0.5),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
+          color: Colors.white.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
@@ -933,7 +967,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
                             final number = rowIndex * 3 + colIndex + 1;
                             return Expanded(
                               child: Padding(
-                                padding: EdgeInsets.symmetric(horizontal: spacing * 0.2),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: spacing * 0.2),
                                 child: GestureDetector(
                                   onTap: () => _onNumberTap(number),
                                   child: Container(
@@ -942,7 +977,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
                                       borderRadius: BorderRadius.circular(8),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: const Color(0xFF8E6CFF).withOpacity(0.3),
+                                          color: const Color(0xFF8E6CFF)
+                                              .withValues(alpha: 0.3),
                                           blurRadius: 4,
                                           offset: const Offset(0, 2),
                                         ),
@@ -985,11 +1021,11 @@ class _SudokuScreenState extends State<SudokuScreen> {
     return Container(
       padding: EdgeInsets.all(spacing),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -1024,7 +1060,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF8E6CFF).withOpacity(0.3),
+                            color:
+                                const Color(0xFF8E6CFF).withValues(alpha: 0.3),
                             blurRadius: 6,
                             offset: const Offset(0, 3),
                           ),
@@ -1081,7 +1118,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF8E6CFF).withOpacity(0.3),
+                          color: const Color(0xFF8E6CFF).withValues(alpha: 0.3),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -1135,7 +1172,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF8E6CFF).withOpacity(0.3),
+                            color:
+                                const Color(0xFF8E6CFF).withValues(alpha: 0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),
@@ -1171,11 +1209,11 @@ class _SudokuScreenState extends State<SudokuScreen> {
     return Container(
       padding: EdgeInsets.all(spacing),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
+        color: Colors.white.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -1212,7 +1250,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF8E6CFF).withOpacity(0.3),
+                            color:
+                                const Color(0xFF8E6CFF).withValues(alpha: 0.3),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -1298,11 +1337,15 @@ class _SudokuScreenState extends State<SudokuScreen> {
                 ),
                 const SizedBox(height: 16),
                 _buildRuleItem('📋', 'Each row must contain all numbers 1-9'),
-                _buildRuleItem('📋', 'Each column must contain all numbers 1-9'),
-                _buildRuleItem('📦', 'Each 3×3 box must contain all numbers 1-9'),
-                _buildRuleItem('🎯', 'Tap a cell to select it, then tap a number'),
+                _buildRuleItem(
+                    '📋', 'Each column must contain all numbers 1-9'),
+                _buildRuleItem(
+                    '📦', 'Each 3×3 box must contain all numbers 1-9'),
+                _buildRuleItem(
+                    '🎯', 'Tap a cell to select it, then tap a number'),
                 _buildRuleItem('🔄', 'Tap the same cell twice to clear it'),
-                _buildRuleItem('⚠️', 'Mistake limits: Easy (5), Medium (4), Hard (3)'),
+                _buildRuleItem(
+                    '⚠️', 'Mistake limits: Easy (5), Medium (4), Hard (3)'),
                 const SizedBox(height: 18),
                 const Text(
                   'Tips: Start with cells that have fewer possibilities!',
@@ -1328,8 +1371,10 @@ class _SudokuScreenState extends State<SudokuScreen> {
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF8E6CFF),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 32, vertical: 12),
                   ),
                   onPressed: () => Navigator.pop(context),
                   child: const Text(

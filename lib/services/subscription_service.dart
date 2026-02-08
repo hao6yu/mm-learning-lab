@@ -4,7 +4,8 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Debug flag to bypass subscription validation for development
-const bool kBypassSubscriptionForDebug = false; // Set to true to bypass subscription checks
+const bool kBypassSubscriptionForDebug =
+    false; // Set to true to bypass subscription checks
 
 // Debug flag to ignore restored purchases for testing
 bool _debugIgnoreRestoredPurchases = false;
@@ -23,7 +24,10 @@ class SubscriptionService with ChangeNotifier {
   }
 
   // Product IDs
-  static const String monthlySubscriptionId = 'com.hyu.LearningLab.premium.monthly';
+  static const String monthlySubscriptionId =
+      'com.hyu.LearningLab.premium.monthly';
+  static const String _firstLaunchTimeKey = 'first_launch_time';
+  static const int _freeTrialDurationDays = 14;
 
   // Stream subscription for purchase updates
   late StreamSubscription<List<PurchaseDetails>> _subscription;
@@ -50,7 +54,8 @@ class SubscriptionService with ChangeNotifier {
   // Initialize the subscription service
   Future<void> _initialize() async {
     // Set up the in-app purchase listener
-    final Stream<List<PurchaseDetails>> purchaseUpdated = _inAppPurchase.purchaseStream;
+    final Stream<List<PurchaseDetails>> purchaseUpdated =
+        _inAppPurchase.purchaseStream;
 
     _subscription = purchaseUpdated.listen(
       _listenToPurchaseUpdated,
@@ -75,29 +80,32 @@ class SubscriptionService with ChangeNotifier {
   Future<void> _loadProducts() async {
     try {
       final Set<String> productIds = {monthlySubscriptionId};
-      final ProductDetailsResponse response = await _inAppPurchase.queryProductDetails(productIds);
+      final ProductDetailsResponse response =
+          await _inAppPurchase.queryProductDetails(productIds);
 
       if (response.notFoundIDs.isNotEmpty) {
-        print("Products not found: ${response.notFoundIDs}");
-        _errorMessage = "Some products could not be found: ${response.notFoundIDs.join(", ")}";
+        debugPrint("Products not found: ${response.notFoundIDs}");
+        _errorMessage =
+            "Some products could not be found: ${response.notFoundIDs.join(", ")}";
       }
 
       _products = response.productDetails;
-      print("Products loaded: ${_products.length}");
+      debugPrint("Products loaded: ${_products.length}");
 
       if (_products.isNotEmpty) {
         // Print product details for debugging
         for (var product in _products) {
-          print("Product: ${product.id} - ${product.title} - ${product.price}");
+          debugPrint(
+              "Product: ${product.id} - ${product.title} - ${product.price}");
         }
       } else {
-        print("No products found");
+        debugPrint("No products found");
         _errorMessage = "No subscription products found";
       }
 
       notifyListeners();
     } catch (e) {
-      print("Error loading products: $e");
+      debugPrint("Error loading products: $e");
       _errorMessage = "Error loading products: $e";
       notifyListeners();
     }
@@ -108,7 +116,7 @@ class SubscriptionService with ChangeNotifier {
     // Debug bypass - completely separate from production logic
     if (kBypassSubscriptionForDebug || _debugBypassActive) {
       _isSubscribed = true;
-      print("🧪 DEBUG: Subscription bypassed (debug mode active)");
+      debugPrint("🧪 DEBUG: Subscription bypassed (debug mode active)");
       // Do NOT call notifyListeners() here to avoid build errors during initialization
       return true;
     }
@@ -134,29 +142,61 @@ class SubscriptionService with ChangeNotifier {
         await prefs.setBool('isSubscribed', hasSubscription);
 
         if (familySharing && !validPurchase) {
-          print("✅ Subscription available through Family Sharing");
+          debugPrint("✅ Subscription available through Family Sharing");
         }
       }
 
       notifyListeners();
       return _isSubscribed;
     } catch (e) {
-      print("Error checking subscription status: $e");
+      debugPrint("Error checking subscription status: $e");
       return false;
     }
+  }
+
+  // Get remaining free-trial days (0 if expired)
+  Future<int> getDaysLeftInTrial() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    int? firstLaunchTime = prefs.getInt(_firstLaunchTimeKey);
+    if (firstLaunchTime == null) {
+      firstLaunchTime = DateTime.now().millisecondsSinceEpoch;
+      await prefs.setInt(_firstLaunchTimeKey, firstLaunchTime);
+      return _freeTrialDurationDays;
+    }
+
+    final firstLaunchDate =
+        DateTime.fromMillisecondsSinceEpoch(firstLaunchTime);
+    final elapsedDays = DateTime.now().difference(firstLaunchDate).inDays;
+    final daysRemaining = _freeTrialDurationDays - elapsedDays;
+
+    return daysRemaining > 0 ? daysRemaining : 0;
+  }
+
+  Future<bool> isInFreeTrial() async {
+    return (await getDaysLeftInTrial()) > 0;
+  }
+
+  // Single source of truth for whether app access should be granted.
+  Future<bool> hasActiveAccess({bool refreshSubscription = true}) async {
+    final isSubscribed =
+        refreshSubscription ? await checkSubscriptionStatus() : _isSubscribed;
+    if (isSubscribed) return true;
+    return isInFreeTrial();
   }
 
   // Check for Family Sharing subscription access (Better approach)
   Future<bool> _checkFamilySharing() async {
     try {
-      print("🔍 Checking subscription entitlements...");
+      debugPrint("🔍 Checking subscription entitlements...");
 
       // Check if we have any stored family sharing status first
       final prefs = await SharedPreferences.getInstance();
-      final familySharedStatus = prefs.getBool('familySharedSubscription') ?? false;
+      final familySharedStatus =
+          prefs.getBool('familySharedSubscription') ?? false;
 
       if (familySharedStatus) {
-        print("✅ Family Sharing status found in storage");
+        debugPrint("✅ Family Sharing status found in storage");
         return true;
       }
 
@@ -172,7 +212,7 @@ class SubscriptionService with ChangeNotifier {
 
       return false;
     } catch (e) {
-      print("Error checking subscription entitlements: $e");
+      debugPrint("Error checking subscription entitlements: $e");
       return false;
     }
   }
@@ -182,20 +222,20 @@ class SubscriptionService with ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('familySharedSubscription', true);
-      print("✅ Marked subscription as Family Shared");
+      debugPrint("✅ Marked subscription as Family Shared");
     } catch (e) {
-      print("Error marking as family shared: $e");
+      debugPrint("Error marking as family shared: $e");
     }
   }
 
   // Verify previous purchases
   Future<bool> _verifyPreviousPurchases() async {
     try {
-      print("Verifying previous purchases...");
+      debugPrint("Verifying previous purchases...");
 
       // On iOS, we need to check previous purchases
-      final response = await _inAppPurchase.restorePurchases();
-      print("Restore purchases completed");
+      await _inAppPurchase.restorePurchases();
+      debugPrint("Restore purchases completed");
 
       // The response doesn't actually contain purchases on iOS
       // The purchases come through the purchaseStream listener
@@ -205,7 +245,7 @@ class SubscriptionService with ChangeNotifier {
 
       return _isSubscribed;
     } catch (e) {
-      print("Error verifying previous purchases: $e");
+      debugPrint("Error verifying previous purchases: $e");
       return false;
     }
   }
@@ -225,21 +265,22 @@ class SubscriptionService with ChangeNotifier {
         orElse: () => throw Exception("Monthly subscription product not found"),
       );
 
-      print("Starting purchase for: ${productDetails.id}");
+      debugPrint("Starting purchase for: ${productDetails.id}");
 
       final PurchaseParam purchaseParam = PurchaseParam(
         productDetails: productDetails,
       );
 
       // This is a subscription, so use buyNonConsumable
-      final bool success = await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
+      final bool success =
+          await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
 
       if (!success) {
         _errorMessage = "Failed to initiate purchase. Please try again.";
         notifyListeners();
       }
     } catch (e) {
-      print("Error starting subscription: $e");
+      debugPrint("Error starting subscription: $e");
       _errorMessage = "Error starting subscription: $e";
       notifyListeners();
       rethrow; // Rethrow to handle in the UI
@@ -247,27 +288,34 @@ class SubscriptionService with ChangeNotifier {
   }
 
   // Listen to purchase updates
-  void _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) async {
-    print("Purchase update received: ${purchaseDetailsList.length} purchases");
+  void _listenToPurchaseUpdated(
+      List<PurchaseDetails> purchaseDetailsList) async {
+    debugPrint(
+        "Purchase update received: ${purchaseDetailsList.length} purchases");
 
     for (final PurchaseDetails purchaseDetails in purchaseDetailsList) {
-      print("Purchase status: ${purchaseDetails.status} for ${purchaseDetails.productID}");
+      debugPrint(
+          "Purchase status: ${purchaseDetails.status} for ${purchaseDetails.productID}");
 
       if (purchaseDetails.status == PurchaseStatus.pending) {
         // Show loading UI
-        print("Purchase is pending");
+        debugPrint("Purchase is pending");
       } else if (purchaseDetails.status == PurchaseStatus.error) {
         // Handle the error - check for Family Sharing
-        print("Purchase error: ${purchaseDetails.error}");
+        debugPrint("Purchase error: ${purchaseDetails.error}");
 
-        final errorMessage = purchaseDetails.error?.message?.toLowerCase() ?? '';
+        final errorMessage = purchaseDetails.error?.message.toLowerCase() ?? '';
         final errorCode = purchaseDetails.error?.code ?? '';
 
         // Check if this error indicates Family Sharing
         // NOTE: This is a workaround for StoreKit 1 limitations in Flutter
         // For production apps, consider server-side receipt validation
-        if (errorMessage.contains('family') || errorMessage.contains('shared') || errorMessage.contains('already purchased') || errorMessage.contains('member') || errorCode.contains('AlreadyOwned')) {
-          print("✅ Family Sharing detected - granting access");
+        if (errorMessage.contains('family') ||
+            errorMessage.contains('shared') ||
+            errorMessage.contains('already purchased') ||
+            errorMessage.contains('member') ||
+            errorCode.contains('AlreadyOwned')) {
+          debugPrint("✅ Family Sharing detected - granting access");
 
           // Grant subscription access through Family Sharing
           _isSubscribed = true;
@@ -285,15 +333,18 @@ class SubscriptionService with ChangeNotifier {
           notifyListeners();
         } else {
           // This is a real error
-          _errorMessage = "Purchase error: ${purchaseDetails.error?.message ?? 'Unknown error'}";
+          _errorMessage =
+              "Purchase error: ${purchaseDetails.error?.message ?? 'Unknown error'}";
           notifyListeners();
         }
-      } else if (purchaseDetails.status == PurchaseStatus.purchased || purchaseDetails.status == PurchaseStatus.restored) {
+      } else if (purchaseDetails.status == PurchaseStatus.purchased ||
+          purchaseDetails.status == PurchaseStatus.restored) {
         // Check if this is our monthly subscription
         if (purchaseDetails.productID == monthlySubscriptionId) {
           // Skip restored purchases if we're in debug ignore mode
-          if (purchaseDetails.status == PurchaseStatus.restored && _debugIgnoreRestoredPurchases) {
-            print("🧪 DEBUG: Ignoring restored purchase for testing");
+          if (purchaseDetails.status == PurchaseStatus.restored &&
+              _debugIgnoreRestoredPurchases) {
+            debugPrint("🧪 DEBUG: Ignoring restored purchase for testing");
             return;
           }
           // Validate the purchase
@@ -303,7 +354,7 @@ class SubscriptionService with ChangeNotifier {
 
       // Complete the purchase - important!
       if (purchaseDetails.pendingCompletePurchase) {
-        print("Completing purchase for ${purchaseDetails.productID}");
+        debugPrint("Completing purchase for ${purchaseDetails.productID}");
         await _inAppPurchase.completePurchase(purchaseDetails);
       }
     }
@@ -312,7 +363,7 @@ class SubscriptionService with ChangeNotifier {
   // Handle a valid purchase
   Future<void> _handleValidPurchase(PurchaseDetails purchaseDetails) async {
     try {
-      print("Handling valid purchase for ${purchaseDetails.productID}");
+      debugPrint("Handling valid purchase for ${purchaseDetails.productID}");
 
       // For a real app, you might want to do additional validation here
       // For example, checking with Apple's server to verify the receipt
@@ -324,14 +375,14 @@ class SubscriptionService with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isSubscribed', true);
 
-      print("Subscription activated");
+      debugPrint("Subscription activated");
 
       // Clear any error message
       _errorMessage = null;
 
       notifyListeners();
     } catch (e) {
-      print("Error handling purchase: $e");
+      debugPrint("Error handling purchase: $e");
       _errorMessage = "Error processing purchase: $e";
       notifyListeners();
     }
@@ -340,7 +391,7 @@ class SubscriptionService with ChangeNotifier {
   // Developer testing methods - completely reset subscription state
   Future<void> resetSubscriptionForTesting() async {
     try {
-      print("🧪 DEBUG: Resetting subscription for testing...");
+      debugPrint("🧪 DEBUG: Resetting subscription for testing...");
 
       // 1. Enable debug mode to ignore restored purchases
       _debugIgnoreRestoredPurchases = true;
@@ -352,12 +403,14 @@ class SubscriptionService with ChangeNotifier {
       // 3. Clear persistent storage
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('isSubscribed');
-      await prefs.remove('familySharedSubscription'); // Clear family sharing status too
+      await prefs.remove(
+          'familySharedSubscription'); // Clear family sharing status too
       await prefs.clear(); // Clear all preferences for thorough reset
 
-      print("🧪 DEBUG: Subscription state reset complete");
-      print("🧪 DEBUG: isSubscribed = $_isSubscribed");
-      print("🧪 DEBUG: Debug ignore mode enabled = $_debugIgnoreRestoredPurchases");
+      debugPrint("🧪 DEBUG: Subscription state reset complete");
+      debugPrint("🧪 DEBUG: isSubscribed = $_isSubscribed");
+      debugPrint(
+          "🧪 DEBUG: Debug ignore mode enabled = $_debugIgnoreRestoredPurchases");
 
       // 4. Notify listeners to update UI
       notifyListeners();
@@ -365,7 +418,7 @@ class SubscriptionService with ChangeNotifier {
       // 5. Small delay to ensure state is fully reset
       await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
-      print("🧪 DEBUG: Error resetting subscription: $e");
+      debugPrint("🧪 DEBUG: Error resetting subscription: $e");
       _errorMessage = "Debug reset error: $e";
       notifyListeners();
     }
@@ -374,8 +427,9 @@ class SubscriptionService with ChangeNotifier {
   // Force re-check subscription status (useful after reset)
   Future<void> forceRefreshSubscriptionStatus() async {
     try {
-      print("🧪 DEBUG: Force refreshing subscription status...");
-      print("🧪 DEBUG: Debug ignore mode = $_debugIgnoreRestoredPurchases");
+      debugPrint("🧪 DEBUG: Force refreshing subscription status...");
+      debugPrint(
+          "🧪 DEBUG: Debug ignore mode = $_debugIgnoreRestoredPurchases");
 
       // Reset state first
       _isSubscribed = false;
@@ -383,25 +437,28 @@ class SubscriptionService with ChangeNotifier {
       // Check with Apple again (will ignore restored purchases if debug flag is set)
       await checkSubscriptionStatus();
 
-      print("🧪 DEBUG: Force refresh complete, isSubscribed = $_isSubscribed");
+      debugPrint(
+          "🧪 DEBUG: Force refresh complete, isSubscribed = $_isSubscribed");
     } catch (e) {
-      print("🧪 DEBUG: Error force refreshing: $e");
+      debugPrint("🧪 DEBUG: Error force refreshing: $e");
     }
   }
 
   // Re-enable normal subscription checking (turn off debug mode)
   Future<void> enableNormalSubscriptionChecking() async {
-    print("🧪 DEBUG: Re-enabling normal subscription checking...");
+    debugPrint("🧪 DEBUG: Re-enabling normal subscription checking...");
     _debugIgnoreRestoredPurchases = false;
     await checkSubscriptionStatus();
-    print("🧪 DEBUG: Normal subscription checking restored, isSubscribed = $_isSubscribed");
+    debugPrint(
+        "🧪 DEBUG: Normal subscription checking restored, isSubscribed = $_isSubscribed");
   }
 
   // Debug method to temporarily bypass subscription validation
   Future<void> debugSkipSubscription() async {
     try {
-      print("🧪 DEBUG: Bypassing subscription validation for testing...");
-      print("🧪 DEBUG: This does NOT affect production subscription logic!");
+      debugPrint("🧪 DEBUG: Bypassing subscription validation for testing...");
+      debugPrint(
+          "🧪 DEBUG: This does NOT affect production subscription logic!");
 
       // Set debug bypass flag (does NOT modify production SharedPreferences)
       _debugBypassActive = true;
@@ -412,13 +469,15 @@ class SubscriptionService with ChangeNotifier {
       // Clear any existing error messages
       _errorMessage = null;
 
-      print("🧪 DEBUG: Debug bypass activated - isSubscribed = $_isSubscribed");
-      print("🧪 DEBUG: Production subscription validation remains unchanged");
+      debugPrint(
+          "🧪 DEBUG: Debug bypass activated - isSubscribed = $_isSubscribed");
+      debugPrint(
+          "🧪 DEBUG: Production subscription validation remains unchanged");
 
       // Notify listeners to update UI
       notifyListeners();
     } catch (e) {
-      print("🧪 DEBUG: Error activating debug bypass: $e");
+      debugPrint("🧪 DEBUG: Error activating debug bypass: $e");
       _errorMessage = "Debug bypass error: $e";
       notifyListeners();
       rethrow;
@@ -428,7 +487,8 @@ class SubscriptionService with ChangeNotifier {
   // Debug method to clear debug bypass and restore normal subscription checking
   Future<void> debugClearBypass() async {
     try {
-      print("🧪 DEBUG: Clearing debug bypass - restoring normal subscription validation...");
+      debugPrint(
+          "🧪 DEBUG: Clearing debug bypass - restoring normal subscription validation...");
 
       // Clear debug bypass flag
       _debugBypassActive = false;
@@ -439,10 +499,11 @@ class SubscriptionService with ChangeNotifier {
       // Re-check actual subscription status from production logic
       await checkSubscriptionStatus();
 
-      print("🧪 DEBUG: Debug bypass cleared - normal subscription checking restored");
-      print("🧪 DEBUG: Current subscription status: $_isSubscribed");
+      debugPrint(
+          "🧪 DEBUG: Debug bypass cleared - normal subscription checking restored");
+      debugPrint("🧪 DEBUG: Current subscription status: $_isSubscribed");
     } catch (e) {
-      print("🧪 DEBUG: Error clearing debug bypass: $e");
+      debugPrint("🧪 DEBUG: Error clearing debug bypass: $e");
       _errorMessage = "Error clearing debug bypass: $e";
       notifyListeners();
     }

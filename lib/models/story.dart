@@ -8,6 +8,7 @@ class Story {
   final String? wordOfDay;
   final bool isUserCreated;
   final String? audioPath;
+  final int? profileId;
 
   Story({
     this.id,
@@ -19,6 +20,7 @@ class Story {
     this.wordOfDay,
     this.isUserCreated = false,
     this.audioPath,
+    this.profileId,
   });
 
   Map<String, dynamic> toMap() {
@@ -32,6 +34,7 @@ class Story {
       'word_of_day': wordOfDay,
       'is_user_created': isUserCreated ? 1 : 0,
       'audio_path': audioPath,
+      'profile_id': profileId,
     };
   }
 
@@ -46,6 +49,7 @@ class Story {
       wordOfDay: map['word_of_day'],
       isUserCreated: map['is_user_created'] == 1,
       audioPath: map['audio_path'],
+      profileId: map['profile_id'],
     );
   }
 
@@ -59,6 +63,7 @@ class Story {
     String? wordOfDay,
     bool? isUserCreated,
     String? audioPath,
+    int? profileId,
   }) {
     return Story(
       id: id ?? this.id,
@@ -70,6 +75,7 @@ class Story {
       wordOfDay: wordOfDay ?? this.wordOfDay,
       isUserCreated: isUserCreated ?? this.isUserCreated,
       audioPath: audioPath ?? this.audioPath,
+      profileId: profileId ?? this.profileId,
     );
   }
 }

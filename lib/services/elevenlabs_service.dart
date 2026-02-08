@@ -1,18 +1,28 @@
+import 'dart:convert';
 import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as path;
-import 'dart:convert';
 import 'package:just_audio/just_audio.dart';
-import 'dart:math';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
+
+import 'ai_proxy_config.dart';
 
 class ElevenLabsService {
-  static const String _baseUrl = 'https://api.elevenlabs.io/v1';
-  static String? _apiKey;
-  static String _voiceId = '9BWtsMINqrJLrRacOk9x'; // Default voice
+  static const String _directBaseUrl = 'https://api.elevenlabs.io/v1';
+  static const String _proxyBasePath = '/elevenlabs';
 
-  // Available voice options
+  static String? _apiKey;
+  static String _voiceId = '9BWtsMINqrJLrRacOk9x';
+  static AiProxyConfig _proxyConfig = AiProxyConfig(
+    baseUrl: null,
+    token: null,
+    requireProxy: kReleaseMode,
+    allowDirectFallback: !kReleaseMode,
+  );
+
   static final List<Map<String, String>> availableVoices = [
     {'id': '9BWtsMINqrJLrRacOk9x', 'name': 'Aria'},
     {'id': 'N2lVS1w4EtoT3dr4eOWO', 'name': 'Callum'},
@@ -21,195 +31,99 @@ class ElevenLabsService {
     {'id': 'x7Pz9CsHMAlHFwKlPxu8', 'name': 'Madeline'},
   ];
 
-  // Initialize with env variables or direct values
   static Future<void> initialize({String? apiKey, String? voiceId}) async {
     _apiKey = apiKey ?? dotenv.env['ELEVENLABS_API_KEY'];
-
-    // Fallback for testing - WARNING: Remove in production
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      _apiKey = 'YOUR_ELEVENLABS_API_KEY_HERE'; // Replace with your actual API key if needed
-      print('Warning: Using fallback ElevenLabs API key. Please set ELEVENLABS_API_KEY in .env file.');
-    }
-
     if (voiceId != null) {
       _voiceId = voiceId;
     }
+    _proxyConfig = AiProxyConfig.fromEnv();
   }
 
-  // Get the local directory for storing audio files
   Future<Directory> get _audioDirectory async {
-    try {
-      final appDir = await getApplicationDocumentsDirectory();
-      final audioDir = Directory('${appDir.path}/story_audio');
-      if (!await audioDir.exists()) {
-        await audioDir.create(recursive: true);
-      }
-      return audioDir;
-    } catch (e) {
-      print('Error getting audio directory: $e');
-      rethrow;
+    final appDir = await getApplicationDocumentsDirectory();
+    final audioDir = Directory('${appDir.path}/story_audio');
+    if (!await audioDir.exists()) {
+      await audioDir.create(recursive: true);
     }
+    return audioDir;
   }
 
-  // Generate audio file path for a story with specific voice
   Future<String> _getAudioFilePath(int storyId, {String? voiceId}) async {
-    try {
-      final audioDir = await _audioDirectory;
-      final effectiveVoiceId = voiceId ?? _voiceId;
-      return path.join(audioDir.path, 'story_${storyId}_voice_$effectiveVoiceId.mp3');
-    } catch (e) {
-      print('Error generating audio file path: $e');
-      rethrow;
-    }
+    final audioDir = await _audioDirectory;
+    final effectiveVoiceId = voiceId ?? _voiceId;
+    return path.join(
+        audioDir.path, 'story_${storyId}_voice_$effectiveVoiceId.mp3');
   }
 
-  // Check if audio file exists for a story with specific voice
   Future<bool> hasAudioFile(int storyId, {String? voiceId}) async {
     try {
       final filePath = await _getAudioFilePath(storyId, voiceId: voiceId);
       return File(filePath).exists();
-    } catch (e) {
-      print('Error checking audio file: $e');
+    } catch (_) {
       return false;
     }
   }
 
-  // Get available voices from ElevenLabs
   Future<List<Map<String, dynamic>>?> getVoices() async {
-    if (_apiKey == null) {
-      print('Error: ElevenLabs API key not found');
-      return null;
+    final proxyResponse = await _getVoicesViaProxy();
+    if (proxyResponse != null) {
+      return proxyResponse;
     }
 
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/voices'),
-        headers: {
-          'Accept': 'application/json',
-          'xi-api-key': _apiKey!,
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return List<Map<String, dynamic>>.from(data['voices']);
-      } else {
-        print('Error getting voices: ${response.statusCode} - ${response.body}');
-        return null;
+    if (_canCallDirectProvider) {
+      final directResponse = await _getVoicesViaDirect();
+      if (directResponse != null) {
+        return directResponse;
       }
-    } catch (e) {
-      print('Exception getting voices: $e');
-      return null;
     }
+
+    return availableVoices
+        .map((voice) => {
+              'voice_id': voice['id'],
+              'name': voice['name'],
+            })
+        .toList();
   }
 
-  // Set voice ID
   static void setVoiceId(String voiceId) {
     _voiceId = voiceId;
   }
 
-  // Get current voice ID
   static String getCurrentVoiceId() {
     return _voiceId;
   }
 
-  // Get voice name by ID
   static String getVoiceNameById(String voiceId) {
     final voice = availableVoices.firstWhere(
-      (voice) => voice['id'] == voiceId,
+      (item) => item['id'] == voiceId,
       orElse: () => {'id': voiceId, 'name': 'Unknown Voice'},
     );
     return voice['name']!;
   }
 
-  // Generate audio for a story using ElevenLabs API
-  Future<String?> generateAudio(String text, int storyId, {String? voiceId}) async {
-    print('======== ELEVENLABS SERVICE: GENERATE AUDIO ========');
-    print('Text length: ${text.length} characters');
-    print('Text preview: "${text.substring(0, min(50, text.length))}${text.length > 50 ? '...' : ''}"');
-    print('Story ID: $storyId');
-
+  Future<String?> generateAudio(String text, int storyId,
+      {String? voiceId}) async {
     final effectiveVoiceId = voiceId ?? _voiceId;
-    print('Voice ID: $effectiveVoiceId (${getVoiceNameById(effectiveVoiceId)})');
+    final bytes = await _generateAudioBytes(
+      text: text,
+      voiceId: effectiveVoiceId,
+      voiceSettings: const {
+        'stability': 0.35,
+        'similarity_boost': 1.00,
+        'style': 0,
+        'use_speaker_boost': true,
+      },
+      withTimestamps: false,
+    );
+    if (bytes == null) return null;
 
-    try {
-      // Check if API key is available
-      if (_apiKey == null || _apiKey == 'YOUR_ELEVENLABS_API_KEY_HERE') {
-        print('⚠️ ElevenLabsService: No valid API key available. Creating placeholder file.');
-
-        // Create placeholder file so the app doesn't keep trying to generate
-        final filePath = await _getAudioFilePath(storyId, voiceId: effectiveVoiceId);
-        print('Creating placeholder file at: $filePath');
-        final file = File(filePath);
-        if (!await file.exists()) {
-          await file.create();
-          print('Placeholder file created');
-        } else {
-          print('Placeholder file already exists');
-        }
-
-        return filePath;
-      }
-
-      print('🔄 Sending request to ElevenLabs API endpoint: $_baseUrl/text-to-speech/$effectiveVoiceId');
-      print('Request parameters:');
-      print('  - Model: eleven_multilingual_v2');
-      print('  - Stability: 0.35');
-      print('  - Similarity boost: 1.00');
-
-      final stopwatch = Stopwatch()..start();
-
-      final response = await http.post(
-        Uri.parse('$_baseUrl/text-to-speech/$effectiveVoiceId'),
-        headers: {
-          'Accept': 'audio/mpeg',
-          'Content-Type': 'application/json',
-          'xi-api-key': _apiKey!,
-        },
-        body: jsonEncode({
-          'text': text,
-          'model_id': 'eleven_multilingual_v2',
-          'voice_settings': {
-            'stability': 0.35,
-            'similarity_boost': 1.00,
-            'style': 0,
-            'use_speaker_boost': true,
-          },
-        }),
-      );
-
-      final elapsed = stopwatch.elapsedMilliseconds;
-      print('Response received in ${elapsed}ms');
-
-      if (response.statusCode == 200) {
-        print('✅ Success - Status code: ${response.statusCode}');
-        print('Response content type: ${response.headers['content-type']}');
-        print('Audio size: ${response.bodyBytes.length} bytes');
-
-        final filePath = await _getAudioFilePath(storyId, voiceId: effectiveVoiceId);
-        print('Saving audio to file: $filePath');
-
-        final file = File(filePath);
-        await file.writeAsBytes(response.bodyBytes);
-
-        print('Audio file saved successfully');
-        print('======== ELEVENLABS SERVICE: AUDIO GENERATION COMPLETE ========');
-        return filePath;
-      } else {
-        print('❌ Error - Status code: ${response.statusCode}');
-        print('Error response: ${response.body.substring(0, min(200, response.body.length))}${response.body.length > 200 ? '...' : ''}');
-        print('======== ELEVENLABS SERVICE: AUDIO GENERATION FAILED ========');
-        return null;
-      }
-    } catch (e) {
-      print('❌ Exception generating audio: $e');
-      print('Stack trace: ${StackTrace.current}');
-      print('======== ELEVENLABS SERVICE: ERROR ========');
-      return null;
-    }
+    final filePath =
+        await _getAudioFilePath(storyId, voiceId: effectiveVoiceId);
+    final file = File(filePath);
+    await file.writeAsBytes(bytes);
+    return filePath;
   }
 
-  // Get audio file for a story
   Future<File?> getAudioFile(int storyId, {String? voiceId}) async {
     try {
       final filePath = await _getAudioFilePath(storyId, voiceId: voiceId);
@@ -218,13 +132,11 @@ class ElevenLabsService {
         return file;
       }
       return null;
-    } catch (e) {
-      print('Error getting audio file: $e');
+    } catch (_) {
       return null;
     }
   }
 
-  // Delete audio file for a story and voice
   Future<bool> deleteAudioFile(int storyId, {String? voiceId}) async {
     try {
       final filePath = await _getAudioFilePath(storyId, voiceId: voiceId);
@@ -234,160 +146,81 @@ class ElevenLabsService {
         return true;
       }
       return false;
-    } catch (e) {
-      print('Error deleting audio file: $e');
+    } catch (_) {
       return false;
     }
   }
 
-  // Delete all audio files for a story (all voices)
   Future<bool> deleteAllAudioFiles(int storyId) async {
-    bool allDeleted = true;
-    try {
-      for (final voice in availableVoices) {
-        final success = await deleteAudioFile(storyId, voiceId: voice['id']);
-        if (!success) {
-          allDeleted = false;
-        }
+    var allDeleted = true;
+    for (final voice in availableVoices) {
+      final success = await deleteAudioFile(storyId, voiceId: voice['id']);
+      if (!success) {
+        allDeleted = false;
       }
-      return allDeleted;
-    } catch (e) {
-      print('Error deleting all audio files: $e');
-      return false;
     }
+    return allDeleted;
   }
 
-  // Helper to play audio file
   Future<AudioPlayer?> playAudio(int storyId, {String? voiceId}) async {
     try {
-      print('ElevenLabsService: Getting audio file for story $storyId with voice ${voiceId ?? _voiceId}');
       final file = await getAudioFile(storyId, voiceId: voiceId);
-      if (file != null) {
-        print('ElevenLabsService: Found audio file at ${file.path}');
+      if (file == null) return null;
 
-        // Create a new player each time
-        final player = AudioPlayer();
-        print('ElevenLabsService: Created new AudioPlayer');
-
-        // Set file path first
-        print('ElevenLabsService: Setting audio source to ${file.path}');
-        await player.setFilePath(file.path);
-
-        // Start playback
-        print('ElevenLabsService: Starting playback');
-        await player.play();
-
-        // Return the playing player instance
-        print('ElevenLabsService: Audio playback started successfully');
-        return player;
-      }
-      print('ElevenLabsService: Audio file not found for story $storyId with voice ${voiceId ?? _voiceId}');
-      return null;
-    } catch (e) {
-      print('ElevenLabsService: Error playing audio: $e');
+      final player = AudioPlayer();
+      await player.setFilePath(file.path);
+      await player.play();
+      return player;
+    } catch (_) {
       return null;
     }
   }
 
-  // Generate audio with character-level timestamp data for word highlighting
   Future<Map<String, dynamic>?> generateAudioWithTimestamps({
     required String text,
     required int storyId,
     String? voiceId,
   }) async {
     final effectiveVoiceId = voiceId ?? _voiceId;
+    final result = await _generateAudioWithTimestampsPayload(
+      text: text,
+      voiceId: effectiveVoiceId,
+      voiceSettings: const {
+        'stability': 0.6,
+        'similarity_boost': 0.85,
+        'style': 0,
+        'use_speaker_boost': true,
+      },
+    );
+    if (result == null) return null;
 
-    try {
-      print('ElevenLabsService: Generating audio with timestamps for story $storyId with voice $effectiveVoiceId');
+    final audioBytes = result['audioBytes'] as List<int>;
+    final wordTimestamps =
+        (result['timestamps'] as List<Map<String, dynamic>>?) ?? const [];
 
-      // Check if API key is available
-      if (_apiKey == null || _apiKey == 'YOUR_ELEVENLABS_API_KEY_HERE') {
-        print('ElevenLabsService: No valid API key available. Creating placeholder files.');
+    final filePath =
+        await _getAudioFilePath(storyId, voiceId: effectiveVoiceId);
+    final file = File(filePath);
+    await file.writeAsBytes(audioBytes);
 
-        // Create placeholder files so the app doesn't keep trying to generate
-        final filePath = await _getAudioFilePath(storyId, voiceId: effectiveVoiceId);
-        final file = File(filePath);
-        if (!await file.exists()) {
-          await file.create();
-        }
+    await _saveTimestampData(
+      storyId,
+      wordTimestamps,
+      voiceId: effectiveVoiceId,
+    );
 
-        return {
-          'audioPath': filePath,
-          'timestamps': [],
-        };
-      }
-
-      // Generate audio with timestamps using the /with-timestamps endpoint
-      print('ElevenLabsService: Calling /with-timestamps endpoint');
-      final response = await http.post(
-        Uri.parse('$_baseUrl/text-to-speech/$effectiveVoiceId/with-timestamps'),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'xi-api-key': _apiKey!,
-        },
-        body: jsonEncode({
-          'text': text,
-          'model_id': 'eleven_multilingual_v2',
-          'voice_settings': {
-            'stability': 0.6,
-            'similarity_boost': 0.85,
-            'style': 0,
-            'use_speaker_boost': true,
-          },
-        }),
-      );
-
-      if (response.statusCode != 200) {
-        print('Error generating audio with timestamps: ${response.statusCode} - ${response.reasonPhrase}');
-        return null;
-      }
-
-      final responseData = jsonDecode(response.body);
-
-      // Extract audio data and save to file
-      final audioBase64 = responseData['audio_base64'] as String;
-      final audioBytes = base64Decode(audioBase64);
-
-      final filePath = await _getAudioFilePath(storyId, voiceId: effectiveVoiceId);
-      final file = File(filePath);
-      await file.writeAsBytes(audioBytes);
-      print('ElevenLabsService: Audio file saved to $filePath');
-
-      // Extract character-level timing data
-      final alignment = responseData['alignment'];
-      if (alignment != null) {
-        final characters = List<String>.from(alignment['characters']);
-        final startTimes = List<double>.from(alignment['character_start_times_seconds']);
-        final endTimes = List<double>.from(alignment['character_end_times_seconds']);
-
-        // Convert character-level timestamps to word-level timestamps
-        final wordTimestamps = _convertCharacterTimesToWordTimes(text, characters, startTimes, endTimes);
-
-        // Save timestamps to file for future use
-        await _saveTimestampData(storyId, wordTimestamps, voiceId: effectiveVoiceId);
-
-        print('ElevenLabsService: Generated ${wordTimestamps.length} word timestamps');
-
-        return {
-          'audioPath': filePath,
-          'timestamps': wordTimestamps,
-        };
-      } else {
-        print('ElevenLabsService: No alignment data in response');
-        return {
-          'audioPath': filePath,
-          'timestamps': [],
-        };
-      }
-    } catch (e) {
-      print('Exception generating audio with timestamps: $e');
-      return null;
-    }
+    return {
+      'audioPath': filePath,
+      'timestamps': wordTimestamps,
+    };
   }
 
-  // Convert character-level timestamps to word-level timestamps
-  List<Map<String, dynamic>> _convertCharacterTimesToWordTimes(String originalText, List<String> characters, List<double> startTimes, List<double> endTimes) {
+  List<Map<String, dynamic>> _convertCharacterTimesToWordTimes(
+    String originalText,
+    List<String> characters,
+    List<double> startTimes,
+    List<double> endTimes,
+  ) {
     final wordTimestamps = <Map<String, dynamic>>[];
     final wordRegex = RegExp(r"[\w'']+");
     final matches = wordRegex.allMatches(originalText).toList();
@@ -397,13 +230,13 @@ class ElevenLabsService {
       final wordStart = match.start;
       final wordEnd = match.end;
 
-      // Find the character indices that correspond to this word
       int charStartIndex = -1;
       int charEndIndex = -1;
 
-      // Map original text positions to character array positions
-      int charArrayPos = 0;
-      for (int textPos = 0; textPos < originalText.length && charArrayPos < characters.length; textPos++) {
+      var charArrayPos = 0;
+      for (var textPos = 0;
+          textPos < originalText.length && charArrayPos < characters.length;
+          textPos++) {
         if (textPos == wordStart && charStartIndex == -1) {
           charStartIndex = charArrayPos;
         }
@@ -411,16 +244,20 @@ class ElevenLabsService {
           charEndIndex = charArrayPos;
         }
 
-        // Only advance if the character matches (accounting for normalization)
-        if (charArrayPos < characters.length && originalText[textPos].toLowerCase() == characters[charArrayPos].toLowerCase()) {
+        if (charArrayPos < characters.length &&
+            originalText[textPos].toLowerCase() ==
+                characters[charArrayPos].toLowerCase()) {
           charArrayPos++;
         }
       }
 
-      // If we found valid character indices, extract timing
       if (charStartIndex >= 0 && charStartIndex < startTimes.length) {
         final wordStartTime = startTimes[charStartIndex];
-        final wordEndTime = charEndIndex >= 0 && charEndIndex < endTimes.length ? endTimes[charEndIndex] : (charStartIndex < endTimes.length ? endTimes[charStartIndex] : wordStartTime + 0.1);
+        final wordEndTime = charEndIndex >= 0 && charEndIndex < endTimes.length
+            ? endTimes[charEndIndex]
+            : (charStartIndex < endTimes.length
+                ? endTimes[charStartIndex]
+                : wordStartTime + 0.1);
 
         wordTimestamps.add({
           'word': word.toLowerCase(),
@@ -436,22 +273,26 @@ class ElevenLabsService {
     return wordTimestamps;
   }
 
-  // Save timestamp data to file
-  Future<void> _saveTimestampData(int storyId, List<Map<String, dynamic>> timestamps, {String? voiceId}) async {
+  Future<void> _saveTimestampData(
+    int storyId,
+    List<Map<String, dynamic>> timestamps, {
+    String? voiceId,
+  }) async {
     try {
-      final timestampPath = await _getTimestampFilePath(storyId, voiceId: voiceId);
+      final timestampPath =
+          await _getTimestampFilePath(storyId, voiceId: voiceId);
       final file = File(timestampPath);
       await file.writeAsString(jsonEncode(timestamps));
-      print('ElevenLabsService: Timestamp data saved to $timestampPath');
-    } catch (e) {
-      print('Error saving timestamp data: $e');
-    }
+    } catch (_) {}
   }
 
-  // Load timestamp data from file
-  Future<List<Map<String, dynamic>>> getTimestampData(int storyId, {String? voiceId}) async {
+  Future<List<Map<String, dynamic>>> getTimestampData(
+    int storyId, {
+    String? voiceId,
+  }) async {
     try {
-      final timestampPath = await _getTimestampFilePath(storyId, voiceId: voiceId);
+      final timestampPath =
+          await _getTimestampFilePath(storyId, voiceId: voiceId);
       final file = File(timestampPath);
 
       if (await file.exists()) {
@@ -459,93 +300,193 @@ class ElevenLabsService {
         final List<dynamic> data = jsonDecode(content);
         return data.cast<Map<String, dynamic>>();
       }
-    } catch (e) {
-      print('Error loading timestamp data: $e');
-    }
+    } catch (_) {}
     return [];
   }
 
-  // Check if timestamp data exists for a story
   Future<bool> hasTimestampData(int storyId, {String? voiceId}) async {
     try {
-      final timestampPath = await _getTimestampFilePath(storyId, voiceId: voiceId);
+      final timestampPath =
+          await _getTimestampFilePath(storyId, voiceId: voiceId);
       final file = File(timestampPath);
       return await file.exists();
-    } catch (e) {
-      print('Error checking timestamp data: $e');
+    } catch (_) {
       return false;
     }
   }
 
-  // Get timestamp file path
   Future<String> _getTimestampFilePath(int storyId, {String? voiceId}) async {
     final directory = await getApplicationDocumentsDirectory();
     final effectiveVoiceId = voiceId ?? _voiceId;
     return '${directory.path}/story_${storyId}_${effectiveVoiceId}_timestamps.json';
   }
 
-  // Generate audio with custom voice settings
-  Future<String?> generateAudioWithSettings(String text, int storyId, {String? voiceId, Map<String, dynamic>? voiceSettings}) async {
-    print('======== ELEVENLABS SERVICE: GENERATE AUDIO WITH CUSTOM SETTINGS ========');
-    print('Text length: ${text.length} characters');
-    print('Text preview: "${text.substring(0, min(50, text.length))}${text.length > 50 ? '...' : ''}"');
-    print('Story ID: $storyId');
-
+  Future<String?> generateAudioWithSettings(
+    String text,
+    int storyId, {
+    String? voiceId,
+    Map<String, dynamic>? voiceSettings,
+  }) async {
     final effectiveVoiceId = voiceId ?? _voiceId;
-    print('Voice ID: $effectiveVoiceId (${getVoiceNameById(effectiveVoiceId)})');
 
+    final effectiveSettings = <String, dynamic>{
+      'stability': 0.35,
+      'similarity_boost': 1.00,
+      'style': 0,
+      'use_speaker_boost': true,
+    };
     if (voiceSettings != null) {
-      print('Custom voice settings: $voiceSettings');
+      effectiveSettings.addAll(voiceSettings);
     }
 
+    final bytes = await _generateAudioBytes(
+      text: text,
+      voiceId: effectiveVoiceId,
+      voiceSettings: effectiveSettings,
+      withTimestamps: false,
+    );
+    if (bytes == null) return null;
+
+    final filePath =
+        await _getAudioFilePath(storyId, voiceId: effectiveVoiceId);
+    final file = File(filePath);
+    await file.writeAsBytes(bytes);
+    return filePath;
+  }
+
+  Future<List<Map<String, dynamic>>?> _getVoicesViaProxy() async {
+    if (!_proxyConfig.hasProxy) return null;
     try {
-      // Check if API key is available
-      if (_apiKey == null || _apiKey == 'YOUR_ELEVENLABS_API_KEY_HERE') {
-        print('⚠️ ElevenLabsService: No valid API key available. Creating placeholder file.');
-
-        // Create placeholder file so the app doesn't keep trying to generate
-        final filePath = await _getAudioFilePath(storyId, voiceId: effectiveVoiceId);
-        print('Creating placeholder file at: $filePath');
-        final file = File(filePath);
-        if (!await file.exists()) {
-          await file.create();
-          print('Placeholder file created');
-        } else {
-          print('Placeholder file already exists');
-        }
-
-        return filePath;
+      final response = await http.get(
+        _proxyConfig.proxyUri('$_proxyBasePath/voices'),
+        headers: _proxyConfig.proxyHeaders(),
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return null;
       }
-
-      print('🔄 Sending request to ElevenLabs API endpoint: $_baseUrl/text-to-speech/$effectiveVoiceId');
-      print('Request parameters:');
-      print('  - Model: eleven_multilingual_v2');
-
-      if (voiceSettings != null) {
-        print('  - Stability: ${voiceSettings['stability'] ?? 0.35}');
-        print('  - Similarity boost: ${voiceSettings['similarity_boost'] ?? 1.00}');
-        print('  - Speed: ${voiceSettings['speed'] ?? 'default'}');
-      } else {
-        print('  - Using default voice settings');
+      final data = jsonDecode(response.body);
+      if (data is Map<String, dynamic> && data['voices'] is List) {
+        return List<Map<String, dynamic>>.from(data['voices']);
       }
-
-      final stopwatch = Stopwatch()..start();
-
-      // Set default voice settings if none provided
-      final Map<String, dynamic> effectiveSettings = {
-        'stability': 0.35,
-        'similarity_boost': 1.00,
-        'style': 0,
-        'use_speaker_boost': true,
-      };
-
-      // Override with custom settings if provided
-      if (voiceSettings != null) {
-        effectiveSettings.addAll(voiceSettings);
+      if (data is List) {
+        return List<Map<String, dynamic>>.from(data);
       }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
 
+  Future<List<Map<String, dynamic>>?> _getVoicesViaDirect() async {
+    if (!_canCallDirectProvider) return null;
+    try {
+      final response = await http.get(
+        Uri.parse('$_directBaseUrl/voices'),
+        headers: {
+          'Accept': 'application/json',
+          'xi-api-key': _apiKey!,
+        },
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return null;
+      }
+      final data = jsonDecode(response.body);
+      return List<Map<String, dynamic>>.from(data['voices']);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<int>?> _generateAudioBytes({
+    required String text,
+    required String voiceId,
+    required Map<String, dynamic> voiceSettings,
+    required bool withTimestamps,
+  }) async {
+    if (withTimestamps) return null;
+
+    final proxyBytes = await _generateAudioBytesViaProxy(
+      text: text,
+      voiceId: voiceId,
+      voiceSettings: voiceSettings,
+    );
+    if (proxyBytes != null) {
+      return proxyBytes;
+    }
+
+    if (_canCallDirectProvider) {
+      return _generateAudioBytesViaDirect(
+        text: text,
+        voiceId: voiceId,
+        voiceSettings: voiceSettings,
+      );
+    }
+
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> _generateAudioWithTimestampsPayload({
+    required String text,
+    required String voiceId,
+    required Map<String, dynamic> voiceSettings,
+  }) async {
+    final proxyPayload = await _generateAudioTimestampsViaProxy(
+      text: text,
+      voiceId: voiceId,
+      voiceSettings: voiceSettings,
+    );
+    if (proxyPayload != null) {
+      return proxyPayload;
+    }
+
+    if (_canCallDirectProvider) {
+      return _generateAudioTimestampsViaDirect(
+        text: text,
+        voiceId: voiceId,
+        voiceSettings: voiceSettings,
+      );
+    }
+    return null;
+  }
+
+  Future<List<int>?> _generateAudioBytesViaProxy({
+    required String text,
+    required String voiceId,
+    required Map<String, dynamic> voiceSettings,
+  }) async {
+    if (!_proxyConfig.hasProxy) return null;
+    try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/text-to-speech/$effectiveVoiceId'),
+        _proxyConfig.proxyUri('$_proxyBasePath/text-to-speech/$voiceId'),
+        headers: {
+          ..._proxyConfig.proxyHeaders(json: false),
+          'Accept': 'audio/mpeg',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'text': text,
+          'model_id': 'eleven_multilingual_v2',
+          'voice_settings': voiceSettings,
+        }),
+      );
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return response.bodyBytes;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<int>?> _generateAudioBytesViaDirect({
+    required String text,
+    required String voiceId,
+    required Map<String, dynamic> voiceSettings,
+  }) async {
+    if (!_canCallDirectProvider) return null;
+    try {
+      final response = await http.post(
+        Uri.parse('$_directBaseUrl/text-to-speech/$voiceId'),
         headers: {
           'Accept': 'audio/mpeg',
           'Content-Type': 'application/json',
@@ -554,38 +495,115 @@ class ElevenLabsService {
         body: jsonEncode({
           'text': text,
           'model_id': 'eleven_multilingual_v2',
-          'voice_settings': effectiveSettings,
+          'voice_settings': voiceSettings,
         }),
       );
-
-      final elapsed = stopwatch.elapsedMilliseconds;
-      print('Response received in ${elapsed}ms');
-
-      if (response.statusCode == 200) {
-        print('✅ Success - Status code: ${response.statusCode}');
-        print('Response content type: ${response.headers['content-type']}');
-        print('Audio size: ${response.bodyBytes.length} bytes');
-
-        final filePath = await _getAudioFilePath(storyId, voiceId: effectiveVoiceId);
-        print('Saving audio to file: $filePath');
-
-        final file = File(filePath);
-        await file.writeAsBytes(response.bodyBytes);
-
-        print('Audio file saved successfully');
-        print('======== ELEVENLABS SERVICE: AUDIO GENERATION COMPLETE ========');
-        return filePath;
-      } else {
-        print('❌ Error - Status code: ${response.statusCode}');
-        print('Error response: ${response.body.substring(0, min(200, response.body.length))}${response.body.length > 200 ? '...' : ''}');
-        print('======== ELEVENLABS SERVICE: AUDIO GENERATION FAILED ========');
-        return null;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return response.bodyBytes;
       }
-    } catch (e) {
-      print('❌ Exception generating audio: $e');
-      print('Stack trace: ${StackTrace.current}');
-      print('======== ELEVENLABS SERVICE: ERROR ========');
+      return null;
+    } catch (_) {
       return null;
     }
+  }
+
+  Future<Map<String, dynamic>?> _generateAudioTimestampsViaProxy({
+    required String text,
+    required String voiceId,
+    required Map<String, dynamic> voiceSettings,
+  }) async {
+    if (!_proxyConfig.hasProxy) return null;
+    try {
+      final response = await http.post(
+        _proxyConfig.proxyUri(
+            '$_proxyBasePath/text-to-speech/$voiceId/with-timestamps'),
+        headers: _proxyConfig.proxyHeaders(),
+        body: jsonEncode({
+          'text': text,
+          'model_id': 'eleven_multilingual_v2',
+          'voice_settings': voiceSettings,
+        }),
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return null;
+      }
+      return _parseTimestampsPayload(response.body, text);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _generateAudioTimestampsViaDirect({
+    required String text,
+    required String voiceId,
+    required Map<String, dynamic> voiceSettings,
+  }) async {
+    if (!_canCallDirectProvider) return null;
+    try {
+      final response = await http.post(
+        Uri.parse('$_directBaseUrl/text-to-speech/$voiceId/with-timestamps'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'xi-api-key': _apiKey!,
+        },
+        body: jsonEncode({
+          'text': text,
+          'model_id': 'eleven_multilingual_v2',
+          'voice_settings': voiceSettings,
+        }),
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return null;
+      }
+      return _parseTimestampsPayload(response.body, text);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Map<String, dynamic>? _parseTimestampsPayload(
+    String responseBody,
+    String originalText,
+  ) {
+    final responseData = jsonDecode(responseBody);
+    final audioBase64 = responseData['audio_base64'] as String?;
+    if (audioBase64 == null || audioBase64.isEmpty) {
+      return null;
+    }
+    final audioBytes = base64Decode(audioBase64);
+    final alignment = responseData['alignment'];
+
+    if (alignment == null) {
+      return {
+        'audioBytes': audioBytes,
+        'timestamps': <Map<String, dynamic>>[],
+      };
+    }
+
+    final characters = List<String>.from(alignment['characters']);
+    final startTimes =
+        List<double>.from(alignment['character_start_times_seconds']);
+    final endTimes =
+        List<double>.from(alignment['character_end_times_seconds']);
+    final wordTimestamps = _convertCharacterTimesToWordTimes(
+      originalText,
+      characters,
+      startTimes,
+      endTimes,
+    );
+
+    return {
+      'audioBytes': audioBytes,
+      'timestamps': wordTimestamps,
+    };
+  }
+
+  bool get _canCallDirectProvider {
+    final hasKey = _apiKey != null && _apiKey!.isNotEmpty;
+    if (!hasKey) return false;
+    if (!_proxyConfig.allowDirectFallback) return false;
+    if (_proxyConfig.requireProxy && kReleaseMode) return false;
+    return true;
   }
 }

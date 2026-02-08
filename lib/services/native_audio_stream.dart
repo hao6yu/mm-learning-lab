@@ -1,18 +1,20 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io';
 
 class NativeAudioStream {
   static const MethodChannel _channel = MethodChannel('native_audio_stream');
-  static const EventChannel _eventChannel = EventChannel('native_audio_stream_events');
+  static const EventChannel _eventChannel =
+      EventChannel('native_audio_stream_events');
 
   static Stream<Uint8List>? _audioStream;
   static bool _isStarted = false;
 
   static Stream<Uint8List> get audioStream {
-    _audioStream ??= _eventChannel.receiveBroadcastStream().map((event) => event as Uint8List);
+    _audioStream ??= _eventChannel
+        .receiveBroadcastStream()
+        .map((event) => event as Uint8List);
     return _audioStream!;
   }
 
@@ -41,7 +43,8 @@ class NativeAudioStream {
           debugPrint('NativeAudioStream: Trying start again after delay');
           await _channel.invokeMethod('start', {'sampleRate': sampleRate});
           _isStarted = true;
-          debugPrint('NativeAudioStream: Successfully started on second attempt');
+          debugPrint(
+              'NativeAudioStream: Successfully started on second attempt');
         } catch (retryError) {
           debugPrint('NativeAudioStream: Error on retry - $retryError');
           rethrow;

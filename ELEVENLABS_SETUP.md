@@ -4,20 +4,29 @@ This guide explains how to set up the ElevenLabs AI voice integration for the MM
 
 ## Prerequisites
 
-1. An ElevenLabs account (sign up at [elevenlabs.io](https://elevenlabs.io))
-2. Your ElevenLabs API key
+1. A backend proxy that stores provider API keys securely (recommended for production)
+2. Optional for local development only: an ElevenLabs API key
 
 ## Setup Steps
 
 ### 1. Create an `.env` file
 
-Create a file named `.env` in the root of your project with the following content:
+Create a file named `.env` in the root of your project with proxy settings:
 
 ```
+AI_PROXY_BASE_URL=https://your-proxy.example.com
+AI_PROXY_TOKEN=your_proxy_token
+AI_PROXY_REQUIRED=true
+AI_ALLOW_DIRECT_FALLBACK=false
+```
+
+For local development fallback (not recommended for production), you can use:
+
+```
+AI_PROXY_REQUIRED=false
+AI_ALLOW_DIRECT_FALLBACK=true
 ELEVENLABS_API_KEY=your_api_key_here
 ```
-
-Replace `your_api_key_here` with your actual ElevenLabs API key.
 
 ### 2. Update Dependencies
 
@@ -56,6 +65,21 @@ void main() async {
 }
 ```
 
+### Proxy Routes Required
+
+Your proxy should expose:
+
+- `GET /elevenlabs/voices`
+- `POST /elevenlabs/text-to-speech/:voiceId`
+- `POST /elevenlabs/text-to-speech/:voiceId/with-timestamps`
+
+### Fallback Rules
+
+- App always attempts proxy first when `AI_PROXY_BASE_URL` is set.
+- Direct ElevenLabs fallback is only used when `AI_ALLOW_DIRECT_FALLBACK=true` and `ELEVENLABS_API_KEY` is present.
+- In release builds, direct fallback is blocked when `AI_PROXY_REQUIRED=true`.
+- If both proxy and direct fallback fail, the app falls back to built-in voice metadata and returns null for audio generation (no crash).
+
 ## Customizing Voice Selection
 
 To use a specific voice from your ElevenLabs account:
@@ -69,12 +93,12 @@ Example:
 static String _voiceId = 'your-preferred-voice-id';
 ```
 
-Alternatively, you can use the `getVoices()` method to fetch available voices from your account and let users choose.
+Alternatively, you can use the `getVoices()` method to fetch available voices from your account through the proxy and let users choose.
 
 ## How It Works
 
 1. When a user selects "AI Storyteller" mode for a story, the app first checks if audio already exists locally.
-2. If no audio is found, it calls the ElevenLabs API to generate high-quality narration.
+2. If no audio is found, it calls your proxy, which then calls ElevenLabs to generate narration.
 3. The generated audio is saved locally and linked to the story in the database.
 4. Subsequent readings use the cached audio file (no API calls needed).
 
@@ -82,7 +106,7 @@ This approach minimizes API usage and enables offline playback while providing a
 
 ## Troubleshooting
 
-- **Audio not generating**: Check your API key and internet connection
+- **Audio not generating**: Check proxy health, proxy auth token, and internet connection
 - **Voice selection issues**: Verify the voice ID exists in your ElevenLabs account
 - **Playback problems**: Ensure the just_audio plugin is properly initialized
 

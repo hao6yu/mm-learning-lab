@@ -22,13 +22,15 @@ class AiChatScreen extends StatefulWidget {
   State<AiChatScreen> createState() => _AiChatScreenState();
 }
 
-class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMixin {
+class _AiChatScreenState extends State<AiChatScreen>
+    with TickerProviderStateMixin {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final DatabaseService _databaseService = DatabaseService();
   final OpenAIService _openAIService = OpenAIService();
   final ElevenLabsService _elevenLabsService = ElevenLabsService();
-  final SpeechRecognitionService _speechRecognitionService = SpeechRecognitionService();
+  final SpeechRecognitionService _speechRecognitionService =
+      SpeechRecognitionService();
   final AudioRecorderService _audioRecorderService = AudioRecorderService();
 
   List<ChatMessage> _messages = [];
@@ -36,8 +38,6 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
   bool _isSending = false;
   bool _isRecording = false;
   bool _isPlayingAudio = false;
-  String? _transcription;
-  String _recordButtonText = 'Hold to Talk';
   AudioPlayer? _audioPlayer;
   int? _currentProfileId;
   String? _currentProfileName;
@@ -60,7 +60,6 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
 
   // Add input mode animation controller
   late AnimationController _inputModeAnimationController;
-  late Animation<double> _inputModeAnimation;
 
   // Add recording animation
   late AnimationController _recordingPulseController;
@@ -72,7 +71,6 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
   // Add variables for swipe-to-cancel recording
   bool _isShowingCancelHint = false;
   bool _isCancelingRecording = false;
-  Offset _recordingStartPosition = Offset.zero;
 
   // Add variable to track if we should show the help tooltip
   bool _showVoiceInputHelp = true;
@@ -95,10 +93,6 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
     _inputModeAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
-    );
-    _inputModeAnimation = CurvedAnimation(
-      parent: _inputModeAnimationController,
-      curve: Curves.easeInOut,
     );
 
     // Initialize recording pulse animation
@@ -128,7 +122,8 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
     super.didChangeDependencies();
 
     // Get the current profile from the provider
-    final profileProvider = Provider.of<ProfileProvider>(context, listen: false);
+    final profileProvider =
+        Provider.of<ProfileProvider>(context, listen: false);
     final currentProfileId = profileProvider.selectedProfileId;
 
     if (currentProfileId != null) {
@@ -204,7 +199,7 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
   void _addWelcomeMessageIfNeeded() {
     // Only add welcome message if there are no messages and we're not skipping it
     if (_skipWelcomeMessage) {
-      print('Skipping welcome message due to _skipWelcomeMessage flag');
+      debugPrint('Skipping welcome message due to _skipWelcomeMessage flag');
       // Reset the flag for future app launches
       _skipWelcomeMessage = false;
       return;
@@ -212,12 +207,14 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
 
     Future.delayed(const Duration(milliseconds: 500), () {
       if (_messages.isEmpty) {
-        print('Adding welcome message, chat is empty');
+        debugPrint('Adding welcome message, chat is empty');
         // Get the current voice name for the welcome message
-        String currentVoiceName = ElevenLabsService.getVoiceNameById(_selectedVoiceId);
+        String currentVoiceName =
+            ElevenLabsService.getVoiceNameById(_selectedVoiceId);
 
         final welcomeMessage = ChatMessage(
-          message: "Hello${_currentProfileName != null ? ' $_currentProfileName' : ''}! I'm ${currentVoiceName}. You can ask me questions, and I'll do my best to help you learn new things. What would you like to talk about today?",
+          message:
+              "Hello${_currentProfileName != null ? ' $_currentProfileName' : ''}! I'm $currentVoiceName. You can ask me questions, and I'll do my best to help you learn new things. What would you like to talk about today?",
           isUserMessage: false,
           timestamp: DateTime.now().toIso8601String(),
           profileId: _currentProfileId,
@@ -239,7 +236,8 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
           _generateAndPlayAudioForMessage(welcomeMessage.message);
         }
       } else {
-        print('Not adding welcome message, chat already has ${_messages.length} messages');
+        debugPrint(
+            'Not adding welcome message, chat already has ${_messages.length} messages');
       }
     });
   }
@@ -247,10 +245,11 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
   Future<void> _sendMessage(String text) async {
     if (text.trim().isEmpty) return;
 
-    print('======== AI CHAT: SENDING MESSAGE ========');
-    print('User text: ${text.substring(0, min(50, text.length))}${text.length > 50 ? '...' : ''}');
-    print('Current profile ID: $_currentProfileId');
-    print('Current profile name: $_currentProfileName');
+    debugPrint('======== AI CHAT: SENDING MESSAGE ========');
+    debugPrint(
+        'User text: ${text.substring(0, min(50, text.length))}${text.length > 50 ? '...' : ''}');
+    debugPrint('Current profile ID: $_currentProfileId');
+    debugPrint('Current profile name: $_currentProfileName');
 
     // Add user message to the chat
     final userMessage = ChatMessage(
@@ -267,12 +266,12 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
     });
 
     // Save user message to database
-    print('Saving user message to database...');
+    debugPrint('Saving user message to database...');
     try {
       await _databaseService.insertChatMessage(userMessage);
-      print('Successfully saved user message to database');
+      debugPrint('Successfully saved user message to database');
     } catch (e) {
-      print('ERROR saving user message to database: $e');
+      debugPrint('ERROR saving user message to database: $e');
     }
 
     // Scroll to bottom with a slight delay to ensure UI has updated
@@ -281,24 +280,27 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
     });
 
     // Prepare conversation history
-    print('Preparing conversation history...');
+    debugPrint('Preparing conversation history...');
     final history = _messages
-        .where((msg) => _messages.indexOf(msg) < _messages.length) // Exclude the message just added
+        .where((msg) =>
+            _messages.indexOf(msg) <
+            _messages.length) // Exclude the message just added
         .map((msg) => {
               'role': msg.isUserMessage ? 'user' : 'assistant',
               'content': msg.message,
             })
         .toList();
-    print('History length: ${history.length} messages');
+    debugPrint('History length: ${history.length} messages');
 
     // Get AI response
     try {
-      print('🔄 Calling OpenAI API for chat response...');
-      print('OpenAI parameters:');
-      print('  - Message: ${text.substring(0, min(50, text.length))}${text.length > 50 ? '...' : ''}');
-      print('  - Child name: $_currentProfileName');
-      print('  - Child age: $_currentProfileAge');
-      print('  - History length: ${history.length}');
+      debugPrint('🔄 Calling OpenAI API for chat response...');
+      debugPrint('OpenAI parameters:');
+      debugPrint(
+          '  - Message: ${text.substring(0, min(50, text.length))}${text.length > 50 ? '...' : ''}');
+      debugPrint('  - Child name: $_currentProfileName');
+      debugPrint('  - Child age: $_currentProfileAge');
+      debugPrint('  - History length: ${history.length}');
 
       final response = await _openAIService.generateChatResponse(
         message: text,
@@ -307,10 +309,11 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
         childAge: _currentProfileAge,
       );
 
-      print('✅ OpenAI API response received');
+      debugPrint('✅ OpenAI API response received');
       if (response != null) {
-        print('Response length: ${response.length} chars');
-        print('Response preview: ${response.substring(0, min(50, response.length))}${response.length > 50 ? '...' : ''}');
+        debugPrint('Response length: ${response.length} chars');
+        debugPrint(
+            'Response preview: ${response.substring(0, min(50, response.length))}${response.length > 50 ? '...' : ''}');
 
         final aiMessage = ChatMessage(
           message: response,
@@ -325,9 +328,9 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
         });
 
         // Save AI message to database
-        print('Saving AI response to database...');
+        debugPrint('Saving AI response to database...');
         final messageId = await _databaseService.insertChatMessage(aiMessage);
-        print('AI message saved with ID: $messageId');
+        debugPrint('AI message saved with ID: $messageId');
 
         // Scroll to bottom again after adding AI message with sufficient delay
         Future.delayed(const Duration(milliseconds: 100), () {
@@ -336,53 +339,55 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
 
         // Generate and play audio for AI response
         if (_useVoiceResponse) {
-          print('Generating audio for AI response...');
+          debugPrint('Generating audio for AI response...');
           final audioPath = await _generateAndPlayAudioForMessage(response);
 
           // If audio was generated successfully, update the message with the audio path
           if (audioPath != null) {
-            print('Audio generated successfully at: $audioPath');
+            debugPrint('Audio generated successfully at: $audioPath');
             aiMessage.toMap()['audio_path'] = audioPath;
             await _databaseService.updateChatMessage(aiMessage);
-            print('Chat message updated with audio path');
+            debugPrint('Chat message updated with audio path');
           } else {
-            print('⚠️ Failed to generate audio for AI response');
+            debugPrint('⚠️ Failed to generate audio for AI response');
           }
         } else {
-          print('Voice response disabled, skipping audio generation');
+          debugPrint('Voice response disabled, skipping audio generation');
         }
       } else {
-        print('❌ OpenAI API returned null response');
+        debugPrint('❌ OpenAI API returned null response');
         _showErrorSnackBar('Sorry, I couldn\'t respond to that right now.');
         setState(() {
           _isSending = false;
         });
       }
     } catch (e) {
-      print('❌ ERROR getting AI response: $e');
+      debugPrint('❌ ERROR getting AI response: $e');
       _showErrorSnackBar('Something went wrong. Please try again.');
       setState(() {
         _isSending = false;
       });
     }
 
-    print('======== AI CHAT: MESSAGE PROCESSING COMPLETE ========');
+    debugPrint('======== AI CHAT: MESSAGE PROCESSING COMPLETE ========');
   }
 
   Future<String?> _generateAndPlayAudioForMessage(String message) async {
-    print('======== AI CHAT: GENERATING AUDIO ========');
-    print('Message length: ${message.length}');
-    print('Voice ID: $_selectedVoiceId (${ElevenLabsService.getVoiceNameById(_selectedVoiceId)})');
+    debugPrint('======== AI CHAT: GENERATING AUDIO ========');
+    debugPrint('Message length: ${message.length}');
+    debugPrint(
+        'Voice ID: $_selectedVoiceId (${ElevenLabsService.getVoiceNameById(_selectedVoiceId)})');
 
     try {
       // Create a unique identifier for this message
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final messageHash = message.hashCode.abs();
       final audioId = messageHash + timestamp;
-      print('Generated audio ID: $audioId');
+      debugPrint('Generated audio ID: $audioId');
 
       // Generate audio using ElevenLabs with faster speech speed
-      print('🔄 Calling ElevenLabs API to generate audio with faster speed...');
+      debugPrint(
+          '🔄 Calling ElevenLabs API to generate audio with faster speed...');
 
       // Create voice settings with faster speed (1.0)
       final voiceSettings = {
@@ -393,21 +398,23 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
         'speed': 1.0, // Set faster speech speed
       };
 
-      final audioPath = await _elevenLabsService.generateAudioWithSettings(message, audioId, voiceId: _selectedVoiceId, voiceSettings: voiceSettings);
+      final audioPath = await _elevenLabsService.generateAudioWithSettings(
+          message, audioId,
+          voiceId: _selectedVoiceId, voiceSettings: voiceSettings);
 
       if (audioPath != null) {
-        print('✅ Audio generated successfully at path: $audioPath');
+        debugPrint('✅ Audio generated successfully at path: $audioPath');
         _playAudio(audioPath);
         return audioPath;
       } else {
-        print('❌ Failed to generate audio for message');
+        debugPrint('❌ Failed to generate audio for message');
         return null;
       }
     } catch (e) {
-      print('❌ ERROR generating audio: $e');
+      debugPrint('❌ ERROR generating audio: $e');
       return null;
     } finally {
-      print('======== AI CHAT: AUDIO GENERATION COMPLETE ========');
+      debugPrint('======== AI CHAT: AUDIO GENERATION COMPLETE ========');
     }
   }
 
@@ -462,8 +469,6 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
 
   Future<void> _startRecording() async {
     try {
-      // Save the current position for swipe detection
-      _recordingStartPosition = Offset.zero;
       _isShowingCancelHint = false;
       _isCancelingRecording = false;
 
@@ -472,7 +477,6 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
 
       setState(() {
         _isRecording = true;
-        _recordButtonText = 'Listening...';
         _recordingDuration = 0;
       });
 
@@ -495,7 +499,6 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
       debugPrint('Error starting recording: $e');
       setState(() {
         _isRecording = false;
-        _recordButtonText = 'Hold to Talk';
       });
       _micAnimationController.stop();
       _recordingPulseController.stop();
@@ -520,70 +523,58 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
 
       setState(() {
         _isRecording = false;
-        _recordButtonText = 'Processing...';
         _recordingDuration = 0;
       });
 
-      print('======== AI CHAT: PROCESSING VOICE INPUT ========');
+      debugPrint('======== AI CHAT: PROCESSING VOICE INPUT ========');
       // Stop recording
-      print('Stopping audio recording...');
+      debugPrint('Stopping audio recording...');
       final recordingPath = await _audioRecorderService.stopRecording();
-      print('Recording saved to: $recordingPath');
+      debugPrint('Recording saved to: $recordingPath');
 
       if (recordingPath != null) {
         // Get the recording bytes
-        print('Reading recording bytes...');
+        debugPrint('Reading recording bytes...');
         final recordingBytes = await _audioRecorderService.getRecordingBytes();
-        print('Recording size: ${recordingBytes?.length ?? 0} bytes');
+        debugPrint('Recording size: ${recordingBytes?.length ?? 0} bytes');
 
         if (recordingBytes != null) {
           // Transcribe using OpenAI Whisper
-          print('🔄 Calling OpenAI Whisper API for transcription...');
-          final transcription = await _openAIService.transcribeAudio(recordingBytes);
+          debugPrint('🔄 Calling OpenAI Whisper API for transcription...');
+          final transcription =
+              await _openAIService.transcribeAudio(recordingBytes);
 
           if (transcription != null && transcription.isNotEmpty) {
-            print('✅ Transcription received: "$transcription"');
-            setState(() {
-              _recordButtonText = 'Hold to Talk';
-            });
+            debugPrint('✅ Transcription received: "$transcription"');
 
             // Send the transcribed text as a message
             await _sendMessage(transcription);
           } else {
-            print('❌ No transcription received from OpenAI Whisper');
-            setState(() {
-              _recordButtonText = 'Hold to Talk';
-            });
-            _showErrorSnackBar('I couldn\'t hear what you said. Please try again.');
+            debugPrint('❌ No transcription received from OpenAI Whisper');
+            _showErrorSnackBar(
+                'I couldn\'t hear what you said. Please try again.');
           }
         } else {
-          print('❌ Failed to read recording bytes');
-          setState(() {
-            _recordButtonText = 'Hold to Talk';
-          });
+          debugPrint('❌ Failed to read recording bytes');
           _showErrorSnackBar('Error processing audio. Please try again.');
         }
       } else {
-        print('❌ Recording failed, no path returned');
-        setState(() {
-          _recordButtonText = 'Hold to Talk';
-        });
+        debugPrint('❌ Recording failed, no path returned');
         _showErrorSnackBar('Recording failed. Please try again.');
       }
 
       // Cleanup the recording file
-      print('Cleaning up recording file...');
+      debugPrint('Cleaning up recording file...');
       await _audioRecorderService.deleteRecording();
-      print('Recording file deleted');
+      debugPrint('Recording file deleted');
     } catch (e) {
-      print('❌ ERROR processing recording: $e');
+      debugPrint('❌ ERROR processing recording: $e');
       setState(() {
         _isRecording = false;
-        _recordButtonText = 'Hold to Talk';
       });
       _showErrorSnackBar('Error processing your voice. Please try again.');
     } finally {
-      print('======== AI CHAT: VOICE PROCESSING COMPLETE ========');
+      debugPrint('======== AI CHAT: VOICE PROCESSING COMPLETE ========');
     }
   }
 
@@ -615,7 +606,7 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
       if (_currentProfileAvatarType == 'photo') {
         // Photo avatar
         return CircleAvatar(
-          backgroundColor: Colors.orange.withOpacity(0.2),
+          backgroundColor: Colors.orange.withValues(alpha: 0.2),
           backgroundImage: FileImage(File(_currentProfileAvatar!)),
           onBackgroundImageError: (exception, stackTrace) {
             // Fallback to default emoji if photo fails to load
@@ -642,7 +633,7 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
     } else {
       // Fallback to default emoji
       return CircleAvatar(
-        backgroundColor: Colors.orange.withOpacity(0.2),
+        backgroundColor: Colors.orange.withValues(alpha: 0.2),
         child: const Text(
           '🧒',
           style: TextStyle(fontSize: 18),
@@ -668,7 +659,8 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Clear Chat History'),
-        content: const Text('Are you sure you want to delete all chat messages? This cannot be undone.'),
+        content: const Text(
+            'Are you sure you want to delete all chat messages? This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -683,7 +675,8 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
               });
 
               try {
-                await _databaseService.deleteAllChatMessages(profileId: _currentProfileId);
+                await _databaseService.deleteAllChatMessages(
+                    profileId: _currentProfileId);
 
                 // Set flag to skip welcome message after clearing chat
                 _skipWelcomeMessage = true;
@@ -741,7 +734,7 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                   title: const Text('Enable Voice Responses'),
                   subtitle: const Text('AI will speak its responses'),
                   value: _useVoiceResponse,
-                  activeColor: const Color(0xFF8E6CFF),
+                  activeThumbColor: const Color(0xFF8E6CFF),
                   onChanged: (value) {
                     setModalState(() {
                       _useVoiceResponse = value;
@@ -764,26 +757,29 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                 ),
                 const SizedBox(height: 10),
 
-                ...ElevenLabsService.availableVoices
-                    .map((voice) => RadioListTile<String>(
-                          title: Text(voice['name']!),
-                          value: voice['id']!,
-                          groupValue: _selectedVoiceId,
-                          activeColor: const Color(0xFF8E6CFF),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setModalState(() {
-                                _selectedVoiceId = value;
-                              });
-                              setState(() {
-                                _selectedVoiceId = value;
-                                ElevenLabsService.setVoiceId(value);
-                                // Update the app bar title immediately to reflect the new voice
-                              });
-                            }
-                          },
-                        ))
-                    .toList(),
+                RadioGroup<String>(
+                  groupValue: _selectedVoiceId,
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setModalState(() {
+                      _selectedVoiceId = value;
+                    });
+                    setState(() {
+                      _selectedVoiceId = value;
+                      ElevenLabsService.setVoiceId(value);
+                      // Update the app bar title immediately to reflect the new voice
+                    });
+                  },
+                  child: Column(
+                    children: ElevenLabsService.availableVoices
+                        .map((voice) => RadioListTile<String>(
+                              title: Text(voice['name']!),
+                              value: voice['id']!,
+                              activeColor: const Color(0xFF8E6CFF),
+                            ))
+                        .toList(),
+                  ),
+                ),
 
                 const SizedBox(height: 20),
 
@@ -802,17 +798,20 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
 
                         // Also clean up audio files in the app's directory
                         final appDir = await getApplicationDocumentsDirectory();
-                        final audioDir = Directory('${appDir.path}/story_audio');
+                        final audioDir =
+                            Directory('${appDir.path}/story_audio');
 
                         if (await audioDir.exists()) {
                           final entities = await audioDir.list().toList();
                           for (final entity in entities) {
-                            if (entity is File && entity.path.contains('_voice_')) {
+                            if (entity is File &&
+                                entity.path.contains('_voice_')) {
                               await entity.delete();
                             }
                           }
                         }
 
+                        if (!context.mounted) return;
                         setState(() {
                           _isLoading = false;
                         });
@@ -825,6 +824,7 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                         );
                       } catch (e) {
                         debugPrint('Error clearing audio cache: $e');
+                        if (!context.mounted) return;
                         setState(() {
                           _isLoading = false;
                         });
@@ -850,11 +850,12 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     // Get the current voice name for the app bar title
-    String currentVoiceName = ElevenLabsService.getVoiceNameById(_selectedVoiceId);
+    String currentVoiceName =
+        ElevenLabsService.getVoiceNameById(_selectedVoiceId);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chat with ${currentVoiceName}'),
+        title: Text('Chat with $currentVoiceName'),
         backgroundColor: const Color(0xFF8E6CFF),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -879,13 +880,15 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                   // Show feedback to the user
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(value ? 'Voice responses enabled' : 'Voice responses disabled'),
+                      content: Text(value
+                          ? 'Voice responses enabled'
+                          : 'Voice responses disabled'),
                       duration: const Duration(seconds: 1),
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
                 },
-                activeColor: Colors.white,
+                activeThumbColor: Colors.white,
                 activeTrackColor: Colors.green,
                 inactiveThumbColor: Colors.white,
                 inactiveTrackColor: Colors.grey,
@@ -895,11 +898,15 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
           // Voice settings button
           IconButton(
             icon: Icon(
-              _useVoiceResponse ? Icons.record_voice_over : Icons.voice_over_off,
+              _useVoiceResponse
+                  ? Icons.record_voice_over
+                  : Icons.voice_over_off,
               size: 24,
             ),
             onPressed: _showVoiceSettings,
-            tooltip: _useVoiceResponse ? 'Voice Settings (On)' : 'Voice Settings (Off)',
+            tooltip: _useVoiceResponse
+                ? 'Voice Settings (On)'
+                : 'Voice Settings (Off)',
           ),
           // Clear chat button
           IconButton(
@@ -928,7 +935,8 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                 child: _isLoading
                     ? const Center(
                         child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8E6CFF)),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Color(0xFF8E6CFF)),
                         ),
                       )
                     : ListView.builder(
@@ -937,11 +945,14 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                           16,
                           20,
                           16,
-                          _isVoiceInputMode ? 100 : 80, // More padding for voice mode
+                          _isVoiceInputMode
+                              ? 100
+                              : 80, // More padding for voice mode
                         ),
                         itemCount: _messages.length,
                         reverse: false, // Keep chronological order
-                        physics: const AlwaysScrollableScrollPhysics(), // Make sure scrolling is always enabled
+                        physics:
+                            const AlwaysScrollableScrollPhysics(), // Make sure scrolling is always enabled
                         itemBuilder: (context, index) {
                           final message = _messages[index];
                           return _buildMessageBubble(message);
@@ -961,7 +972,8 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8E6CFF)),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Color(0xFF8E6CFF)),
                         ),
                       ),
                       SizedBox(width: 10),
@@ -982,7 +994,7 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                   color: Colors.white,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       spreadRadius: 1,
                       blurRadius: 10,
                     ),
@@ -999,18 +1011,26 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                       child: GestureDetector(
                         onTap: _toggleInputMode,
                         child: Tooltip(
-                          message: _isVoiceInputMode ? 'Switch to keyboard' : 'Switch to voice input',
+                          message: _isVoiceInputMode
+                              ? 'Switch to keyboard'
+                              : 'Switch to voice input',
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 300),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: _isVoiceInputMode ? const Color(0xFF8E6CFF).withOpacity(0.2) : const Color(0xFF8E6CFF).withOpacity(0.1),
+                              color: _isVoiceInputMode
+                                  ? const Color(0xFF8E6CFF)
+                                      .withValues(alpha: 0.2)
+                                  : const Color(0xFF8E6CFF)
+                                      .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: AnimatedSwitcher(
                               duration: const Duration(milliseconds: 300),
                               child: Icon(
-                                _isVoiceInputMode ? Icons.keyboard_alt_outlined : Icons.mic,
+                                _isVoiceInputMode
+                                    ? Icons.keyboard_alt_outlined
+                                    : Icons.mic,
                                 key: ValueKey<bool>(_isVoiceInputMode),
                                 color: const Color(0xFF8E6CFF),
                                 size: 24,
@@ -1024,7 +1044,9 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
 
                     // Animated transition between voice and keyboard modes
                     Expanded(
-                      child: _isVoiceInputMode ? _buildVoiceInputButton() : _buildTextInputField(),
+                      child: _isVoiceInputMode
+                          ? _buildVoiceInputButton()
+                          : _buildTextInputField(),
                     ),
 
                     // Only show send button in text input mode
@@ -1039,18 +1061,24 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                                   animation: _sendButtonController,
                                   builder: (context, child) {
                                     return Transform.scale(
-                                      scale: 1.0 + (_sendButtonController.value * 0.2),
+                                      scale: 1.0 +
+                                          (_sendButtonController.value * 0.2),
                                       child: IconButton(
                                         icon: const Icon(Icons.send_rounded),
                                         color: const Color(0xFF8E6CFF),
-                                        onPressed: _textController.text.trim().isEmpty
-                                            ? null
-                                            : () {
-                                                _sendButtonController.forward().then((_) {
-                                                  _sendButtonController.reverse();
-                                                });
-                                                _sendMessage(_textController.text);
-                                              },
+                                        onPressed:
+                                            _textController.text.trim().isEmpty
+                                                ? null
+                                                : () {
+                                                    _sendButtonController
+                                                        .forward()
+                                                        .then((_) {
+                                                      _sendButtonController
+                                                          .reverse();
+                                                    });
+                                                    _sendMessage(
+                                                        _textController.text);
+                                                  },
                                       ),
                                     );
                                   },
@@ -1075,13 +1103,14 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
-        mainAxisAlignment: isUserMessage ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isUserMessage ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // AI avatar for assistant messages
           if (!isUserMessage) ...[
             CircleAvatar(
-              backgroundColor: const Color(0xFF8E6CFF).withOpacity(0.2),
+              backgroundColor: const Color(0xFF8E6CFF).withValues(alpha: 0.2),
               child: const Text(
                 '🤖',
                 style: TextStyle(fontSize: 18),
@@ -1099,7 +1128,7 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     spreadRadius: 1,
                     blurRadius: 4,
                   ),
@@ -1118,7 +1147,9 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                   ),
 
                   // Play button for AI messages with audio
-                  if (!isUserMessage && message.audioPath != null && _useVoiceResponse)
+                  if (!isUserMessage &&
+                      message.audioPath != null &&
+                      _useVoiceResponse)
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
                       child: GestureDetector(
@@ -1129,7 +1160,9 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              _isPlayingAudio ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                              _isPlayingAudio
+                                  ? Icons.pause_circle_filled
+                                  : Icons.play_circle_filled,
                               color: const Color(0xFF8E6CFF),
                               size: 24,
                             ),
@@ -1248,12 +1281,14 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                   ),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: _isRecording ? Colors.red : const Color(0xFF8E6CFF).withOpacity(0.3),
+              color: _isRecording
+                  ? Colors.red
+                  : const Color(0xFF8E6CFF).withValues(alpha: 0.3),
               width: _isRecording ? 1.5 : 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 2,
                 offset: const Offset(0, 1),
               ),
@@ -1275,7 +1310,9 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: Colors.red.withOpacity(0.5 * (1 - _recordingPulseController.value)),
+                            color: Colors.red.withValues(
+                                alpha: 0.5 *
+                                    (1 - _recordingPulseController.value)),
                             width: 3.0 * (1 - _recordingPulseController.value),
                           ),
                         ),
@@ -1288,20 +1325,27 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                   Positioned(
                     top: 0,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: _isCancelingRecording ? Colors.red : Colors.grey.shade700,
+                        color: _isCancelingRecording
+                            ? Colors.red
+                            : Colors.grey.shade700,
                         borderRadius: const BorderRadius.only(
                           bottomLeft: Radius.circular(8),
                           bottomRight: Radius.circular(8),
                         ),
                       ),
                       child: Text(
-                        _isCancelingRecording ? "Release to cancel" : "↑ Swipe up to cancel",
+                        _isCancelingRecording
+                            ? "Release to cancel"
+                            : "↑ Swipe up to cancel",
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 10,
-                          fontWeight: _isCancelingRecording ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: _isCancelingRecording
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                         ),
                       ),
                     ),
@@ -1359,9 +1403,10 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                   Positioned(
                     right: 12,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.2),
+                        color: Colors.red.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -1372,7 +1417,9 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
                             builder: (context, child) {
                               return Icon(
                                 Icons.mic,
-                                color: Colors.red.withOpacity(0.7 + 0.3 * _micAnimationController.value),
+                                color: Colors.red.withValues(
+                                    alpha: 0.7 +
+                                        0.3 * _micAnimationController.value),
                                 size: 16,
                               );
                             },
@@ -1434,7 +1481,8 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
               ListTile(
                 leading: const Icon(Icons.keyboard, color: Colors.blue),
                 title: const Text("Switch input modes"),
-                subtitle: const Text("Tap the icon on the left to switch between voice and keyboard"),
+                subtitle: const Text(
+                    "Tap the icon on the left to switch between voice and keyboard"),
                 contentPadding: EdgeInsets.zero,
               ),
             ],
@@ -1530,7 +1578,6 @@ class _AiChatScreenState extends State<AiChatScreen> with TickerProviderStateMix
 
     setState(() {
       _isRecording = false;
-      _recordButtonText = 'Hold to Talk';
       _recordingDuration = 0;
       _isShowingCancelHint = false;
       _isCancelingRecording = false;

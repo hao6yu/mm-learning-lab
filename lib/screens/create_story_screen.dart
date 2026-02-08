@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/database_service.dart';
 import '../models/story.dart';
 import '../services/openai_service.dart';
+import '../providers/profile_provider.dart';
 
 class CreateStoryScreen extends StatefulWidget {
   final Story? storyToEdit; // If provided, we're editing an existing story
@@ -12,7 +14,8 @@ class CreateStoryScreen extends StatefulWidget {
   State<CreateStoryScreen> createState() => _CreateStoryScreenState();
 }
 
-class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProviderStateMixin {
+class _CreateStoryScreenState extends State<CreateStoryScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
@@ -51,15 +54,42 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
   ];
 
   final List<Map<String, dynamic>> _difficulties = [
-    {'name': 'Easy', 'icon': '😊', 'description': 'Simple and fun!', 'color': Color(0xFF4ECDC4)},
-    {'name': 'Medium', 'icon': '🤔', 'description': 'A little challenge', 'color': Color(0xFFFFD93D)},
-    {'name': 'Hard', 'icon': '🧠', 'description': 'For smart cookies!', 'color': Color(0xFFFF6B6B)},
+    {
+      'name': 'Easy',
+      'icon': '😊',
+      'description': 'Simple and fun!',
+      'color': Color(0xFF4ECDC4)
+    },
+    {
+      'name': 'Medium',
+      'icon': '🤔',
+      'description': 'A little challenge',
+      'color': Color(0xFFFFD93D)
+    },
+    {
+      'name': 'Hard',
+      'icon': '🧠',
+      'description': 'For smart cookies!',
+      'color': Color(0xFFFF6B6B)
+    },
   ];
 
   final Map<String, Map<String, dynamic>> _ageGroups = {
-    'young': {'label': '3-6 years', 'icon': '👶', 'description': 'Little readers'},
-    'middle': {'label': '7-9 years', 'icon': '🧒', 'description': 'Growing readers'},
-    'older': {'label': '10-12 years', 'icon': '👦👧', 'description': 'Big readers'},
+    'young': {
+      'label': '3-6 years',
+      'icon': '👶',
+      'description': 'Little readers'
+    },
+    'middle': {
+      'label': '7-9 years',
+      'icon': '🧒',
+      'description': 'Growing readers'
+    },
+    'older': {
+      'label': '10-12 years',
+      'icon': '👦👧',
+      'description': 'Big readers'
+    },
   };
 
   @override
@@ -169,7 +199,8 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
     final steps = ['Who?', 'What?', 'How?', 'Style', 'Write!'];
 
     return Container(
-      padding: EdgeInsets.all(isLandscape ? (isTablet ? 12.0 : 6.0) : (isTablet ? 20.0 : 16.0)),
+      padding: EdgeInsets.all(
+          isLandscape ? (isTablet ? 12.0 : 6.0) : (isTablet ? 20.0 : 16.0)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.only(
@@ -178,7 +209,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8.0,
             offset: const Offset(0, 4.0),
           ),
@@ -216,9 +247,13 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
               Expanded(
                 child: Center(
                   child: Text(
-                    widget.storyToEdit == null ? '✨ Create Your Story' : '✏️ Edit Story',
+                    widget.storyToEdit == null
+                        ? '✨ Create Your Story'
+                        : '✏️ Edit Story',
                     style: TextStyle(
-                      fontSize: isLandscape ? (isTablet ? 20.0 : 16.0) : (isTablet ? 24.0 : 20.0),
+                      fontSize: isLandscape
+                          ? (isTablet ? 20.0 : 16.0)
+                          : (isTablet ? 24.0 : 20.0),
                       fontWeight: FontWeight.bold,
                       color: const Color(0xFF8E6CFF),
                     ),
@@ -247,10 +282,12 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                             gradient: const LinearGradient(
                               colors: [Color(0xFF8E6CFF), Color(0xFF7C4DFF)],
                             ),
-                            borderRadius: BorderRadius.circular(isTablet ? 12.0 : 10.0),
+                            borderRadius:
+                                BorderRadius.circular(isTablet ? 12.0 : 10.0),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF8E6CFF).withOpacity(0.3),
+                                color: const Color(0xFF8E6CFF)
+                                    .withValues(alpha: 0.3),
                                 blurRadius: 4.0,
                                 offset: const Offset(0, 2.0),
                               ),
@@ -282,11 +319,15 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                         ),
                       )
               else
-                SizedBox(width: isTablet ? 80.0 : 60.0), // Placeholder for alignment
+                SizedBox(
+                    width: isTablet ? 80.0 : 60.0), // Placeholder for alignment
             ],
           ),
 
-          SizedBox(height: isLandscape ? (isTablet ? 6.0 : 2.0) : (isTablet ? 16.0 : 12.0)),
+          SizedBox(
+              height: isLandscape
+                  ? (isTablet ? 6.0 : 2.0)
+                  : (isTablet ? 16.0 : 12.0)),
 
           // Progress Indicator
           if (widget.storyToEdit == null) // Only show for new stories
@@ -297,23 +338,32 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
 
                 return Expanded(
                   child: Container(
-                    margin: EdgeInsets.symmetric(horizontal: isTablet ? 4.0 : 2.0),
+                    margin:
+                        EdgeInsets.symmetric(horizontal: isTablet ? 4.0 : 2.0),
                     child: Column(
                       children: [
                         Container(
                           height: isTablet ? 8.0 : 6.0,
                           decoration: BoxDecoration(
-                            color: isCompleted || isActive ? const Color(0xFF8E6CFF) : Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(isTablet ? 4.0 : 3.0),
+                            color: isCompleted || isActive
+                                ? const Color(0xFF8E6CFF)
+                                : Colors.grey.shade300,
+                            borderRadius:
+                                BorderRadius.circular(isTablet ? 4.0 : 3.0),
                           ),
                         ),
                         SizedBox(height: isTablet ? 8.0 : 6.0),
                         Text(
                           steps[index],
                           style: TextStyle(
-                            fontSize: isLandscape ? (isTablet ? 10.0 : 8.0) : (isTablet ? 12.0 : 10.0),
-                            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                            color: isActive ? const Color(0xFF8E6CFF) : Colors.grey.shade600,
+                            fontSize: isLandscape
+                                ? (isTablet ? 10.0 : 8.0)
+                                : (isTablet ? 12.0 : 10.0),
+                            fontWeight:
+                                isActive ? FontWeight.bold : FontWeight.normal,
+                            color: isActive
+                                ? const Color(0xFF8E6CFF)
+                                : Colors.grey.shade600,
                           ),
                         ),
                       ],
@@ -346,24 +396,35 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
 
   Widget _buildAgeGroupStep(bool isTablet, bool isLandscape) {
     return Padding(
-      padding: EdgeInsets.all(isLandscape ? (isTablet ? 16.0 : 8.0) : (isTablet ? 24.0 : 16.0)),
+      padding: EdgeInsets.all(
+          isLandscape ? (isTablet ? 16.0 : 8.0) : (isTablet ? 24.0 : 16.0)),
       child: Column(
         children: [
-          SizedBox(height: isLandscape ? (isTablet ? 10.0 : 5.0) : (isTablet ? 40.0 : 20.0)),
+          SizedBox(
+              height: isLandscape
+                  ? (isTablet ? 10.0 : 5.0)
+                  : (isTablet ? 40.0 : 20.0)),
           Text(
             '👋 Who will read this story?',
             style: TextStyle(
-              fontSize: isLandscape ? (isTablet ? 24.0 : 20.0) : (isTablet ? 28.0 : 24.0),
+              fontSize: isLandscape
+                  ? (isTablet ? 24.0 : 20.0)
+                  : (isTablet ? 28.0 : 24.0),
               fontWeight: FontWeight.bold,
               color: const Color(0xFF26324A),
             ),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: isLandscape ? (isTablet ? 8.0 : 4.0) : (isTablet ? 16.0 : 12.0)),
+          SizedBox(
+              height: isLandscape
+                  ? (isTablet ? 8.0 : 4.0)
+                  : (isTablet ? 16.0 : 12.0)),
           Text(
             'Choose the age group so we can make it just right!',
             style: TextStyle(
-              fontSize: isLandscape ? (isTablet ? 14.0 : 12.0) : (isTablet ? 18.0 : 16.0),
+              fontSize: isLandscape
+                  ? (isTablet ? 14.0 : 12.0)
+                  : (isTablet ? 18.0 : 16.0),
               color: Colors.grey.shade600,
             ),
             textAlign: TextAlign.center,
@@ -376,7 +437,10 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                 final ageData = entry.value;
 
                 return Container(
-                  margin: EdgeInsets.only(bottom: isLandscape ? (isTablet ? 8.0 : 6.0) : (isTablet ? 16.0 : 12.0)),
+                  margin: EdgeInsets.only(
+                      bottom: isLandscape
+                          ? (isTablet ? 8.0 : 6.0)
+                          : (isTablet ? 16.0 : 12.0)),
                   child: GestureDetector(
                     onTap: () {
                       setState(() {
@@ -384,17 +448,24 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                       });
                     },
                     child: Container(
-                      padding: EdgeInsets.all(isLandscape ? (isTablet ? 16.0 : 12.0) : (isTablet ? 24.0 : 20.0)),
+                      padding: EdgeInsets.all(isLandscape
+                          ? (isTablet ? 16.0 : 12.0)
+                          : (isTablet ? 24.0 : 20.0)),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF8E6CFF).withOpacity(0.1) : Colors.white,
-                        borderRadius: BorderRadius.circular(isTablet ? 20.0 : 16.0),
+                        color: isSelected
+                            ? const Color(0xFF8E6CFF).withValues(alpha: 0.1)
+                            : Colors.white,
+                        borderRadius:
+                            BorderRadius.circular(isTablet ? 20.0 : 16.0),
                         border: Border.all(
-                          color: isSelected ? const Color(0xFF8E6CFF) : Colors.grey.shade300,
+                          color: isSelected
+                              ? const Color(0xFF8E6CFF)
+                              : Colors.grey.shade300,
                           width: isSelected ? 3.0 : 1.0,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 8.0,
                             offset: const Offset(0, 4.0),
                           ),
@@ -404,9 +475,15 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                         children: [
                           Text(
                             ageData['icon'],
-                            style: TextStyle(fontSize: isLandscape ? (isTablet ? 36.0 : 30.0) : (isTablet ? 48.0 : 40.0)),
+                            style: TextStyle(
+                                fontSize: isLandscape
+                                    ? (isTablet ? 36.0 : 30.0)
+                                    : (isTablet ? 48.0 : 40.0)),
                           ),
-                          SizedBox(width: isLandscape ? (isTablet ? 12.0 : 8.0) : (isTablet ? 20.0 : 16.0)),
+                          SizedBox(
+                              width: isLandscape
+                                  ? (isTablet ? 12.0 : 8.0)
+                                  : (isTablet ? 20.0 : 16.0)),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -414,16 +491,23 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                                 Text(
                                   ageData['label'],
                                   style: TextStyle(
-                                    fontSize: isLandscape ? (isTablet ? 18.0 : 14.0) : (isTablet ? 22.0 : 18.0),
+                                    fontSize: isLandscape
+                                        ? (isTablet ? 18.0 : 14.0)
+                                        : (isTablet ? 22.0 : 18.0),
                                     fontWeight: FontWeight.bold,
                                     color: const Color(0xFF26324A),
                                   ),
                                 ),
-                                SizedBox(height: isLandscape ? (isTablet ? 2.0 : 1.0) : (isTablet ? 4.0 : 2.0)),
+                                SizedBox(
+                                    height: isLandscape
+                                        ? (isTablet ? 2.0 : 1.0)
+                                        : (isTablet ? 4.0 : 2.0)),
                                 Text(
                                   ageData['description'],
                                   style: TextStyle(
-                                    fontSize: isLandscape ? (isTablet ? 12.0 : 10.0) : (isTablet ? 16.0 : 14.0),
+                                    fontSize: isLandscape
+                                        ? (isTablet ? 12.0 : 10.0)
+                                        : (isTablet ? 16.0 : 14.0),
                                     color: Colors.grey.shade600,
                                   ),
                                 ),
@@ -451,29 +535,43 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
 
   Widget _buildCategoryStep(bool isTablet, bool isLandscape) {
     return Padding(
-      padding: EdgeInsets.all(isLandscape ? (isTablet ? 16.0 : 8.0) : (isTablet ? 24.0 : 16.0)),
+      padding: EdgeInsets.all(
+          isLandscape ? (isTablet ? 16.0 : 8.0) : (isTablet ? 24.0 : 16.0)),
       child: Column(
         children: [
-          SizedBox(height: isLandscape ? (isTablet ? 10.0 : 5.0) : (isTablet ? 40.0 : 20.0)),
+          SizedBox(
+              height: isLandscape
+                  ? (isTablet ? 10.0 : 5.0)
+                  : (isTablet ? 40.0 : 20.0)),
           Text(
             '🎭 What kind of story?',
             style: TextStyle(
-              fontSize: isLandscape ? (isTablet ? 24.0 : 20.0) : (isTablet ? 28.0 : 24.0),
+              fontSize: isLandscape
+                  ? (isTablet ? 24.0 : 20.0)
+                  : (isTablet ? 28.0 : 24.0),
               fontWeight: FontWeight.bold,
               color: const Color(0xFF26324A),
             ),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: isLandscape ? (isTablet ? 8.0 : 4.0) : (isTablet ? 16.0 : 12.0)),
+          SizedBox(
+              height: isLandscape
+                  ? (isTablet ? 8.0 : 4.0)
+                  : (isTablet ? 16.0 : 12.0)),
           Text(
             'Pick your favorite type of adventure!',
             style: TextStyle(
-              fontSize: isLandscape ? (isTablet ? 14.0 : 12.0) : (isTablet ? 18.0 : 16.0),
+              fontSize: isLandscape
+                  ? (isTablet ? 14.0 : 12.0)
+                  : (isTablet ? 18.0 : 16.0),
               color: Colors.grey.shade600,
             ),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: isLandscape ? (isTablet ? 15.0 : 8.0) : (isTablet ? 40.0 : 30.0)),
+          SizedBox(
+              height: isLandscape
+                  ? (isTablet ? 15.0 : 8.0)
+                  : (isTablet ? 40.0 : 30.0)),
           Expanded(
             child: GridView.builder(
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -495,15 +593,20 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                   },
                   child: Container(
                     decoration: BoxDecoration(
-                      color: isSelected ? category['color'].withOpacity(0.2) : Colors.white,
-                      borderRadius: BorderRadius.circular(isTablet ? 20.0 : 16.0),
+                      color: isSelected
+                          ? category['color'].withValues(alpha: 0.2)
+                          : Colors.white,
+                      borderRadius:
+                          BorderRadius.circular(isTablet ? 20.0 : 16.0),
                       border: Border.all(
-                        color: isSelected ? category['color'] : Colors.grey.shade300,
+                        color: isSelected
+                            ? category['color']
+                            : Colors.grey.shade300,
                         width: isSelected ? 3.0 : 1.0,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 8.0,
                           offset: const Offset(0, 4.0),
                         ),
@@ -548,24 +651,35 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
 
   Widget _buildDifficultyStep(bool isTablet, bool isLandscape) {
     return Padding(
-      padding: EdgeInsets.all(isLandscape ? (isTablet ? 16.0 : 8.0) : (isTablet ? 24.0 : 16.0)),
+      padding: EdgeInsets.all(
+          isLandscape ? (isTablet ? 16.0 : 8.0) : (isTablet ? 24.0 : 16.0)),
       child: Column(
         children: [
-          SizedBox(height: isLandscape ? (isTablet ? 10.0 : 5.0) : (isTablet ? 40.0 : 20.0)),
+          SizedBox(
+              height: isLandscape
+                  ? (isTablet ? 10.0 : 5.0)
+                  : (isTablet ? 40.0 : 20.0)),
           Text(
             '🎯 How challenging?',
             style: TextStyle(
-              fontSize: isLandscape ? (isTablet ? 24.0 : 20.0) : (isTablet ? 28.0 : 24.0),
+              fontSize: isLandscape
+                  ? (isTablet ? 24.0 : 20.0)
+                  : (isTablet ? 28.0 : 24.0),
               fontWeight: FontWeight.bold,
               color: const Color(0xFF26324A),
             ),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: isLandscape ? (isTablet ? 8.0 : 4.0) : (isTablet ? 16.0 : 12.0)),
+          SizedBox(
+              height: isLandscape
+                  ? (isTablet ? 8.0 : 4.0)
+                  : (isTablet ? 16.0 : 12.0)),
           Text(
             'Choose how tricky you want your story to be!',
             style: TextStyle(
-              fontSize: isLandscape ? (isTablet ? 14.0 : 12.0) : (isTablet ? 18.0 : 16.0),
+              fontSize: isLandscape
+                  ? (isTablet ? 14.0 : 12.0)
+                  : (isTablet ? 18.0 : 16.0),
               color: Colors.grey.shade600,
             ),
             textAlign: TextAlign.center,
@@ -587,15 +701,20 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                     child: Container(
                       padding: EdgeInsets.all(isTablet ? 24.0 : 20.0),
                       decoration: BoxDecoration(
-                        color: isSelected ? difficulty['color'].withOpacity(0.1) : Colors.white,
-                        borderRadius: BorderRadius.circular(isTablet ? 20.0 : 16.0),
+                        color: isSelected
+                            ? difficulty['color'].withValues(alpha: 0.1)
+                            : Colors.white,
+                        borderRadius:
+                            BorderRadius.circular(isTablet ? 20.0 : 16.0),
                         border: Border.all(
-                          color: isSelected ? difficulty['color'] : Colors.grey.shade300,
+                          color: isSelected
+                              ? difficulty['color']
+                              : Colors.grey.shade300,
                           width: isSelected ? 3.0 : 1.0,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 8.0,
                             offset: const Offset(0, 4.0),
                           ),
@@ -652,29 +771,43 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
 
   Widget _buildEmojiStep(bool isTablet, bool isLandscape) {
     return Padding(
-      padding: EdgeInsets.all(isLandscape ? (isTablet ? 16.0 : 8.0) : (isTablet ? 24.0 : 16.0)),
+      padding: EdgeInsets.all(
+          isLandscape ? (isTablet ? 16.0 : 8.0) : (isTablet ? 24.0 : 16.0)),
       child: Column(
         children: [
-          SizedBox(height: isLandscape ? (isTablet ? 10.0 : 5.0) : (isTablet ? 40.0 : 20.0)),
+          SizedBox(
+              height: isLandscape
+                  ? (isTablet ? 10.0 : 5.0)
+                  : (isTablet ? 40.0 : 20.0)),
           Text(
             '😊 Pick your story emoji!',
             style: TextStyle(
-              fontSize: isLandscape ? (isTablet ? 24.0 : 20.0) : (isTablet ? 28.0 : 24.0),
+              fontSize: isLandscape
+                  ? (isTablet ? 24.0 : 20.0)
+                  : (isTablet ? 28.0 : 24.0),
               fontWeight: FontWeight.bold,
               color: const Color(0xFF26324A),
             ),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: isLandscape ? (isTablet ? 8.0 : 4.0) : (isTablet ? 16.0 : 12.0)),
+          SizedBox(
+              height: isLandscape
+                  ? (isTablet ? 8.0 : 4.0)
+                  : (isTablet ? 16.0 : 12.0)),
           Text(
             'This will be your story\'s special symbol!',
             style: TextStyle(
-              fontSize: isLandscape ? (isTablet ? 14.0 : 12.0) : (isTablet ? 18.0 : 16.0),
+              fontSize: isLandscape
+                  ? (isTablet ? 14.0 : 12.0)
+                  : (isTablet ? 18.0 : 16.0),
               color: Colors.grey.shade600,
             ),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: isLandscape ? (isTablet ? 15.0 : 8.0) : (isTablet ? 40.0 : 30.0)),
+          SizedBox(
+              height: isLandscape
+                  ? (isTablet ? 15.0 : 8.0)
+                  : (isTablet ? 40.0 : 30.0)),
           Expanded(
             child: ListView(
               children: _emojiCategories.entries.map((entry) {
@@ -684,7 +817,8 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: EdgeInsets.symmetric(horizontal: isTablet ? 8.0 : 4.0),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: isTablet ? 8.0 : 4.0),
                         child: Text(
                           entry.key,
                           style: TextStyle(
@@ -695,7 +829,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                         ),
                       ),
                       SizedBox(height: isTablet ? 12.0 : 8.0),
-                      Container(
+                      SizedBox(
                         height: isTablet ? 80.0 : 70.0,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
@@ -712,17 +846,25 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                               },
                               child: Container(
                                 width: isTablet ? 70.0 : 60.0,
-                                margin: EdgeInsets.only(right: isTablet ? 8.0 : 6.0),
+                                margin: EdgeInsets.only(
+                                    right: isTablet ? 8.0 : 6.0),
                                 decoration: BoxDecoration(
-                                  color: isSelected ? const Color(0xFF8E6CFF).withOpacity(0.2) : Colors.white,
-                                  borderRadius: BorderRadius.circular(isTablet ? 16.0 : 12.0),
+                                  color: isSelected
+                                      ? const Color(0xFF8E6CFF)
+                                          .withValues(alpha: 0.2)
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(
+                                      isTablet ? 16.0 : 12.0),
                                   border: Border.all(
-                                    color: isSelected ? const Color(0xFF8E6CFF) : Colors.grey.shade300,
+                                    color: isSelected
+                                        ? const Color(0xFF8E6CFF)
+                                        : Colors.grey.shade300,
                                     width: isSelected ? 3.0 : 1.0,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.05),
                                       blurRadius: 4.0,
                                       offset: const Offset(0, 2.0),
                                     ),
@@ -731,7 +873,8 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                                 child: Center(
                                   child: Text(
                                     emoji,
-                                    style: TextStyle(fontSize: isTablet ? 36.0 : 30.0),
+                                    style: TextStyle(
+                                        fontSize: isTablet ? 36.0 : 30.0),
                                   ),
                                 ),
                               ),
@@ -754,7 +897,8 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
     return Form(
         key: _formKey,
         child: Padding(
-          padding: EdgeInsets.all(isLandscape ? (isTablet ? 16.0 : 8.0) : (isTablet ? 24.0 : 16.0)),
+          padding: EdgeInsets.all(
+              isLandscape ? (isTablet ? 16.0 : 8.0) : (isTablet ? 24.0 : 16.0)),
           child: SingleChildScrollView(
             child: Column(
               children: [
@@ -762,17 +906,25 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                 if (widget.storyToEdit == null)
                   Container(
                     width: double.infinity,
-                    margin: EdgeInsets.only(bottom: isLandscape ? (isTablet ? 8.0 : 6.0) : (isTablet ? 20.0 : 16.0)),
-                    padding: EdgeInsets.all(isLandscape ? (isTablet ? 8.0 : 6.0) : (isTablet ? 20.0 : 16.0)),
+                    margin: EdgeInsets.only(
+                        bottom: isLandscape
+                            ? (isTablet ? 8.0 : 6.0)
+                            : (isTablet ? 20.0 : 16.0)),
+                    padding: EdgeInsets.all(isLandscape
+                        ? (isTablet ? 8.0 : 6.0)
+                        : (isTablet ? 20.0 : 16.0)),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          const Color(0xFF8E6CFF).withOpacity(0.1),
-                          const Color(0xFF3ED6C1).withOpacity(0.1),
+                          const Color(0xFF8E6CFF).withValues(alpha: 0.1),
+                          const Color(0xFF3ED6C1).withValues(alpha: 0.1),
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(isTablet ? 20.0 : 16.0),
-                      border: Border.all(color: const Color(0xFF8E6CFF).withOpacity(0.3)),
+                      borderRadius:
+                          BorderRadius.circular(isTablet ? 20.0 : 16.0),
+                      border: Border.all(
+                          color:
+                              const Color(0xFF8E6CFF).withValues(alpha: 0.3)),
                     ),
                     child: Column(
                       children: [
@@ -780,14 +932,22 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                           children: [
                             Text(
                               '🤖',
-                              style: TextStyle(fontSize: isLandscape ? (isTablet ? 24.0 : 20.0) : (isTablet ? 32.0 : 28.0)),
+                              style: TextStyle(
+                                  fontSize: isLandscape
+                                      ? (isTablet ? 24.0 : 20.0)
+                                      : (isTablet ? 32.0 : 28.0)),
                             ),
-                            SizedBox(width: isLandscape ? (isTablet ? 8.0 : 6.0) : (isTablet ? 12.0 : 8.0)),
+                            SizedBox(
+                                width: isLandscape
+                                    ? (isTablet ? 8.0 : 6.0)
+                                    : (isTablet ? 12.0 : 8.0)),
                             Expanded(
                               child: Text(
                                 'AI Story Helper',
                                 style: TextStyle(
-                                  fontSize: isLandscape ? (isTablet ? 16.0 : 14.0) : (isTablet ? 20.0 : 18.0),
+                                  fontSize: isLandscape
+                                      ? (isTablet ? 16.0 : 14.0)
+                                      : (isTablet ? 20.0 : 18.0),
                                   fontWeight: FontWeight.bold,
                                   color: const Color(0xFF8E6CFF),
                                 ),
@@ -795,27 +955,38 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                             ),
                           ],
                         ),
-                        SizedBox(height: isLandscape ? (isTablet ? 8.0 : 6.0) : (isTablet ? 16.0 : 12.0)),
+                        SizedBox(
+                            height: isLandscape
+                                ? (isTablet ? 8.0 : 6.0)
+                                : (isTablet ? 16.0 : 12.0)),
                         TextFormField(
                           controller: _promptController,
                           decoration: InputDecoration(
-                            hintText: 'Tell me your story idea! (like "a cat who loves pizza")',
+                            hintText:
+                                'Tell me your story idea! (like "a cat who loves pizza")',
                             filled: true,
                             fillColor: Colors.white,
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(isTablet ? 12.0 : 10.0),
+                              borderRadius:
+                                  BorderRadius.circular(isTablet ? 12.0 : 10.0),
                               borderSide: BorderSide.none,
                             ),
-                            contentPadding: EdgeInsets.all(isTablet ? 16.0 : 12.0),
+                            contentPadding:
+                                EdgeInsets.all(isTablet ? 16.0 : 12.0),
                           ),
                           style: TextStyle(fontSize: isTablet ? 16.0 : 14.0),
                         ),
-                        SizedBox(height: isLandscape ? (isTablet ? 8.0 : 6.0) : (isTablet ? 16.0 : 12.0)),
+                        SizedBox(
+                            height: isLandscape
+                                ? (isTablet ? 8.0 : 6.0)
+                                : (isTablet ? 16.0 : 12.0)),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
-                            onPressed: _isGenerating ? null : _generateFullStory,
-                            icon: Icon(Icons.auto_awesome, size: isTablet ? 24.0 : 20.0),
+                            onPressed:
+                                _isGenerating ? null : _generateFullStory,
+                            icon: Icon(Icons.auto_awesome,
+                                size: isTablet ? 24.0 : 20.0),
                             label: Text(
                               '✨ Create My Story!',
                               style: TextStyle(
@@ -827,11 +998,16 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                               backgroundColor: const Color(0xFF8E6CFF),
                               foregroundColor: Colors.white,
                               padding: EdgeInsets.symmetric(
-                                vertical: isLandscape ? (isTablet ? 10.0 : 8.0) : (isTablet ? 16.0 : 14.0),
-                                horizontal: isLandscape ? (isTablet ? 16.0 : 12.0) : (isTablet ? 24.0 : 20.0),
+                                vertical: isLandscape
+                                    ? (isTablet ? 10.0 : 8.0)
+                                    : (isTablet ? 16.0 : 14.0),
+                                horizontal: isLandscape
+                                    ? (isTablet ? 16.0 : 12.0)
+                                    : (isTablet ? 24.0 : 20.0),
                               ),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(isTablet ? 16.0 : 12.0),
+                                borderRadius: BorderRadius.circular(
+                                    isTablet ? 16.0 : 12.0),
                               ),
                               elevation: 4.0,
                             ),
@@ -839,14 +1015,16 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                         ),
                         if (_isGenerating)
                           Padding(
-                            padding: EdgeInsets.only(top: isTablet ? 16.0 : 12.0),
+                            padding:
+                                EdgeInsets.only(top: isTablet ? 16.0 : 12.0),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 SizedBox(
                                   width: isTablet ? 20.0 : 16.0,
                                   height: isTablet ? 20.0 : 16.0,
-                                  child: const CircularProgressIndicator(strokeWidth: 2.0),
+                                  child: const CircularProgressIndicator(
+                                      strokeWidth: 2.0),
                                 ),
                                 SizedBox(width: isTablet ? 12.0 : 8.0),
                                 Text(
@@ -861,12 +1039,14 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                           ),
                         if (_generationError != null)
                           Padding(
-                            padding: EdgeInsets.only(top: isTablet ? 12.0 : 8.0),
+                            padding:
+                                EdgeInsets.only(top: isTablet ? 12.0 : 8.0),
                             child: Container(
                               padding: EdgeInsets.all(isTablet ? 12.0 : 8.0),
                               decoration: BoxDecoration(
                                 color: Colors.red.shade50,
-                                borderRadius: BorderRadius.circular(isTablet ? 8.0 : 6.0),
+                                borderRadius:
+                                    BorderRadius.circular(isTablet ? 8.0 : 6.0),
                                 border: Border.all(color: Colors.red.shade200),
                               ),
                               child: Text(
@@ -891,7 +1071,8 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(isTablet ? 12.0 : 10.0),
+                      borderRadius:
+                          BorderRadius.circular(isTablet ? 12.0 : 10.0),
                     ),
                     contentPadding: EdgeInsets.all(isTablet ? 16.0 : 14.0),
                   ),
@@ -907,7 +1088,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                 SizedBox(height: isTablet ? 16.0 : 12.0),
 
                 // Content Field
-                Container(
+                SizedBox(
                   height: isLandscape ? 120.0 : 200.0,
                   child: TextFormField(
                     controller: _contentController,
@@ -917,7 +1098,8 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(isTablet ? 12.0 : 10.0),
+                        borderRadius:
+                            BorderRadius.circular(isTablet ? 12.0 : 10.0),
                       ),
                       contentPadding: EdgeInsets.all(isTablet ? 16.0 : 14.0),
                       alignLabelWithHint: true,
@@ -942,7 +1124,8 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
 
   Widget _buildNavigationButtons(bool isTablet, bool isLandscape) {
     return Container(
-      padding: EdgeInsets.all(isLandscape ? (isTablet ? 12.0 : 8.0) : (isTablet ? 24.0 : 16.0)),
+      padding: EdgeInsets.all(
+          isLandscape ? (isTablet ? 12.0 : 8.0) : (isTablet ? 24.0 : 16.0)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.only(
@@ -951,7 +1134,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8.0,
             offset: const Offset(0, -4.0),
           ),
@@ -964,15 +1147,24 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: _previousStep,
-                icon: Icon(Icons.arrow_back, size: isLandscape ? (isTablet ? 16.0 : 14.0) : (isTablet ? 20.0 : 18.0)),
+                icon: Icon(Icons.arrow_back,
+                    size: isLandscape
+                        ? (isTablet ? 16.0 : 14.0)
+                        : (isTablet ? 20.0 : 18.0)),
                 label: Text(
                   'Back',
-                  style: TextStyle(fontSize: isLandscape ? (isTablet ? 12.0 : 10.0) : (isTablet ? 16.0 : 14.0)),
+                  style: TextStyle(
+                      fontSize: isLandscape
+                          ? (isTablet ? 12.0 : 10.0)
+                          : (isTablet ? 16.0 : 14.0)),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.grey.shade300,
                   foregroundColor: Colors.grey.shade700,
-                  padding: EdgeInsets.symmetric(vertical: isLandscape ? (isTablet ? 10.0 : 8.0) : (isTablet ? 16.0 : 14.0)),
+                  padding: EdgeInsets.symmetric(
+                      vertical: isLandscape
+                          ? (isTablet ? 10.0 : 8.0)
+                          : (isTablet ? 16.0 : 14.0)),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(isTablet ? 12.0 : 10.0),
                   ),
@@ -980,22 +1172,34 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
               ),
             ),
 
-          if (_currentStep > 0 && widget.storyToEdit == null && _currentStep < 4) SizedBox(width: isTablet ? 16.0 : 12.0),
+          if (_currentStep > 0 &&
+              widget.storyToEdit == null &&
+              _currentStep < 4)
+            SizedBox(width: isTablet ? 16.0 : 12.0),
 
           // Next button
           if (_currentStep < 4 && widget.storyToEdit == null)
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: _nextStep,
-                icon: Icon(Icons.arrow_forward, size: isLandscape ? (isTablet ? 16.0 : 14.0) : (isTablet ? 20.0 : 18.0)),
+                icon: Icon(Icons.arrow_forward,
+                    size: isLandscape
+                        ? (isTablet ? 16.0 : 14.0)
+                        : (isTablet ? 20.0 : 18.0)),
                 label: Text(
                   'Next',
-                  style: TextStyle(fontSize: isLandscape ? (isTablet ? 12.0 : 10.0) : (isTablet ? 16.0 : 14.0)),
+                  style: TextStyle(
+                      fontSize: isLandscape
+                          ? (isTablet ? 12.0 : 10.0)
+                          : (isTablet ? 16.0 : 14.0)),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF8E6CFF),
                   foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: isLandscape ? (isTablet ? 10.0 : 8.0) : (isTablet ? 16.0 : 14.0)),
+                  padding: EdgeInsets.symmetric(
+                      vertical: isLandscape
+                          ? (isTablet ? 10.0 : 8.0)
+                          : (isTablet ? 16.0 : 14.0)),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(isTablet ? 12.0 : 10.0),
                   ),
@@ -1023,7 +1227,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
       }
 
       // Add category context
-      prompt += ' in the ${_selectedCategory} category';
+      prompt += ' in the $_selectedCategory category';
 
       // Add difficulty context
       prompt += ' with ${_selectedDifficulty.toLowerCase()} difficulty level';
@@ -1031,7 +1235,8 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
       // Add age group context
       final ageData = _ageGroups[_selectedAgeGroup];
       if (ageData != null) {
-        prompt += ' suitable for ${ageData['label']} (${ageData['description']})';
+        prompt +=
+            ' suitable for ${ageData['label']} (${ageData['description']})';
       }
 
       final storyData = await _openAIService.generateStory(
@@ -1039,7 +1244,10 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
         prompt: prompt,
       );
 
-      if (storyData != null && storyData['title'] != null && storyData['content'] != null) {
+      if (!mounted) return;
+      if (storyData != null &&
+          storyData['title'] != null &&
+          storyData['content'] != null) {
         setState(() {
           // Always update both title and content
           _titleController.text = storyData['title'];
@@ -1048,7 +1256,8 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
           // Update emoji if provided and it's in our available options
           if (storyData['emoji'] != null) {
             final emoji = storyData['emoji'].toString();
-            final allEmojis = _emojiCategories.values.expand((list) => list).toList();
+            final allEmojis =
+                _emojiCategories.values.expand((list) => list).toList();
             if (allEmojis.contains(emoji)) {
               _selectedEmoji = emoji;
             }
@@ -1071,17 +1280,22 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
         );
       } else {
         setState(() {
-          _generationError = 'Couldn\'t create a complete story right now. Try writing your own or check your internet connection!';
+          _generationError =
+              'Couldn\'t create a complete story right now. Try writing your own or check your internet connection!';
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _generationError = 'Oops! Something went wrong. Please check your internet connection and try again!';
+        _generationError =
+            'Oops! Something went wrong. Please check your internet connection and try again!';
       });
     } finally {
-      setState(() {
-        _isGenerating = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isGenerating = false;
+        });
+      }
     }
   }
 
@@ -1093,6 +1307,11 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
 
       try {
         final databaseService = DatabaseService();
+        final selectedProfileId =
+            context.read<ProfileProvider>().selectedProfileId;
+        if (selectedProfileId == null) {
+          throw Exception('No profile selected.');
+        }
 
         if (widget.storyToEdit == null) {
           // Creating a new story
@@ -1104,9 +1323,11 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
             difficulty: _selectedDifficulty,
             wordOfDay: null,
             isUserCreated: true,
+            profileId: selectedProfileId,
           );
 
           await databaseService.insertStory(story);
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
@@ -1131,9 +1352,14 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
             wordOfDay: widget.storyToEdit!.wordOfDay,
             isUserCreated: true,
             audioPath: widget.storyToEdit!.audioPath,
+            profileId: selectedProfileId,
           );
 
-          await databaseService.updateStory(updatedStory);
+          await databaseService.updateStory(
+            updatedStory,
+            profileId: selectedProfileId,
+          );
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
@@ -1152,6 +1378,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> with TickerProvid
           Navigator.pop(context, true);
         }
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
