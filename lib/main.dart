@@ -13,12 +13,13 @@ import 'screens/phonics_screen.dart';
 import 'screens/bubble_pop_screen.dart';
 import 'screens/story_adventure_screen.dart';
 import 'screens/ai_chat_screen.dart';
+import 'screens/openai_realtime_voice_conversation_screen.dart';
+import 'screens/ai_limits_screen.dart';
 import 'services/elevenlabs_service.dart';
 import 'services/openai_service.dart';
 import 'services/database_service.dart';
 import 'services/performance_warmup_service.dart';
 import 'services/subscription_service.dart';
-import 'widgets/subscription_guard.dart';
 import 'screens/kid_progress_screen.dart';
 import 'screens/subscription_screen.dart';
 
@@ -97,22 +98,17 @@ class MMLearningLabApp extends StatelessWidget {
             ),
             initialRoute: '/',
             routes: {
-              '/': (context) =>
-                  const SubscriptionGuard(child: ProfileSelectionScreen()),
-              '/games': (context) =>
-                  const SubscriptionGuard(child: GameSelectionScreen()),
-              '/tracing': (context) =>
-                  const SubscriptionGuard(child: LetterTracingScreen()),
-              '/phonics': (context) =>
-                  const SubscriptionGuard(child: PhonicsScreen()),
-              '/bubble-pop': (context) =>
-                  const SubscriptionGuard(child: BubblePopScreen()),
-              '/story-adventure': (context) =>
-                  const SubscriptionGuard(child: StoryAdventureScreen()),
-              '/ai-chat': (context) =>
-                  const SubscriptionGuard(child: AiChatScreen()),
-              '/progress': (context) =>
-                  const SubscriptionGuard(child: KidProgressScreen()),
+              '/': (context) => const ProfileSelectionScreen(),
+              '/games': (context) => const GameSelectionScreen(),
+              '/tracing': (context) => const LetterTracingScreen(),
+              '/phonics': (context) => const PhonicsScreen(),
+              '/bubble-pop': (context) => const BubblePopScreen(),
+              '/story-adventure': (context) => StoryAdventureScreen(),
+              '/ai-chat': (context) => const AiChatScreen(),
+              '/ai-call': (context) =>
+                  const OpenAIRealtimeVoiceConversationScreen(),
+              '/ai-limits': (context) => const AiLimitsScreen(),
+              '/progress': (context) => const KidProgressScreen(),
               '/subscription': (context) => const SubscriptionScreen(),
             },
           );

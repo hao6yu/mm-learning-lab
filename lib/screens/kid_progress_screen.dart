@@ -5,8 +5,64 @@ import 'package:provider/provider.dart';
 
 import '../providers/profile_provider.dart';
 import '../services/activity_progress_service.dart';
+import '../services/ai_parental_control_service.dart';
+import '../services/ai_usage_limit_service.dart';
 import '../services/database_service.dart';
+import '../services/subscription_service.dart';
 import '../widgets/kid_screen_header.dart';
+
+class AiUsageSnapshot {
+  final bool isPremiumTier;
+  final int chatUsedToday;
+  final int chatDailyLimit;
+  final int chatUsedThisWeek;
+  final int chatWeeklyLimit;
+  final int storyUsedToday;
+  final int storyDailyLimit;
+  final int storyUsedThisWeek;
+  final int storyWeeklyLimit;
+  final int callUsedTodaySeconds;
+  final int callDailyLimitSeconds;
+  final int callUsedThisWeekSeconds;
+  final int callWeeklyLimitSeconds;
+  final int callPerSessionLimitSeconds;
+  final int callRemainingForNextSessionSeconds;
+
+  const AiUsageSnapshot({
+    required this.isPremiumTier,
+    required this.chatUsedToday,
+    required this.chatDailyLimit,
+    required this.chatUsedThisWeek,
+    required this.chatWeeklyLimit,
+    required this.storyUsedToday,
+    required this.storyDailyLimit,
+    required this.storyUsedThisWeek,
+    required this.storyWeeklyLimit,
+    required this.callUsedTodaySeconds,
+    required this.callDailyLimitSeconds,
+    required this.callUsedThisWeekSeconds,
+    required this.callWeeklyLimitSeconds,
+    required this.callPerSessionLimitSeconds,
+    required this.callRemainingForNextSessionSeconds,
+  });
+
+  const AiUsageSnapshot.empty()
+      : isPremiumTier = false,
+        chatUsedToday = 0,
+        chatDailyLimit = 0,
+        chatUsedThisWeek = 0,
+        chatWeeklyLimit = 0,
+        storyUsedToday = 0,
+        storyDailyLimit = 0,
+        storyUsedThisWeek = 0,
+        storyWeeklyLimit = 0,
+        callUsedTodaySeconds = 0,
+        callDailyLimitSeconds = 0,
+        callUsedThisWeekSeconds = 0,
+        callWeeklyLimitSeconds = 0,
+        callPerSessionLimitSeconds = 0,
+        callRemainingForNextSessionSeconds = 0;
+}
 
 class KidProgressSummary {
   final int stars;
@@ -22,6 +78,7 @@ class KidProgressSummary {
   final List<String> newlyUnlockedBadges;
   final List<int> weeklyActivity;
   final bool leveledUp;
+  final AiUsageSnapshot aiUsage;
 
   const KidProgressSummary({
     required this.stars,
@@ -37,6 +94,7 @@ class KidProgressSummary {
     required this.newlyUnlockedBadges,
     required this.weeklyActivity,
     required this.leveledUp,
+    this.aiUsage = const AiUsageSnapshot.empty(),
   });
 }
 
@@ -60,19 +118,32 @@ class _KidProgressScreenState extends State<KidProgressScreen> {
   final DatabaseService _databaseService = DatabaseService();
   final ActivityProgressService _activityProgressService =
       ActivityProgressService();
+  final AIUsageLimitService _aiUsageLimitService = AIUsageLimitService();
+  final AiParentalControlService _aiParentalControlService =
+      AiParentalControlService();
 
   int? _selectedProfileId;
+  bool _isPremiumUser = false;
   Future<KidProgressSummary>? _summaryFuture;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final nextProfileId = context.read<ProfileProvider>().selectedProfileId;
-    if (_selectedProfileId == nextProfileId) {
+    bool nextPremiumState = false;
+    try {
+      final service = Provider.of<SubscriptionService>(context, listen: false);
+      nextPremiumState = service.isSubscribed;
+    } catch (_) {
+      nextPremiumState = false;
+    }
+    if (_selectedProfileId == nextProfileId &&
+        _isPremiumUser == nextPremiumState) {
       return;
     }
 
     _selectedProfileId = nextProfileId;
+    _isPremiumUser = nextPremiumState;
     if (nextProfileId == null) {
       _summaryFuture = null;
       return;
@@ -83,6 +154,7 @@ class _KidProgressScreenState extends State<KidProgressScreen> {
   }
 
   Future<KidProgressSummary> _loadSummary(int profileId) async {
+    final isPremium = _isPremiumUser;
     final results = await Future.wait<dynamic>([
       _databaseService.getMathQuizAttemptCount(profileId: profileId),
       _databaseService.getMathQuizAverageScorePercent(profileId: profileId),
@@ -91,6 +163,21 @@ class _KidProgressScreenState extends State<KidProgressScreen> {
       _activityProgressService.getLastActivity(profileId),
       _databaseService.getProfileProgress(profileId: profileId),
       _databaseService.getWeeklyLearningActivityCounts(profileId: profileId),
+      _aiUsageLimitService.getCountQuotaStatus(
+        profileId: profileId,
+        isPremium: isPremium,
+        feature: AiCountFeature.chatMessage,
+      ),
+      _aiUsageLimitService.getCountQuotaStatus(
+        profileId: profileId,
+        isPremium: isPremium,
+        feature: AiCountFeature.storyGeneration,
+      ),
+      _aiUsageLimitService.getVoiceCallAllowance(
+        profileId: profileId,
+        isPremium: isPremium,
+      ),
+      _aiParentalControlService.getControls(profileId),
     ]);
 
     final mathAttempts = results[0] as int;
@@ -100,6 +187,18 @@ class _KidProgressScreenState extends State<KidProgressScreen> {
     final lastActivity = results[4] as ActivityProgress?;
     final stored = results[5] as Map<String, dynamic>;
     final weeklyActivity = (results[6] as List<int>);
+    final chatQuota = results[7] as AiQuotaCheckResult;
+    final storyQuota = results[8] as AiQuotaCheckResult;
+    final callAllowance = results[9] as AiCallAllowance;
+    final controls = results[10] as AiParentalControls;
+    final overrideSeconds = controls.maxCallMinutesOverride == null
+        ? null
+        : controls.maxCallMinutesOverride! * 60;
+    final effectivePerSessionCap = overrideSeconds == null
+        ? callAllowance.perCallLimitSeconds
+        : math.min(callAllowance.perCallLimitSeconds, overrideSeconds);
+    final effectiveRemainingForNextCall = math.min(
+        callAllowance.remainingForThisCallSeconds, effectivePerSessionCap);
 
     final storedStars = _asInt(stored['stars'], fallback: 0);
     final storedLevel = _asInt(stored['level'], fallback: 1);
@@ -168,6 +267,25 @@ class _KidProgressScreenState extends State<KidProgressScreen> {
       newlyUnlockedBadges: newlyUnlockedBadges,
       weeklyActivity: _normalizeWeeklySeries(weeklyActivity),
       leveledUp: leveledUp,
+      aiUsage: AiUsageSnapshot(
+        isPremiumTier: isPremium,
+        chatUsedToday: chatQuota.usedToday,
+        chatDailyLimit: chatQuota.dailyLimit,
+        chatUsedThisWeek: chatQuota.usedThisWeek,
+        chatWeeklyLimit: chatQuota.weeklyLimit,
+        storyUsedToday: storyQuota.usedToday,
+        storyDailyLimit: storyQuota.dailyLimit,
+        storyUsedThisWeek: storyQuota.usedThisWeek,
+        storyWeeklyLimit: storyQuota.weeklyLimit,
+        callUsedTodaySeconds: callAllowance.usedTodaySeconds,
+        callDailyLimitSeconds: callAllowance.usedTodaySeconds +
+            callAllowance.remainingTodaySeconds,
+        callUsedThisWeekSeconds: callAllowance.usedThisWeekSeconds,
+        callWeeklyLimitSeconds: callAllowance.usedThisWeekSeconds +
+            callAllowance.remainingThisWeekSeconds,
+        callPerSessionLimitSeconds: effectivePerSessionCap,
+        callRemainingForNextSessionSeconds: effectiveRemainingForNextCall,
+      ),
     );
   }
 
@@ -312,7 +430,9 @@ class _KidProgressScreenState extends State<KidProgressScreen> {
         const SizedBox(width: 16),
         Expanded(
           flex: 6,
-          child: _buildStatsAndBadges(summary, isTablet: isTablet),
+          child: SingleChildScrollView(
+            child: _buildStatsAndBadges(summary, isTablet: isTablet),
+          ),
         ),
       ],
     );
@@ -471,6 +591,17 @@ class _KidProgressScreenState extends State<KidProgressScreen> {
               color: stat.color,
             );
           },
+        ),
+        const SizedBox(height: 12),
+        _AiUsageCard(summary: summary, isTablet: isTablet),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.center,
+          child: OutlinedButton.icon(
+            onPressed: () => Navigator.pushNamed(context, '/ai-limits'),
+            icon: const Icon(Icons.settings_suggest_rounded),
+            label: const Text('Open Full AI Limits'),
+          ),
         ),
         const SizedBox(height: 12),
         _WeeklyActivityCard(
@@ -746,6 +877,193 @@ class _StatData {
     required this.subtitle,
     required this.color,
   });
+}
+
+class _AiUsageCard extends StatelessWidget {
+  final KidProgressSummary summary;
+  final bool isTablet;
+
+  const _AiUsageCard({
+    required this.summary,
+    required this.isTablet,
+  });
+
+  String _formatDurationMinutes(int seconds) {
+    final minutes = (seconds / 60).floor();
+    return '${minutes}m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final usage = summary.aiUsage;
+    final titleColor =
+        usage.isPremiumTier ? const Color(0xFF1D8B5A) : const Color(0xFF5B6B7F);
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: isTablet ? 14 : 10,
+        vertical: isTablet ? 12 : 10,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.insights_rounded,
+                color: titleColor,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  usage.isPremiumTier ? 'Premium AI Usage' : 'Free AI Usage',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Baloo2',
+                    fontSize: isTablet ? 20 : 16,
+                    fontWeight: FontWeight.w900,
+                    color: titleColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _AiUsageLine(
+            isTablet: isTablet,
+            label: 'AI Chat',
+            todayText: '${usage.chatUsedToday}/${usage.chatDailyLimit} today',
+            weekText:
+                '${usage.chatUsedThisWeek}/${usage.chatWeeklyLimit} this week',
+            ratioToday: usage.chatDailyLimit == 0
+                ? 0
+                : usage.chatUsedToday / usage.chatDailyLimit,
+            color: const Color(0xFF3ED6C1),
+          ),
+          const SizedBox(height: 8),
+          _AiUsageLine(
+            isTablet: isTablet,
+            label: 'AI Stories',
+            todayText: '${usage.storyUsedToday}/${usage.storyDailyLimit} today',
+            weekText:
+                '${usage.storyUsedThisWeek}/${usage.storyWeeklyLimit} this week',
+            ratioToday: usage.storyDailyLimit == 0
+                ? 0
+                : usage.storyUsedToday / usage.storyDailyLimit,
+            color: const Color(0xFF8E6CFF),
+          ),
+          const SizedBox(height: 8),
+          _AiUsageLine(
+            isTablet: isTablet,
+            label: 'AI Calls',
+            todayText:
+                '${_formatDurationMinutes(usage.callUsedTodaySeconds)}/${_formatDurationMinutes(usage.callDailyLimitSeconds)} today',
+            weekText:
+                '${_formatDurationMinutes(usage.callUsedThisWeekSeconds)}/${_formatDurationMinutes(usage.callWeeklyLimitSeconds)} this week',
+            ratioToday: usage.callDailyLimitSeconds == 0
+                ? 0
+                : usage.callUsedTodaySeconds / usage.callDailyLimitSeconds,
+            color: const Color(0xFF5AA9FF),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Next call max: ${_formatDurationMinutes(usage.callRemainingForNextSessionSeconds)} '
+            '(session cap ${_formatDurationMinutes(usage.callPerSessionLimitSeconds)})',
+            style: TextStyle(
+              fontFamily: 'Baloo2',
+              fontSize: isTablet ? 14 : 12,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF4A5D73),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiUsageLine extends StatelessWidget {
+  final bool isTablet;
+  final String label;
+  final String todayText;
+  final String weekText;
+  final double ratioToday;
+  final Color color;
+
+  const _AiUsageLine({
+    required this.isTablet,
+    required this.label,
+    required this.todayText,
+    required this.weekText,
+    required this.ratioToday,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final clampedRatio = ratioToday.clamp(0.0, 1.0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Baloo2',
+                  fontSize: isTablet ? 16 : 14,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF334155),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                todayText,
+                textAlign: TextAlign.right,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Baloo2',
+                  fontSize: isTablet ? 13 : 11,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF4A5D73),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: LinearProgressIndicator(
+            minHeight: isTablet ? 8 : 7,
+            value: clampedRatio,
+            backgroundColor: const Color(0xFFE6EEF8),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          weekText,
+          style: TextStyle(
+            fontFamily: 'Baloo2',
+            fontSize: isTablet ? 12 : 11,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF6E7B8A),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _BadgesCard extends StatelessWidget {

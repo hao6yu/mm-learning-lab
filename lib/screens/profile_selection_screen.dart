@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math' as math;
 import 'dart:io';
 import '../providers/profile_provider.dart';
@@ -23,20 +24,22 @@ class ProfileSelectionScreen extends StatefulWidget {
 }
 
 class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
+  static const String _aiLimitsHintSeenKey = 'ai_limits_hint_seen_v1';
   final ActivityProgressService _activityProgressService =
       ActivityProgressService();
   static const AssetImage _homeBackgroundImage =
       AssetImage('assets/images/homepage-background.png');
   final Map<int, Future<ActivityProgress?>> _lastActivityFutures = {};
-  Future<int>? _trialDaysFuture;
-  SubscriptionService? _subscriptionService;
   bool _didPrecacheBackground = false;
+  bool _showAiLimitsHint = false;
+  bool _didShowAiLimitsHint = false;
 
   @override
   void initState() {
     super.initState();
     // Load profiles as soon as this screen is initialized.
     context.read<ProfileProvider>().loadProfiles();
+    _loadAiLimitsHintState();
   }
 
   @override
@@ -47,20 +50,6 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
       // ignore: discarded_futures
       precacheImage(_homeBackgroundImage, context);
     }
-
-    final nextSubscriptionService = context.read<SubscriptionService>();
-    if (!identical(_subscriptionService, nextSubscriptionService)) {
-      _subscriptionService?.removeListener(_handleSubscriptionChanged);
-      _subscriptionService = nextSubscriptionService;
-      _subscriptionService?.addListener(_handleSubscriptionChanged);
-      _refreshTrialDaysFuture();
-    }
-  }
-
-  @override
-  void dispose() {
-    _subscriptionService?.removeListener(_handleSubscriptionChanged);
-    super.dispose();
   }
 
   Future<ActivityProgress?> _lastActivityFutureFor(int profileId) {
@@ -75,32 +64,54 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
         _activityProgressService.getLastActivity(profileId);
   }
 
-  void _refreshTrialDaysFuture() {
-    final service = _subscriptionService;
-    if (service == null || !mounted) {
-      return;
-    }
-
-    setState(() {
-      _trialDaysFuture = service.getDaysLeftInTrial();
-    });
-  }
-
-  void _handleSubscriptionChanged() {
-    if (!mounted) {
-      return;
-    }
-
-    final service = _subscriptionService;
-    if (service == null || service.isSubscribed) {
-      return;
-    }
-
-    _refreshTrialDaysFuture();
-  }
-
   void _openProgressScreen() {
     Navigator.pushNamed(context, '/progress');
+  }
+
+  void _openAiLimitsScreen() {
+    _dismissAiLimitsHint();
+    Navigator.pushNamed(context, '/ai-limits');
+  }
+
+  Future<void> _loadAiLimitsHintState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final seen = prefs.getBool(_aiLimitsHintSeenKey) ?? false;
+    if (!mounted) return;
+    setState(() {
+      _showAiLimitsHint = !seen;
+    });
+    if (!seen) {
+      _showAiLimitsHintSnackBarIfNeeded();
+    }
+  }
+
+  Future<void> _dismissAiLimitsHint() async {
+    if (!_showAiLimitsHint) return;
+    setState(() {
+      _showAiLimitsHint = false;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_aiLimitsHintSeenKey, true);
+  }
+
+  void _showAiLimitsHintSnackBarIfNeeded() {
+    if (_didShowAiLimitsHint || !_showAiLimitsHint || !mounted) return;
+    _didShowAiLimitsHint = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              const Text('Tip: Manage AI chat/story/call limits in AI Limits.'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: 'Open',
+            onPressed: _openAiLimitsScreen,
+          ),
+        ),
+      );
+    });
   }
 
   // Helper method to get avatar color
@@ -619,6 +630,11 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                   isTablet: isTablet,
                                   isLandscape: isLandscape,
                                 ),
+                                SizedBox(height: isTablet ? 10.0 : 8.0),
+                                _buildAiLimitsButton(
+                                  isTablet: isTablet,
+                                  isLandscape: isLandscape,
+                                ),
                               ],
                             ),
                           ),
@@ -703,6 +719,11 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                           ),
                           SizedBox(height: isTablet ? 14.0 : 10.0),
                           _buildProgressButton(
+                            isTablet: isTablet,
+                            isLandscape: isLandscape,
+                          ),
+                          SizedBox(height: isTablet ? 10.0 : 8.0),
+                          _buildAiLimitsButton(
                             isTablet: isTablet,
                             isLandscape: isLandscape,
                           ),
@@ -809,72 +830,20 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
               if (subscriptionService.isSubscribed) {
                 return const SizedBox.shrink();
               }
-
-              final trialDaysFuture =
-                  _trialDaysFuture ?? subscriptionService.getDaysLeftInTrial();
-              _trialDaysFuture ??= trialDaysFuture;
-
-              return FutureBuilder<int>(
-                future: trialDaysFuture,
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const SizedBox.shrink();
-                  }
-
-                  final daysLeft = snapshot.data!;
-
-                  if (daysLeft <= 0) {
-                    return Container(
-                      width: double.infinity,
-                      color: Colors.red.withValues(alpha: 0.8),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 6, horizontal: 16),
-                      child: const Text(
-                        'Your free trial has ended. Subscribe to continue learning!',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    );
-                  } else if (daysLeft <= 3) {
-                    return Container(
-                      width: double.infinity,
-                      color: Colors.orange.withValues(alpha: 0.8),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 6, horizontal: 16),
-                      child: Text(
-                        'Only $daysLeft ${daysLeft == 1 ? 'day' : 'days'} left in your free trial!',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    );
-                  } else {
-                    return Container(
-                      width: double.infinity,
-                      color: Colors.blue.withValues(alpha: 0.7),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 6, horizontal: 16),
-                      child: Text(
-                        daysLeft == 14
-                            ? 'Free trial started! 14 days of unlimited learning.'
-                            : 'Free trial: $daysLeft days remaining',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                      ),
-                    );
-                  }
-                },
+              return Container(
+                width: double.infinity,
+                color: Colors.blue.withValues(alpha: 0.75),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                child: const Text(
+                  'Free plan active: learning games are unlocked. AI features have daily and weekly limits.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
               );
             },
           ),
@@ -903,6 +872,34 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
       icon: const Icon(Icons.auto_awesome_rounded),
       label: Text(
         'My Progress',
+        style: GoogleFonts.baloo2(
+          fontWeight: FontWeight.w800,
+          fontSize: isTablet ? 17 : 15,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAiLimitsButton({
+    required bool isTablet,
+    required bool isLandscape,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: _openAiLimitsScreen,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFF355C7D),
+        side: const BorderSide(color: Color(0xFF8E6CFF), width: 1.8),
+        padding: EdgeInsets.symmetric(
+          horizontal: isTablet ? 18 : (isLandscape ? 14 : 16),
+          vertical: isTablet ? 12 : 10,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+      ),
+      icon: const Icon(Icons.settings_suggest_rounded),
+      label: Text(
+        'AI Limits',
         style: GoogleFonts.baloo2(
           fontWeight: FontWeight.w800,
           fontSize: isTablet ? 17 : 15,
@@ -1119,72 +1116,20 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
               if (subscriptionService.isSubscribed) {
                 return const SizedBox.shrink();
               }
-
-              final trialDaysFuture =
-                  _trialDaysFuture ?? subscriptionService.getDaysLeftInTrial();
-              _trialDaysFuture ??= trialDaysFuture;
-
-              return FutureBuilder<int>(
-                future: trialDaysFuture,
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const SizedBox.shrink();
-                  }
-
-                  final daysLeft = snapshot.data!;
-
-                  if (daysLeft <= 0) {
-                    return Container(
-                      width: double.infinity,
-                      color: Colors.red.withValues(alpha: 0.8),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 6, horizontal: 16),
-                      child: const Text(
-                        'Your free trial has ended. Subscribe to continue learning!',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    );
-                  } else if (daysLeft <= 3) {
-                    return Container(
-                      width: double.infinity,
-                      color: Colors.orange.withValues(alpha: 0.8),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 6, horizontal: 16),
-                      child: Text(
-                        'Only $daysLeft ${daysLeft == 1 ? 'day' : 'days'} left in your free trial!',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    );
-                  } else {
-                    return Container(
-                      width: double.infinity,
-                      color: Colors.blue.withValues(alpha: 0.7),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 6, horizontal: 16),
-                      child: Text(
-                        daysLeft == 14
-                            ? 'Free trial started! 14 days of unlimited learning.'
-                            : 'Free trial: $daysLeft days remaining',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                      ),
-                    );
-                  }
-                },
+              return Container(
+                width: double.infinity,
+                color: Colors.blue.withValues(alpha: 0.75),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                child: const Text(
+                  'Free plan active: learning games are unlocked. AI features have daily and weekly limits.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
               );
             },
           ),
