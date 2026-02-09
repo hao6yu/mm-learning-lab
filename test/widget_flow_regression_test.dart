@@ -171,6 +171,49 @@ void main() {
     expect(find.byType(SubscriptionScreen), findsOneWidget);
   });
 
+  testWidgets('subscription screen back button returns to previous route',
+      (tester) async {
+    final fakeSubscription = _FakeSubscriptionService(
+      hasAccess: false,
+      subscribed: false,
+      loading: false,
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<SubscriptionService>.value(
+        value: fakeSubscription,
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SubscriptionScreen(),
+                    ),
+                  ),
+                  child: const Text('Open Subscription'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open Subscription'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SubscriptionScreen), findsOneWidget);
+    expect(find.byTooltip('Back'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Open Subscription'), findsOneWidget);
+  });
+
   testWidgets('quick resume card appears and opens last activity route',
       (tester) async {
     const profileId = 1;

@@ -142,6 +142,24 @@ void main() {
     expect(atCap.remainingForThisCallSeconds, 0);
   });
 
+  test('premium voice call allowance is capped at 10 minutes per call',
+      () async {
+    final db = DatabaseService();
+    final service = AIUsageLimitService(databaseService: db);
+    final profileId = await createProfile('Premium Voice Kid');
+    final now = DateTime(2026, 2, 8, 15, 0);
+
+    final allowance = await service.getVoiceCallAllowance(
+      profileId: profileId,
+      isPremium: true,
+      now: now,
+    );
+
+    expect(allowance.allowed, isTrue);
+    expect(allowance.perCallLimitSeconds, 600);
+    expect(allowance.remainingForThisCallSeconds, 600);
+  });
+
   test('recoverOpenVoiceCallSessions caps recovered duration by tier',
       () async {
     final db = DatabaseService();

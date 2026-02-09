@@ -14,7 +14,6 @@ import '../services/activity_progress_service.dart';
 import '../models/profile.dart';
 import '../utils/activity_launcher.dart';
 import 'math_game_selection_screen.dart';
-import 'puzzle_game_selection_screen.dart';
 
 class ProfileSelectionScreen extends StatefulWidget {
   const ProfileSelectionScreen({super.key});
@@ -625,16 +624,6 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                   isTablet: isTablet,
                                   isLandscape: isLandscape,
                                 ),
-                                SizedBox(height: isTablet ? 14.0 : 10.0),
-                                _buildProgressButton(
-                                  isTablet: isTablet,
-                                  isLandscape: isLandscape,
-                                ),
-                                SizedBox(height: isTablet ? 10.0 : 8.0),
-                                _buildAiLimitsButton(
-                                  isTablet: isTablet,
-                                  isLandscape: isLandscape,
-                                ),
                               ],
                             ),
                           ),
@@ -647,10 +636,10 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 _HomeButton(
-                                  label: 'ABC',
+                                  label: 'AI Friends',
                                   color: const Color(0xFFFF9F43),
-                                  onTap: () =>
-                                      Navigator.pushNamed(context, '/games'),
+                                  onTap: () => Navigator.pushNamed(
+                                      context, '/ai-friends'),
                                   isTablet: isTablet,
                                   isLandscape: isLandscape,
                                 ),
@@ -672,12 +661,13 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                 _HomeButton(
                                   label: 'Games',
                                   color: const Color(0xFF8E6CFF),
-                                  onTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (context) =>
-                                            const PuzzleGameSelectionScreen()),
-                                  ),
+                                  onTap: () =>
+                                      Navigator.pushNamed(context, '/games'),
+                                  isTablet: isTablet,
+                                  isLandscape: isLandscape,
+                                ),
+                                SizedBox(height: isTablet ? 14.0 : 10.0),
+                                _buildProgressAndLimitsRow(
                                   isTablet: isTablet,
                                   isLandscape: isLandscape,
                                 ),
@@ -717,16 +707,6 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                             isTablet: isTablet,
                             isLandscape: isLandscape,
                           ),
-                          SizedBox(height: isTablet ? 14.0 : 10.0),
-                          _buildProgressButton(
-                            isTablet: isTablet,
-                            isLandscape: isLandscape,
-                          ),
-                          SizedBox(height: isTablet ? 10.0 : 8.0),
-                          _buildAiLimitsButton(
-                            isTablet: isTablet,
-                            isLandscape: isLandscape,
-                          ),
                           SizedBox(height: buttonSpacing * 0.65),
                           // Buttons with responsive layout
                           isTablet
@@ -734,10 +714,10 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     _HomeButton(
-                                      label: 'ABC',
+                                      label: 'AI Friends',
                                       color: const Color(0xFFFF9F43),
                                       onTap: () => Navigator.pushNamed(
-                                          context, '/games'),
+                                          context, '/ai-friends'),
                                       isTablet: isTablet,
                                     ),
                                     const SizedBox(width: 32),
@@ -758,12 +738,8 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                     _HomeButton(
                                       label: 'Games',
                                       color: const Color(0xFF8E6CFF),
-                                      onTap: () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                            builder: (context) =>
-                                                const PuzzleGameSelectionScreen()),
-                                      ),
+                                      onTap: () => Navigator.pushNamed(
+                                          context, '/games'),
                                       isTablet: isTablet,
                                     ),
                                   ],
@@ -775,10 +751,10 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                           MainAxisAlignment.center,
                                       children: [
                                         _HomeButton(
-                                          label: 'ABC',
+                                          label: 'AI Friends',
                                           color: const Color(0xFFFF9F43),
                                           onTap: () => Navigator.pushNamed(
-                                              context, '/games'),
+                                              context, '/ai-friends'),
                                           isTablet: isTablet,
                                         ),
                                         const SizedBox(width: 20),
@@ -801,16 +777,17 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                     _HomeButton(
                                       label: 'Games',
                                       color: const Color(0xFF8E6CFF),
-                                      onTap: () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                            builder: (context) =>
-                                                const PuzzleGameSelectionScreen()),
-                                      ),
+                                      onTap: () => Navigator.pushNamed(
+                                          context, '/games'),
                                       isTablet: isTablet,
                                     ),
                                   ],
                                 ),
+                          SizedBox(height: isTablet ? 14.0 : 10.0),
+                          _buildProgressAndLimitsRow(
+                            isTablet: isTablet,
+                            isLandscape: isLandscape,
+                          ),
                         ],
                       ),
               ),
@@ -904,6 +881,34 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
           fontWeight: FontWeight.w800,
           fontSize: isTablet ? 17 : 15,
         ),
+      ),
+    );
+  }
+
+  Widget _buildProgressAndLimitsRow({
+    required bool isTablet,
+    required bool isLandscape,
+  }) {
+    final spacing = isTablet ? 14.0 : (isLandscape ? 10.0 : 12.0);
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: isTablet ? 8.0 : 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Flexible(
+            child: _buildProgressButton(
+              isTablet: isTablet,
+              isLandscape: isLandscape,
+            ),
+          ),
+          SizedBox(width: spacing),
+          Flexible(
+            child: _buildAiLimitsButton(
+              isTablet: isTablet,
+              isLandscape: isLandscape,
+            ),
+          ),
+        ],
       ),
     );
   }

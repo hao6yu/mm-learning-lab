@@ -34,9 +34,9 @@ String activityTitle(String activityId) {
     case ActivityIds.storyAdventure:
       return 'AI Story Time';
     case ActivityIds.aiChat:
-      return 'Talk with AI';
+      return 'Voice Chat with Aria';
     case ActivityIds.aiCall:
-      return 'Call with AI';
+      return 'Live Call with Bella';
     case ActivityIds.letterTracing:
       return 'Letter Tracing';
     case ActivityIds.bubblePop:

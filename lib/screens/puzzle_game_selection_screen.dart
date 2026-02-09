@@ -29,18 +29,16 @@ class PuzzleGameSelectionScreen extends StatelessWidget {
             children: [
               // Header
               KidScreenHeader(
-                title: 'Puzzle Games',
+                title: 'Games',
                 isTablet: layout.isTablet,
                 onBack: () => Navigator.pop(context),
-                onHome: () =>
-                    Navigator.of(context).popUntil((route) => route.isFirst),
               ),
               Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: layout.horizontalPadding,
                 ),
                 child: Text(
-                  'Challenge your brain with one puzzle game.',
+                  'Pick a game: letters, quick action, and brain puzzles.',
                   style: TextStyle(
                     fontSize: layout.subtitleFontSize,
                     fontWeight: FontWeight.w700,
@@ -100,6 +98,22 @@ class PuzzleGameSelectionScreen extends StatelessWidget {
         color: const Color(0xFF8E6CFF),
         icon: Icons.emoji_events,
         route: ActivityIds.chess,
+      ),
+      _GameData(
+        title: 'Letter Tracing',
+        subtitle: 'Trace letters with your finger',
+        color: const Color(0xFFFF9F43),
+        icon: Icons.edit_rounded,
+        route: ActivityIds.letterTracing,
+        isNew: true,
+      ),
+      _GameData(
+        title: 'Bubble Pop',
+        subtitle: 'Pop the right letters fast',
+        color: const Color(0xFF3ED6C1),
+        icon: Icons.bubble_chart_rounded,
+        route: ActivityIds.bubblePop,
+        isNew: true,
       ),
     ];
 

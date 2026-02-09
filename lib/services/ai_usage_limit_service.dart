@@ -64,9 +64,35 @@ class AiQuotaReservation {
   });
 }
 
+class AiTierUsageLimits {
+  final int chatDaily;
+  final int chatWeekly;
+  final int storiesDaily;
+  final int storiesWeekly;
+  final int callPerCallSeconds;
+  final int callDailySeconds;
+  final int callWeeklySeconds;
+
+  const AiTierUsageLimits({
+    required this.chatDaily,
+    required this.chatWeekly,
+    required this.storiesDaily,
+    required this.storiesWeekly,
+    required this.callPerCallSeconds,
+    required this.callDailySeconds,
+    required this.callWeeklySeconds,
+  });
+
+  int get callPerCallMinutes => callPerCallSeconds ~/ 60;
+  int get callDailyMinutes => callDailySeconds ~/ 60;
+  int get callWeeklyMinutes => callWeeklySeconds ~/ 60;
+}
+
 class AIUsageLimitService {
   static const String _featureChatMessage = 'ai_chat_message';
   static const String _featureStoryGeneration = 'ai_story_generation';
+  // Provider constraint: ElevenLabs calls cannot exceed 10 minutes per session.
+  static const int _providerMaxCallPerCallSeconds = 10 * 60;
 
   static const int _freeChatDaily = 30;
   static const int _freeChatWeekly = 120;
@@ -80,9 +106,33 @@ class AIUsageLimitService {
   static const int _premiumChatWeekly = 1200;
   static const int _premiumStoriesDaily = 12;
   static const int _premiumStoriesWeekly = 60;
-  static const int _premiumCallPerCallSeconds = 12 * 60;
+  static const int _premiumCallPerCallSeconds = 10 * 60;
   static const int _premiumCallDailySeconds = 60 * 60;
   static const int _premiumCallWeeklySeconds = 300 * 60;
+
+  static const AiTierUsageLimits freeTierUsageLimits = AiTierUsageLimits(
+    chatDaily: _freeChatDaily,
+    chatWeekly: _freeChatWeekly,
+    storiesDaily: _freeStoriesDaily,
+    storiesWeekly: _freeStoriesWeekly,
+    callPerCallSeconds: _freeCallPerCallSeconds,
+    callDailySeconds: _freeCallDailySeconds,
+    callWeeklySeconds: _freeCallWeeklySeconds,
+  );
+
+  static const AiTierUsageLimits premiumTierUsageLimits = AiTierUsageLimits(
+    chatDaily: _premiumChatDaily,
+    chatWeekly: _premiumChatWeekly,
+    storiesDaily: _premiumStoriesDaily,
+    storiesWeekly: _premiumStoriesWeekly,
+    callPerCallSeconds: _premiumCallPerCallSeconds,
+    callDailySeconds: _premiumCallDailySeconds,
+    callWeeklySeconds: _premiumCallWeeklySeconds,
+  );
+
+  static AiTierUsageLimits usageLimitsForTier({required bool isPremium}) {
+    return isPremium ? premiumTierUsageLimits : freeTierUsageLimits;
+  }
 
   final DatabaseService _databaseService;
 
@@ -212,8 +262,10 @@ class AIUsageLimitService {
     final startOfDay = _startOfDay(current);
     final startOfWeek = _startOfWeek(current);
 
-    final perCallLimitSeconds =
+    final tierPerCallLimitSeconds =
         isPremium ? _premiumCallPerCallSeconds : _freeCallPerCallSeconds;
+    final perCallLimitSeconds =
+        min(tierPerCallLimitSeconds, _providerMaxCallPerCallSeconds);
     final dailyLimitSeconds =
         isPremium ? _premiumCallDailySeconds : _freeCallDailySeconds;
     final weeklyLimitSeconds =
@@ -299,9 +351,11 @@ class AIUsageLimitService {
 
       final startedAt = DateTime.tryParse(startedAtRaw) ?? current;
       final elapsedSeconds = max(0, current.difference(startedAt).inSeconds);
-      final perCallCapSeconds = tier == 'premium'
+      final tierPerCallCapSeconds = tier == 'premium'
           ? _premiumCallPerCallSeconds
           : _freeCallPerCallSeconds;
+      final perCallCapSeconds =
+          min(tierPerCallCapSeconds, _providerMaxCallPerCallSeconds);
       final recoveredDuration = min(elapsedSeconds, perCallCapSeconds);
 
       await _databaseService.closeAiCallSession(

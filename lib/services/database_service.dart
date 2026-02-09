@@ -927,6 +927,11 @@ class DatabaseService {
   }
 
   Future<int> updateChatMessage(ChatMessage message) async {
+    if (message.id == null) {
+      debugPrint(
+          'DatabaseService.updateChatMessage skipped because message.id is null');
+      return 0;
+    }
     final db = await database;
     return await db.update(
       'chat_messages',

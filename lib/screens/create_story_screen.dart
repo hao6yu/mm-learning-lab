@@ -246,30 +246,34 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
           // Header Row
           Row(
             children: [
-              // Back button
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF8E6CFF),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0x338E6CFF),
-                        blurRadius: 8.0,
-                        offset: const Offset(0, 4.0),
+              SizedBox(
+                width: isTablet ? 128.0 : 104.0,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8E6CFF),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0x338E6CFF),
+                            blurRadius: 8.0,
+                            offset: const Offset(0, 4.0),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  padding: EdgeInsets.all(isTablet ? 12.0 : 10.0),
-                  child: Icon(
-                    Icons.arrow_back_rounded,
-                    color: Colors.white,
-                    size: isTablet ? 24.0 : 20.0,
+                      padding: EdgeInsets.all(isTablet ? 12.0 : 10.0),
+                      child: Icon(
+                        Icons.arrow_back_rounded,
+                        color: Colors.white,
+                        size: isTablet ? 24.0 : 20.0,
+                      ),
+                    ),
                   ),
                 ),
               ),
-
               Expanded(
                 child: Center(
                   child: Text(
@@ -286,69 +290,103 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
                   ),
                 ),
               ),
-
-              // Save button (only show on final step)
-              if (_currentStep == 4)
-                _isSaving
-                    ? Container(
-                        padding: EdgeInsets.all(isTablet ? 12.0 : 10.0),
-                        child: SizedBox(
-                          width: isTablet ? 24.0 : 20.0,
-                          height: isTablet ? 24.0 : 20.0,
-                          child: const CircularProgressIndicator(
-                            color: Color(0xFF8E6CFF),
-                            strokeWidth: 2.0,
-                          ),
-                        ),
-                      )
-                    : GestureDetector(
-                        onTap: _saveStory,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF8E6CFF), Color(0xFF7C4DFF)],
-                            ),
-                            borderRadius:
-                                BorderRadius.circular(isTablet ? 12.0 : 10.0),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF8E6CFF)
-                                    .withValues(alpha: 0.3),
-                                blurRadius: 4.0,
-                                offset: const Offset(0, 2.0),
-                              ),
-                            ],
-                          ),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isTablet ? 16.0 : 12.0,
-                            vertical: isTablet ? 10.0 : 8.0,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.save_rounded,
-                                color: Colors.white,
-                                size: isTablet ? 18.0 : 16.0,
-                              ),
-                              SizedBox(width: isTablet ? 6.0 : 4.0),
-                              Text(
-                                'Save',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: isTablet ? 14.0 : 12.0,
+              SizedBox(
+                width: isTablet ? 128.0 : 104.0,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: _currentStep == 4
+                      ? _isSaving
+                          ? Container(
+                              padding: EdgeInsets.all(isTablet ? 12.0 : 10.0),
+                              child: SizedBox(
+                                width: isTablet ? 24.0 : 20.0,
+                                height: isTablet ? 24.0 : 20.0,
+                                child: const CircularProgressIndicator(
+                                  color: Color(0xFF8E6CFF),
+                                  strokeWidth: 2.0,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      )
-              else
-                SizedBox(
-                    width: isTablet ? 80.0 : 60.0), // Placeholder for alignment
+                            )
+                          : GestureDetector(
+                              onTap: _saveStory,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF8E6CFF),
+                                      Color(0xFF7C4DFF)
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                      isTablet ? 12.0 : 10.0),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF8E6CFF)
+                                          .withValues(alpha: 0.3),
+                                      blurRadius: 4.0,
+                                      offset: const Offset(0, 2.0),
+                                    ),
+                                  ],
+                                ),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isTablet ? 16.0 : 12.0,
+                                  vertical: isTablet ? 10.0 : 8.0,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.save_rounded,
+                                      color: Colors.white,
+                                      size: isTablet ? 18.0 : 16.0,
+                                    ),
+                                    SizedBox(width: isTablet ? 6.0 : 4.0),
+                                    Text(
+                                      'Save',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: isTablet ? 14.0 : 12.0,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                      : const SizedBox.shrink(),
+                ),
+              ),
             ],
           ),
+
+          if (_storyQuotaStatus != null) ...[
+            SizedBox(height: isTablet ? 8.0 : 6.0),
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(
+                horizontal: isTablet ? 10.0 : 8.0,
+                vertical: isTablet ? 8.0 : 6.0,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF3FF),
+                borderRadius: BorderRadius.circular(10.0),
+                border: Border.all(
+                  color: const Color(0xFF8E6CFF).withValues(alpha: 0.25),
+                ),
+              ),
+              child: Text(
+                _isPremiumUser
+                    ? 'Premium stories left: ${_storyQuotaStatus!.remainingToday}/${_storyQuotaStatus!.dailyLimit} today • ${_storyQuotaStatus!.remainingThisWeek}/${_storyQuotaStatus!.weeklyLimit} this week'
+                    : 'Free stories left: ${_storyQuotaStatus!.remainingToday}/${_storyQuotaStatus!.dailyLimit} today • ${_storyQuotaStatus!.remainingThisWeek}/${_storyQuotaStatus!.weeklyLimit} this week',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: isTablet ? 13.0 : 12.0,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF355C7D),
+                ),
+              ),
+            ),
+          ],
 
           SizedBox(
               height: isLandscape
@@ -1177,6 +1215,21 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
   }
 
   Widget _buildNavigationButtons(bool isTablet, bool isLandscape) {
+    final isEditMode = widget.storyToEdit != null;
+    final isFinalStep = _currentStep == 4 || isEditMode;
+    final isBusy = _isSaving || _isGenerating;
+    final compactFontSize =
+        isLandscape ? (isTablet ? 12.0 : 10.0) : (isTablet ? 16.0 : 14.0);
+    final compactIconSize =
+        isLandscape ? (isTablet ? 16.0 : 14.0) : (isTablet ? 20.0 : 18.0);
+    final buttonVerticalPadding =
+        isLandscape ? (isTablet ? 10.0 : 8.0) : (isTablet ? 16.0 : 14.0);
+
+    final leftLabel =
+        isEditMode ? 'Cancel' : (_currentStep == 0 ? 'Cancel' : 'Back');
+    final rightLabel =
+        isFinalStep ? (isEditMode ? 'Save Changes' : 'Save Story') : 'Next';
+
     return Container(
       padding: EdgeInsets.all(
           isLandscape ? (isTablet ? 12.0 : 8.0) : (isTablet ? 24.0 : 16.0)),
@@ -1196,70 +1249,62 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
       ),
       child: Row(
         children: [
-          // Previous button
-          if (_currentStep > 0 && widget.storyToEdit == null)
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _previousStep,
-                icon: Icon(Icons.arrow_back,
-                    size: isLandscape
-                        ? (isTablet ? 16.0 : 14.0)
-                        : (isTablet ? 20.0 : 18.0)),
-                label: Text(
-                  'Back',
-                  style: TextStyle(
-                      fontSize: isLandscape
-                          ? (isTablet ? 12.0 : 10.0)
-                          : (isTablet ? 16.0 : 14.0)),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.grey.shade300,
-                  foregroundColor: Colors.grey.shade700,
-                  padding: EdgeInsets.symmetric(
-                      vertical: isLandscape
-                          ? (isTablet ? 10.0 : 8.0)
-                          : (isTablet ? 16.0 : 14.0)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(isTablet ? 12.0 : 10.0),
-                  ),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: isBusy
+                  ? null
+                  : () {
+                      if (isEditMode || _currentStep == 0) {
+                        Navigator.pop(context);
+                        return;
+                      }
+                      _previousStep();
+                    },
+              icon: Icon(Icons.arrow_back, size: compactIconSize),
+              label: Text(
+                leftLabel,
+                style: TextStyle(fontSize: compactFontSize),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.grey.shade300,
+                foregroundColor: Colors.grey.shade700,
+                padding: EdgeInsets.symmetric(vertical: buttonVerticalPadding),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(isTablet ? 12.0 : 10.0),
                 ),
               ),
             ),
-
-          if (_currentStep > 0 &&
-              widget.storyToEdit == null &&
-              _currentStep < 4)
-            SizedBox(width: isTablet ? 16.0 : 12.0),
-
-          // Next button
-          if (_currentStep < 4 && widget.storyToEdit == null)
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _nextStep,
-                icon: Icon(Icons.arrow_forward,
-                    size: isLandscape
-                        ? (isTablet ? 16.0 : 14.0)
-                        : (isTablet ? 20.0 : 18.0)),
-                label: Text(
-                  'Next',
-                  style: TextStyle(
-                      fontSize: isLandscape
-                          ? (isTablet ? 12.0 : 10.0)
-                          : (isTablet ? 16.0 : 14.0)),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8E6CFF),
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(
-                      vertical: isLandscape
-                          ? (isTablet ? 10.0 : 8.0)
-                          : (isTablet ? 16.0 : 14.0)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(isTablet ? 12.0 : 10.0),
-                  ),
+          ),
+          SizedBox(width: isTablet ? 16.0 : 12.0),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: isBusy
+                  ? null
+                  : () {
+                      if (isFinalStep) {
+                        _saveStory();
+                      } else {
+                        _nextStep();
+                      }
+                    },
+              icon: Icon(
+                isFinalStep ? Icons.save_rounded : Icons.arrow_forward,
+                size: compactIconSize,
+              ),
+              label: Text(
+                rightLabel,
+                style: TextStyle(fontSize: compactFontSize),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8E6CFF),
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(vertical: buttonVerticalPadding),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(isTablet ? 12.0 : 10.0),
                 ),
               ),
             ),
+          ),
         ],
       ),
     );

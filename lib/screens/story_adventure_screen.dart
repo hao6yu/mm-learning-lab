@@ -12,6 +12,8 @@ import '../services/elevenlabs_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'dart:math';
 import '../providers/profile_provider.dart';
+import '../services/ai_usage_limit_service.dart';
+import '../services/subscription_service.dart';
 
 class StoryAdventureScreen extends StatefulWidget {
   const StoryAdventureScreen({super.key});
@@ -69,6 +71,16 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen>
   // First, add a new state variable to track whether to show only user-created stories
   // Add this with the other state variables at the top of the class
   bool _showOnlyMyStories = false;
+  final AIUsageLimitService _aiUsageLimitService = AIUsageLimitService();
+  AiQuotaCheckResult? _storyQuotaStatus;
+  int? _quotaProfileId;
+  bool _isPremiumUser = false;
+
+  bool get _canCreateStory {
+    final status = _storyQuotaStatus;
+    if (status == null) return true;
+    return status.allowed;
+  }
 
   @override
   void initState() {
@@ -143,6 +155,20 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final selectedProfileId =
+        context.watch<ProfileProvider>().selectedProfileId;
+    final isPremium = context.watch<SubscriptionService>().isSubscribed;
+    if (_quotaProfileId == selectedProfileId && _isPremiumUser == isPremium) {
+      return;
+    }
+    _quotaProfileId = selectedProfileId;
+    _isPremiumUser = isPremium;
+    _refreshStoryQuota();
+  }
+
+  @override
   void dispose() {
     debugPrint("StoryAdventureScreen dispose called");
 
@@ -182,6 +208,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen>
         setState(() {
           _stories = [];
           _loading = false;
+          _storyQuotaStatus = null;
         });
       }
       return;
@@ -204,6 +231,28 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen>
         }
       });
     }
+  }
+
+  Future<void> _refreshStoryQuota() async {
+    final profileId = _quotaProfileId;
+    if (profileId == null) {
+      if (mounted) {
+        setState(() {
+          _storyQuotaStatus = null;
+        });
+      }
+      return;
+    }
+
+    final status = await _aiUsageLimitService.getCountQuotaStatus(
+      profileId: profileId,
+      isPremium: _isPremiumUser,
+      feature: AiCountFeature.storyGeneration,
+    );
+    if (!mounted) return;
+    setState(() {
+      _storyQuotaStatus = status;
+    });
   }
 
   // Update the _filteredStories getter to include the new filter
@@ -928,42 +977,48 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen>
           ),
           child: Row(
             children: [
-              // Animated back button with bounce effect
-              TweenAnimationBuilder<double>(
-                tween: Tween<double>(begin: 0, end: 1),
-                duration: Duration(milliseconds: 600),
-                curve: Curves.elasticOut,
-                builder: (context, value, child) {
-                  return Transform.scale(
-                    scale: 0.8 + (value * 0.2),
-                    child: child,
-                  );
-                },
-                child: GestureDetector(
-                  onTap: () {
-                    // Make sure to stop audio when navigating away
-                    _stopAllAudio();
-                    Navigator.pop(context);
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF8E6CFF),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0x338E6CFF),
-                          blurRadius: 8.0,
-                          offset: const Offset(0, 4.0),
+              SizedBox(
+                width: isTablet ? 108.0 : 92.0,
+                child: Row(
+                  children: [
+                    // Animated back button with bounce effect
+                    TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0, end: 1),
+                      duration: Duration(milliseconds: 600),
+                      curve: Curves.elasticOut,
+                      builder: (context, value, child) {
+                        return Transform.scale(
+                          scale: 0.8 + (value * 0.2),
+                          child: child,
+                        );
+                      },
+                      child: GestureDetector(
+                        onTap: () {
+                          _stopAllAudio();
+                          Navigator.pop(context);
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF8E6CFF),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0x338E6CFF),
+                                blurRadius: 8.0,
+                                offset: const Offset(0, 4.0),
+                              ),
+                            ],
+                          ),
+                          padding: EdgeInsets.all(isTablet ? 12.0 : 10.0),
+                          child: Icon(
+                            Icons.arrow_back_rounded,
+                            color: Colors.white,
+                            size: isTablet ? 24.0 : 22.0,
+                          ),
                         ),
-                      ],
+                      ),
                     ),
-                    padding: EdgeInsets.all(isTablet ? 12.0 : 10.0),
-                    child: Icon(
-                      Icons.arrow_back_rounded,
-                      color: Colors.white,
-                      size: isTablet ? 24.0 : 22.0,
-                    ),
-                  ),
+                  ],
                 ),
               ),
               const Spacer(),
@@ -998,8 +1053,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen>
                 ),
               ),
               const Spacer(),
-              SizedBox(
-                  width: isTablet ? 44.0 : 36.0), // Balance the back button
+              SizedBox(width: isTablet ? 108.0 : 92.0),
             ],
           ),
         ),
@@ -1015,7 +1069,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen>
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
-                  onTap: () => _navigateToCreateStory(context),
+                  onTap: _canCreateStory
+                      ? () => _navigateToCreateStory(context)
+                      : _showStoryLimitBlockedMessage,
                   child: Container(
                     margin: EdgeInsets.only(
                         left: isTablet ? 24.0 : 20.0,
@@ -1025,7 +1081,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen>
                         horizontal: isTablet ? 18.0 : 14.0),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Color(0xFF8E6CFF), Color(0xFF7C4DFF)],
+                        colors: _canCreateStory
+                            ? [Color(0xFF8E6CFF), Color(0xFF7C4DFF)]
+                            : [Color(0xFFB0BEC5), Color(0xFF90A4AE)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -1033,7 +1091,9 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen>
                           BorderRadius.circular(isTablet ? 20.0 : 18.0),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF8E6CFF).withValues(alpha: 0.3),
+                          color: _canCreateStory
+                              ? const Color(0xFF8E6CFF).withValues(alpha: 0.3)
+                              : const Color(0xFF607D8B).withValues(alpha: 0.2),
                           blurRadius: isTablet ? 8.0 : 6.0,
                           offset: Offset(0, isTablet ? 6.0 : 4.0),
                         ),
@@ -1063,7 +1123,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen>
                           style: TextStyle(
                             fontSize: isTablet ? 16.0 : 14.0,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: Colors.white.withValues(
+                                alpha: _canCreateStory ? 1.0 : 0.88),
                           ),
                         ),
                       ],
@@ -1171,6 +1232,34 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen>
             ),
           ],
         ),
+
+        const SizedBox(height: 12),
+
+        if (_storyQuotaStatus != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: const Color(0xFF8E6CFF).withValues(alpha: 0.25),
+                ),
+              ),
+              child: Text(
+                _isPremiumUser
+                    ? 'Premium stories left: ${_storyQuotaStatus!.remainingToday}/${_storyQuotaStatus!.dailyLimit} today • ${_storyQuotaStatus!.remainingThisWeek}/${_storyQuotaStatus!.weeklyLimit} this week'
+                    : 'Free stories left: ${_storyQuotaStatus!.remainingToday}/${_storyQuotaStatus!.dailyLimit} today • ${_storyQuotaStatus!.remainingThisWeek}/${_storyQuotaStatus!.weeklyLimit} this week',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF355C7D),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
 
         const SizedBox(height: 12),
 
@@ -2983,7 +3072,21 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen>
         _showOnlyMyStories = true;
       });
       _fetchStories();
+      _refreshStoryQuota();
     }
+  }
+
+  void _showStoryLimitBlockedMessage() {
+    final status = _storyQuotaStatus;
+    final message = status == null
+        ? 'Story limit reached right now. Please try again later.'
+        : status.buildBlockedMessage(isPremium: _isPremiumUser);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   // Add edit and delete methods
@@ -2996,6 +3099,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen>
 
     if (result == true) {
       _fetchStories();
+      _refreshStoryQuota();
     }
   }
 

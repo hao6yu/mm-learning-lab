@@ -56,17 +56,16 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
             children: [
               // Header
               KidScreenHeader(
-                title: 'Learning Games',
+                title: 'AI Friends',
                 isTablet: layout.isTablet,
                 onBack: () => Navigator.pop(context),
-                onHome: _goHome,
               ),
               Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: layout.horizontalPadding,
                 ),
                 child: Text(
-                  'Pick one activity to start learning now.',
+                  'Chat, stories, and live calls with your AI friends.',
                   style: TextStyle(
                     fontSize: layout.subtitleFontSize,
                     fontWeight: FontWeight.w700,
@@ -87,10 +86,6 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
         ),
       ),
     );
-  }
-
-  void _goHome() {
-    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   String _selectedProfileName() {
@@ -141,34 +136,20 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
         onTap: () => _openActivity(ActivityIds.storyAdventure),
       ),
       _GameData(
-        title: 'Talk with AI',
-        subtitle: 'Practice speaking and listening',
+        title: 'Voice Chat with Aria',
+        subtitle: 'Take turns to practice speaking, ideas, and homework',
         color: const Color(0xFF3ED6C1),
         icon: CupertinoIcons.chat_bubble_fill,
         isNew: true,
         onTap: () => _openActivity(ActivityIds.aiChat),
       ),
       _GameData(
-        title: 'Call with AI',
-        subtitle: 'Live voice conversation',
+        title: 'Live Call with Bella',
+        subtitle: 'Real-time call for English, languages, math, and science',
         color: const Color(0xFF58A6FF),
         icon: CupertinoIcons.phone_fill,
         isNew: true,
         onTap: () => _openActivity(ActivityIds.aiCall),
-      ),
-      _GameData(
-        title: 'Letter Tracing',
-        subtitle: 'Trace letters with your finger',
-        color: const Color(0xFFFF9F43),
-        icon: CupertinoIcons.pencil,
-        onTap: () => _openActivity(ActivityIds.letterTracing),
-      ),
-      _GameData(
-        title: 'Bubble Pop',
-        subtitle: 'Pop the right letters fast',
-        color: const Color(0xFF3ED6C1),
-        icon: CupertinoIcons.circle_grid_3x3,
-        onTap: () => _openActivity(ActivityIds.bubblePop),
       ),
     ];
 

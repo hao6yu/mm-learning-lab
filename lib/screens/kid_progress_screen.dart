@@ -357,8 +357,6 @@ class _KidProgressScreenState extends State<KidProgressScreen> {
                 title: 'My Progress',
                 isTablet: isTablet,
                 onBack: () => Navigator.pop(context),
-                onHome: () =>
-                    Navigator.of(context).popUntil((route) => route.isFirst),
               ),
               Expanded(
                 child: _buildBody(isTablet: isTablet, isLandscape: isLandscape),

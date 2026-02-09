@@ -6,9 +6,9 @@ This app is configured to call AI providers through a backend proxy in productio
 
 Expose these routes:
 
-- `POST /openai/chat/completions`
+- `POST /openai/responses`
+- `POST /openai/chat/completions` (optional legacy fallback)
 - `POST /openai/audio/transcriptions`
-- `POST /openai/realtime/sessions`
 - `GET /elevenlabs/voices`
 - `POST /elevenlabs/text-to-speech/:voiceId`
 - `POST /elevenlabs/text-to-speech/:voiceId/with-timestamps`
@@ -110,16 +110,9 @@ export default {
     const url = new URL(req.url);
     const path = url.pathname;
 
-    // OpenAI chat completions
-    if (path === "/openai/chat/completions" && req.method === "POST") {
-      return proxyJson(req, "https://api.openai.com/v1/chat/completions", {
-        authorization: `Bearer ${env.OPENAI_API_KEY}`,
-      });
-    }
-
-    // OpenAI realtime sessions
-    if (path === "/openai/realtime/sessions" && req.method === "POST") {
-      return proxyJson(req, "https://api.openai.com/v1/realtime/sessions", {
+    // OpenAI Responses API
+    if (path === "/openai/responses" && req.method === "POST") {
+      return proxyJson(req, "https://api.openai.com/v1/responses", {
         authorization: `Bearer ${env.OPENAI_API_KEY}`,
       });
     }
@@ -209,13 +202,13 @@ export BASE_URL="https://mm-ai-proxy.<subdomain>.workers.dev"
 export TOKEN="your_proxy_token"
 ```
 
-Chat completions:
+Responses API:
 
 ```bash
-curl -sS "$BASE_URL/openai/chat/completions" \
+curl -sS "$BASE_URL/openai/responses" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Say hi"}]}'
+  -d '{"model":"gpt-5-nano","input":"Say hi"}'
 ```
 
 Voices:
