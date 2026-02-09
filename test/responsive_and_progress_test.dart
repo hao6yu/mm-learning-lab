@@ -11,6 +11,7 @@ import 'package:mm_learning_lab/providers/profile_provider.dart';
 import 'package:mm_learning_lab/screens/kid_progress_screen.dart';
 import 'package:mm_learning_lab/screens/profile_selection_screen.dart';
 import 'package:mm_learning_lab/services/subscription_service.dart';
+import 'package:mm_learning_lab/services/theme_service.dart';
 import 'package:mm_learning_lab/utils/activity_launcher.dart';
 
 class _FakeSubscriptionService extends ChangeNotifier
@@ -100,6 +101,9 @@ Widget _buildProfileSelectionHarness({
       ChangeNotifierProvider<ProfileProvider>.value(value: profileProvider),
       ChangeNotifierProvider<SubscriptionService>.value(
           value: subscriptionService),
+      ChangeNotifierProvider<ThemeService>(
+        create: (_) => ThemeService(),
+      ),
     ],
     child: const MaterialApp(
       home: ProfileSelectionScreen(),
@@ -222,8 +226,13 @@ void main() {
     });
 
     await tester.pumpWidget(
-      ChangeNotifierProvider<ProfileProvider>.value(
-        value: provider,
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<ProfileProvider>.value(value: provider),
+          ChangeNotifierProvider<ThemeService>(
+            create: (_) => ThemeService(),
+          ),
+        ],
         child: MaterialApp(
           home: KidProgressScreen(loadSummary: fakeSummaryLoader),
         ),
@@ -271,8 +280,13 @@ void main() {
     });
 
     await tester.pumpWidget(
-      ChangeNotifierProvider<ProfileProvider>.value(
-        value: provider,
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<ProfileProvider>.value(value: provider),
+          ChangeNotifierProvider<ThemeService>(
+            create: (_) => ThemeService(),
+          ),
+        ],
         child: MaterialApp(
           home: KidProgressScreen(loadSummary: fakeSummaryLoader),
         ),

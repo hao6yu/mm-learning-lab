@@ -15,6 +15,7 @@ import 'package:mm_learning_lab/screens/profile_selection_screen.dart';
 import 'package:mm_learning_lab/screens/subscription_screen.dart';
 import 'package:mm_learning_lab/services/database_service.dart';
 import 'package:mm_learning_lab/services/subscription_service.dart';
+import 'package:mm_learning_lab/services/theme_service.dart';
 import 'package:mm_learning_lab/utils/activity_launcher.dart';
 import 'package:mm_learning_lab/widgets/subscription_guard.dart';
 import 'package:mm_learning_lab/widgets/tracing_canvas.dart';
@@ -129,8 +130,15 @@ void main() {
     );
 
     await tester.pumpWidget(
-      ChangeNotifierProvider<SubscriptionService>.value(
-        value: fakeSubscription,
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<SubscriptionService>.value(
+            value: fakeSubscription,
+          ),
+          ChangeNotifierProvider<ThemeService>(
+            create: (_) => ThemeService(),
+          ),
+        ],
         child: const MaterialApp(
           home: SubscriptionGuard(
             child: Text('Guarded Content'),
@@ -155,8 +163,15 @@ void main() {
     );
 
     await tester.pumpWidget(
-      ChangeNotifierProvider<SubscriptionService>.value(
-        value: fakeSubscription,
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<SubscriptionService>.value(
+            value: fakeSubscription,
+          ),
+          ChangeNotifierProvider<ThemeService>(
+            create: (_) => ThemeService(),
+          ),
+        ],
         child: const MaterialApp(
           home: SubscriptionGuard(
             child: Text('Should Not Show'),
@@ -180,8 +195,15 @@ void main() {
     );
 
     await tester.pumpWidget(
-      ChangeNotifierProvider<SubscriptionService>.value(
-        value: fakeSubscription,
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<SubscriptionService>.value(
+            value: fakeSubscription,
+          ),
+          ChangeNotifierProvider<ThemeService>(
+            create: (_) => ThemeService(),
+          ),
+        ],
         child: MaterialApp(
           home: Builder(
             builder: (context) => Scaffold(
@@ -244,6 +266,9 @@ void main() {
           ChangeNotifierProvider<ProfileProvider>.value(value: profileProvider),
           ChangeNotifierProvider<SubscriptionService>.value(
             value: fakeSubscription,
+          ),
+          ChangeNotifierProvider<ThemeService>(
+            create: (_) => ThemeService(),
           ),
         ],
         child: MaterialApp(
@@ -309,8 +334,14 @@ void main() {
     );
 
     await tester.pumpWidget(
-      ChangeNotifierProvider<ProfileProvider>.value(
-        value: profile1Provider,
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<ProfileProvider>.value(
+              value: profile1Provider),
+          ChangeNotifierProvider<ThemeService>(
+            create: (_) => ThemeService(),
+          ),
+        ],
         child: MaterialApp(
           home: MathQuizHistoryScreen(
             key: const ValueKey('history-p1'),
@@ -333,8 +364,14 @@ void main() {
     );
 
     await tester.pumpWidget(
-      ChangeNotifierProvider<ProfileProvider>.value(
-        value: profile2Provider,
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<ProfileProvider>.value(
+              value: profile2Provider),
+          ChangeNotifierProvider<ThemeService>(
+            create: (_) => ThemeService(),
+          ),
+        ],
         child: MaterialApp(
           home: MathQuizHistoryScreen(
             key: const ValueKey('history-p2'),
@@ -359,8 +396,13 @@ void main() {
     final profileProvider = ProfileProvider();
 
     await tester.pumpWidget(
-      ChangeNotifierProvider<ProfileProvider>.value(
-        value: profileProvider,
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<ProfileProvider>.value(value: profileProvider),
+          ChangeNotifierProvider<ThemeService>(
+            create: (_) => ThemeService(),
+          ),
+        ],
         child: const MaterialApp(home: LetterTracingScreen()),
       ),
     );

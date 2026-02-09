@@ -13,6 +13,7 @@ import 'package:mm_learning_lab/services/ai_parental_control_service.dart';
 import 'package:mm_learning_lab/services/ai_usage_limit_service.dart';
 import 'package:mm_learning_lab/services/database_service.dart';
 import 'package:mm_learning_lab/services/subscription_service.dart';
+import 'package:mm_learning_lab/services/theme_service.dart';
 
 class _FakeSubscriptionService extends ChangeNotifier
     implements SubscriptionService {
@@ -122,6 +123,9 @@ void main() {
           ChangeNotifierProvider<SubscriptionService>.value(
             value: subscription,
           ),
+          ChangeNotifierProvider<ThemeService>(
+            create: (_) => ThemeService(),
+          ),
         ],
         child: MaterialApp(
           home: const ProfileSelectionScreen(),
@@ -191,6 +195,9 @@ void main() {
           ChangeNotifierProvider<ProfileProvider>.value(value: profileProvider),
           ChangeNotifierProvider<SubscriptionService>.value(
             value: subscription,
+          ),
+          ChangeNotifierProvider<ThemeService>(
+            create: (_) => ThemeService(),
           ),
         ],
         child: MaterialApp(
