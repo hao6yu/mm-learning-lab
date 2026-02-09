@@ -9,8 +9,10 @@ import '../providers/profile_provider.dart';
 import '../widgets/profile_card.dart';
 import '../widgets/add_profile_modal.dart';
 import '../widgets/quick_avatar_update_modal.dart';
+import '../widgets/theme_picker.dart';
 import '../services/subscription_service.dart';
 import '../services/activity_progress_service.dart';
+import '../services/theme_service.dart';
 import '../models/profile.dart';
 import '../utils/activity_launcher.dart';
 import 'math_game_selection_screen.dart';
@@ -70,6 +72,38 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
   void _openAiLimitsScreen() {
     _dismissAiLimitsHint();
     Navigator.pushNamed(context, '/ai-limits');
+  }
+
+  void _showThemePicker(BuildContext context) {
+    final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ThemePicker(isTablet: isTablet),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _loadAiLimitsHintState() async {
@@ -521,59 +555,92 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                       ),
                     ),
                   ),
-                  // Premium button
+                  // Theme + Premium buttons
                   Padding(
                     padding: EdgeInsets.only(right: isTablet ? 24.0 : 16.0),
-                    child: Consumer<SubscriptionService>(
-                      builder: (context, subscriptionService, child) {
-                        final isSubscribed = subscriptionService.isSubscribed;
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Theme button
+                        Consumer<ThemeService>(
+                          builder: (context, themeService, child) {
+                            return GestureDetector(
+                              onTap: () => _showThemePicker(context),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.1),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                padding: const EdgeInsets.all(10),
+                                child: Text(
+                                  themeService.config.emoji,
+                                  style: const TextStyle(fontSize: 20),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        // Premium button
+                        Consumer<SubscriptionService>(
+                          builder: (context, subscriptionService, child) {
+                            final isSubscribed = subscriptionService.isSubscribed;
 
-                        return GestureDetector(
-                          onTap: () =>
-                              Navigator.pushNamed(context, '/subscription'),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: isSubscribed
-                                  ? Colors.green
-                                  : const Color(0xFF8E6CFF),
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
+                            return GestureDetector(
+                              onTap: () =>
+                                  Navigator.pushNamed(context, '/subscription'),
+                              child: Container(
+                                decoration: BoxDecoration(
                                   color: isSubscribed
-                                      ? Colors.green.withValues(alpha: 0.3)
-                                      : const Color(0x668E6CFF),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                  spreadRadius: 1,
+                                      ? Colors.green
+                                      : const Color(0xFF8E6CFF),
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: isSubscribed
+                                          ? Colors.green.withValues(alpha: 0.3)
+                                          : const Color(0x668E6CFF),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 10),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  isSubscribed
-                                      ? Icons.check_circle
-                                      : Icons.workspace_premium,
-                                  color: Colors.white,
-                                  size: 18,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 10),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isSubscribed
+                                          ? Icons.check_circle
+                                          : Icons.workspace_premium,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      isSubscribed ? 'Premium' : 'Subscribe',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  isSubscribed ? 'Premium' : 'Subscribe',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ),
                 ],

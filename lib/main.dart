@@ -6,6 +6,7 @@ import 'package:responsive_sizer/responsive_sizer.dart';
 import 'dart:developer' as developer;
 
 import 'providers/profile_provider.dart';
+import 'services/theme_service.dart';
 import 'screens/profile_selection_screen.dart';
 import 'screens/game_selection_screen.dart';
 import 'screens/puzzle_game_selection_screen.dart';
@@ -57,12 +58,21 @@ Future<void> main() async {
   // Initialize services
   await ElevenLabsService.initialize();
   await OpenAIService.initialize();
+  
+  // Initialize theme service
+  final themeService = ThemeService();
+  await themeService.initialize();
 
-  runApp(const MMLearningLabApp());
+  runApp(MMLearningLabApp(themeService: themeService));
 }
 
 class MMLearningLabApp extends StatelessWidget {
-  const MMLearningLabApp({super.key});
+  final ThemeService themeService;
+  
+  const MMLearningLabApp({
+    super.key,
+    required this.themeService,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -70,48 +80,55 @@ class MMLearningLabApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
         ChangeNotifierProvider(create: (_) => SubscriptionService()),
+        ChangeNotifierProvider.value(value: themeService),
       ],
-      child: ResponsiveSizer(
-        builder: (context, orientation, screenType) {
-          return MaterialApp(
-            title: 'M&M Learning Lab',
-            debugShowCheckedModeBanner: false,
-            showSemanticsDebugger: false,
-            builder: (context, child) {
-              PerformanceWarmupService.scheduleWarmup(context);
-              final mediaQuery = MediaQuery.of(context);
-              return MediaQuery(
-                data: mediaQuery.copyWith(
-                  textScaler: mediaQuery.textScaler.clamp(
-                    minScaleFactor: 1.0,
-                    maxScaleFactor: 1.35,
-                  ),
+      child: Consumer<ThemeService>(
+        builder: (context, themeService, child) {
+          final themeConfig = themeService.config;
+          
+          return ResponsiveSizer(
+            builder: (context, orientation, screenType) {
+              return MaterialApp(
+                title: 'M&M Learning Lab',
+                debugShowCheckedModeBanner: false,
+                showSemanticsDebugger: false,
+                builder: (context, child) {
+                  PerformanceWarmupService.scheduleWarmup(context);
+                  final mediaQuery = MediaQuery.of(context);
+                  return MediaQuery(
+                    data: mediaQuery.copyWith(
+                      textScaler: mediaQuery.textScaler.clamp(
+                        minScaleFactor: 1.0,
+                        maxScaleFactor: 1.35,
+                      ),
+                    ),
+                    child: child ?? const SizedBox.shrink(),
+                  );
+                },
+                theme: ThemeData(
+                  colorScheme: ColorScheme.fromSeed(seedColor: themeConfig.seedColor),
+                  textTheme: GoogleFonts.nunitoTextTheme(),
+                  useMaterial3: true,
+                  visualDensity: VisualDensity.adaptivePlatformDensity,
+                  materialTapTargetSize: MaterialTapTargetSize.padded,
                 ),
-                child: child ?? const SizedBox.shrink(),
+                initialRoute: '/',
+                routes: {
+                  '/': (context) => const ProfileSelectionScreen(),
+                  '/ai-friends': (context) => const GameSelectionScreen(),
+                  '/games': (context) => const PuzzleGameSelectionScreen(),
+                  '/tracing': (context) => const LetterTracingScreen(),
+                  '/phonics': (context) => const PhonicsScreen(),
+                  '/bubble-pop': (context) => const BubblePopScreen(),
+                  '/story-adventure': (context) => StoryAdventureScreen(),
+                  '/ai-chat': (context) => const AiChatScreen(),
+                  '/ai-call': (context) =>
+                      const ElevenLabsAgentVoiceConversationScreen(),
+                  '/ai-limits': (context) => const AiLimitsScreen(),
+                  '/progress': (context) => const KidProgressScreen(),
+                  '/subscription': (context) => const SubscriptionScreen(),
+                },
               );
-            },
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
-              textTheme: GoogleFonts.nunitoTextTheme(),
-              useMaterial3: true,
-              visualDensity: VisualDensity.adaptivePlatformDensity,
-              materialTapTargetSize: MaterialTapTargetSize.padded,
-            ),
-            initialRoute: '/',
-            routes: {
-              '/': (context) => const ProfileSelectionScreen(),
-              '/ai-friends': (context) => const GameSelectionScreen(),
-              '/games': (context) => const PuzzleGameSelectionScreen(),
-              '/tracing': (context) => const LetterTracingScreen(),
-              '/phonics': (context) => const PhonicsScreen(),
-              '/bubble-pop': (context) => const BubblePopScreen(),
-              '/story-adventure': (context) => StoryAdventureScreen(),
-              '/ai-chat': (context) => const AiChatScreen(),
-              '/ai-call': (context) =>
-                  const ElevenLabsAgentVoiceConversationScreen(),
-              '/ai-limits': (context) => const AiLimitsScreen(),
-              '/progress': (context) => const KidProgressScreen(),
-              '/subscription': (context) => const SubscriptionScreen(),
             },
           );
         },

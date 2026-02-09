@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../providers/profile_provider.dart';
 import '../services/activity_progress_service.dart';
+import '../services/theme_service.dart';
 import '../utils/activity_launcher.dart';
 import '../utils/kid_layout_tokens.dart';
 import '../widgets/kid_screen_header.dart';
@@ -41,14 +42,15 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
   @override
   Widget build(BuildContext context) {
     final layout = KidSelectionLayout.fromContext(context);
+    final themeConfig = context.watch<ThemeService>().config;
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF8FD6FF), Color(0xFFFFF3E0)],
+            colors: themeConfig.screenGradient,
           ),
         ),
         child: SafeArea(
@@ -69,7 +71,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                   style: TextStyle(
                     fontSize: layout.subtitleFontSize,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF355C7D),
+                    color: themeConfig.headingColor,
                     fontFamily: 'Baloo2',
                   ),
                   textAlign: TextAlign.center,
@@ -79,7 +81,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
 
               // Game cards with responsive layout
               Expanded(
-                child: _buildGameGrid(layout),
+                child: _buildGameGrid(layout, themeConfig),
               ),
             ],
           ),
@@ -125,12 +127,12 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
     );
   }
 
-  Widget _buildGameGrid(KidSelectionLayout layout) {
+  Widget _buildGameGrid(KidSelectionLayout layout, themeConfig) {
     final games = [
       _GameData(
         title: 'AI Story Time',
         subtitle: 'Create and read stories',
-        color: const Color(0xFF8E6CFF),
+        color: themeConfig.cardStory,
         icon: CupertinoIcons.wand_stars,
         isNew: true,
         onTap: () => _openActivity(ActivityIds.storyAdventure),
@@ -138,7 +140,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
       _GameData(
         title: 'Voice Chat with Aria',
         subtitle: 'Take turns to practice speaking, ideas, and homework',
-        color: const Color(0xFF3ED6C1),
+        color: themeConfig.cardAiChat,
         icon: CupertinoIcons.chat_bubble_fill,
         isNew: true,
         onTap: () => _openActivity(ActivityIds.aiChat),
@@ -146,7 +148,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
       _GameData(
         title: 'Live Call with Bella',
         subtitle: 'Real-time call for English, languages, math, and science',
-        color: const Color(0xFF58A6FF),
+        color: themeConfig.cardVoiceCall,
         icon: CupertinoIcons.phone_fill,
         isNew: true,
         onTap: () => _openActivity(ActivityIds.aiCall),

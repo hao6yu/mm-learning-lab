@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/profile_provider.dart';
 import '../services/activity_progress_service.dart';
+import '../services/theme_service.dart';
 import '../utils/activity_launcher.dart';
 import '../utils/kid_layout_tokens.dart';
 import '../widgets/kid_game_card.dart';
@@ -14,14 +15,15 @@ class PuzzleGameSelectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final layout = KidSelectionLayout.fromContext(context);
+    final themeConfig = context.watch<ThemeService>().config;
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFFEAF6FF), Color(0xFFF3E8FF)],
+            colors: themeConfig.screenGradient,
           ),
         ),
         child: SafeArea(
@@ -42,7 +44,7 @@ class PuzzleGameSelectionScreen extends StatelessWidget {
                   style: TextStyle(
                     fontSize: layout.subtitleFontSize,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF355C7D),
+                    color: themeConfig.headingColor,
                     fontFamily: 'Baloo2',
                   ),
                   textAlign: TextAlign.center,
