@@ -461,13 +461,20 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
   }
 
   Widget _buildMainContent() {
+    final themeConfig = context.watch<ThemeService>().config;
+    
     return Stack(
       children: [
-        // Background image
+        // Background gradient
         Positioned.fill(
-          child: Image(
-            image: _homeBackgroundImage,
-            fit: BoxFit.cover,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: themeConfig.screenGradient,
+              ),
+            ),
           ),
         ),
 
