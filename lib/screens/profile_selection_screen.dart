@@ -188,6 +188,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
     Profile selected, {
     required bool isTablet,
     required bool isLandscape,
+    required themeConfig,
   }) {
     final profileId = selected.id;
     if (profileId == null) {
@@ -278,7 +279,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                     Icon(
                       activityIcon(activity.activityId),
                       size: iconSize,
-                      color: const Color(0xFF8E6CFF),
+                      color: themeConfig.cardPuzzle,
                     ),
                     const SizedBox(width: 8),
                     Flexible(
@@ -501,6 +502,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+    final themeConfig = context.watch<ThemeService>().config;
 
     // Better tablet detection: consider both dimensions and pixel density
     final shortestSide = math.min(screenWidth, screenHeight);
@@ -544,7 +546,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                       },
                       child: Container(
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFF9F43),
+                          color: themeConfig.cardStory,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
@@ -698,6 +700,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                   selected,
                                   isTablet: isTablet,
                                   isLandscape: isLandscape,
+                                  themeConfig: themeConfig,
                                 ),
                               ],
                             ),
@@ -712,7 +715,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                               children: [
                                 _HomeButton(
                                   label: 'AI Friends',
-                                  color: const Color(0xFFFF9F43),
+                                  color: themeConfig.cardStory,
                                   onTap: () => Navigator.pushNamed(
                                       context, '/ai-friends'),
                                   isTablet: isTablet,
@@ -721,7 +724,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                 const SizedBox(height: 6),
                                 _HomeButton(
                                   label: '123',
-                                  color: const Color(0xFF43C465),
+                                  color: themeConfig.cardMath,
                                   onTap: () => Navigator.push(
                                     context,
                                     MaterialPageRoute(
@@ -735,7 +738,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                 const SizedBox(height: 6),
                                 _HomeButton(
                                   label: 'Games',
-                                  color: const Color(0xFF8E6CFF),
+                                  color: themeConfig.cardPuzzle,
                                   onTap: () =>
                                       Navigator.pushNamed(context, '/games'),
                                   isTablet: isTablet,
@@ -781,6 +784,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                             selected,
                             isTablet: isTablet,
                             isLandscape: isLandscape,
+                            themeConfig: themeConfig,
                           ),
                           SizedBox(height: buttonSpacing * 0.65),
                           // Buttons with responsive layout
@@ -790,7 +794,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                   children: [
                                     _HomeButton(
                                       label: 'AI Friends',
-                                      color: const Color(0xFFFF9F43),
+                                      color: themeConfig.cardStory,
                                       onTap: () => Navigator.pushNamed(
                                           context, '/ai-friends'),
                                       isTablet: isTablet,
@@ -798,7 +802,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                     const SizedBox(width: 32),
                                     _HomeButton(
                                       label: '123',
-                                      color: const Color(0xFF43C465),
+                                      color: themeConfig.cardMath,
                                       onTap: () => Navigator.push(
                                         context,
                                         MaterialPageRoute(
@@ -812,7 +816,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                     const SizedBox(width: 32),
                                     _HomeButton(
                                       label: 'Games',
-                                      color: const Color(0xFF8E6CFF),
+                                      color: themeConfig.cardPuzzle,
                                       onTap: () => Navigator.pushNamed(
                                           context, '/games'),
                                       isTablet: isTablet,
@@ -827,7 +831,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                       children: [
                                         _HomeButton(
                                           label: 'AI Friends',
-                                          color: const Color(0xFFFF9F43),
+                                          color: themeConfig.cardStory,
                                           onTap: () => Navigator.pushNamed(
                                               context, '/ai-friends'),
                                           isTablet: isTablet,
@@ -835,7 +839,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                         const SizedBox(width: 20),
                                         _HomeButton(
                                           label: '123',
-                                          color: const Color(0xFF43C465),
+                                          color: themeConfig.cardMath,
                                           onTap: () => Navigator.push(
                                             context,
                                             MaterialPageRoute(
@@ -851,7 +855,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                     const SizedBox(height: 20),
                                     _HomeButton(
                                       label: 'Games',
-                                      color: const Color(0xFF8E6CFF),
+                                      color: themeConfig.cardPuzzle,
                                       onTap: () => Navigator.pushNamed(
                                           context, '/games'),
                                       isTablet: isTablet,
