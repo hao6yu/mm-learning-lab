@@ -513,7 +513,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
       return FloatingHeartsOverlay(
         heartCount: 12,
         child: FloatingSparklesOverlay(
-          sparkleCount: 8,
+          sparkleCount: 15,
           child: content,
         ),
       );

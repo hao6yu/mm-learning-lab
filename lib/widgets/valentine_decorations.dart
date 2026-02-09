@@ -150,7 +150,7 @@ class _FloatingSparklesOverlayState extends State<FloatingSparklesOverlay>
 
   _SparkleData _createSparkle() {
     final controller = AnimationController(
-      duration: Duration(milliseconds: 1000 + _random.nextInt(1500)),
+      duration: Duration(milliseconds: 800 + _random.nextInt(1200)),
       vsync: this,
     );
     
@@ -166,9 +166,9 @@ class _FloatingSparklesOverlayState extends State<FloatingSparklesOverlay>
               _sparkles[index] = _SparkleData(
                 controller: controller,
                 x: _random.nextDouble(),
-                y: _random.nextDouble() * 0.7, // Keep in upper 70% of screen
-                size: 14.0 + _random.nextDouble() * 12.0,
-                delay: _random.nextInt(500),
+                y: _random.nextDouble() * 0.85, // Keep in upper 85% of screen
+                size: 22.0 + _random.nextDouble() * 18.0,
+                delay: _random.nextInt(300),
               );
             }
           });
@@ -189,9 +189,9 @@ class _FloatingSparklesOverlayState extends State<FloatingSparklesOverlay>
     return _SparkleData(
       controller: controller,
       x: _random.nextDouble(),
-      y: _random.nextDouble() * 0.7,
-      size: 14.0 + _random.nextDouble() * 12.0,
-      delay: _random.nextInt(500),
+      y: _random.nextDouble() * 0.85,
+      size: 22.0 + _random.nextDouble() * 18.0,
+      delay: _random.nextInt(300),
     );
   }
 
