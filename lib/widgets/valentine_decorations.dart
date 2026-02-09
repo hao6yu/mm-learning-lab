@@ -122,6 +122,144 @@ class _HeartData {
   });
 }
 
+/// Floating sparkles overlay
+class FloatingSparklesOverlay extends StatefulWidget {
+  final int sparkleCount;
+  final Widget child;
+  
+  const FloatingSparklesOverlay({
+    super.key,
+    this.sparkleCount = 8,
+    required this.child,
+  });
+
+  @override
+  State<FloatingSparklesOverlay> createState() => _FloatingSparklesOverlayState();
+}
+
+class _FloatingSparklesOverlayState extends State<FloatingSparklesOverlay>
+    with TickerProviderStateMixin {
+  late List<_SparkleData> _sparkles;
+  final Random _random = Random();
+
+  @override
+  void initState() {
+    super.initState();
+    _sparkles = List.generate(widget.sparkleCount, (_) => _createSparkle());
+  }
+
+  _SparkleData _createSparkle() {
+    final controller = AnimationController(
+      duration: Duration(milliseconds: 1000 + _random.nextInt(1500)),
+      vsync: this,
+    );
+    
+    controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        controller.reverse();
+      } else if (status == AnimationStatus.dismissed) {
+        // Randomize position when restarting
+        if (mounted) {
+          setState(() {
+            final index = _sparkles.indexWhere((s) => s.controller == controller);
+            if (index >= 0) {
+              _sparkles[index] = _SparkleData(
+                controller: controller,
+                x: _random.nextDouble(),
+                y: _random.nextDouble() * 0.7, // Keep in upper 70% of screen
+                size: 14.0 + _random.nextDouble() * 12.0,
+                delay: _random.nextInt(500),
+              );
+            }
+          });
+        }
+        Future.delayed(Duration(milliseconds: _random.nextInt(2000)), () {
+          if (controller.status == AnimationStatus.dismissed) {
+            controller.forward();
+          }
+        });
+      }
+    });
+    
+    // Start with random delay
+    Future.delayed(Duration(milliseconds: _random.nextInt(2000)), () {
+      if (mounted) controller.forward();
+    });
+    
+    return _SparkleData(
+      controller: controller,
+      x: _random.nextDouble(),
+      y: _random.nextDouble() * 0.7,
+      size: 14.0 + _random.nextDouble() * 12.0,
+      delay: _random.nextInt(500),
+    );
+  }
+
+  @override
+  void dispose() {
+    for (final sparkle in _sparkles) {
+      sparkle.controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        widget.child,
+        // Sparkles layer
+        Positioned.fill(
+          child: IgnorePointer(
+            child: Stack(
+              children: _sparkles.map((sparkle) {
+                return AnimatedBuilder(
+                  animation: sparkle.controller,
+                  builder: (context, child) {
+                    final screenWidth = MediaQuery.of(context).size.width;
+                    final screenHeight = MediaQuery.of(context).size.height;
+                    
+                    return Positioned(
+                      left: sparkle.x * screenWidth,
+                      top: sparkle.y * screenHeight,
+                      child: Transform.scale(
+                        scale: 0.5 + sparkle.controller.value * 0.5,
+                        child: Opacity(
+                          opacity: sparkle.controller.value,
+                          child: Text(
+                            '✨',
+                            style: TextStyle(fontSize: sparkle.size),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SparkleData {
+  final AnimationController controller;
+  final double x;
+  final double y;
+  final double size;
+  final int delay;
+
+  _SparkleData({
+    required this.controller,
+    required this.x,
+    required this.y,
+    required this.size,
+    required this.delay,
+  });
+}
+
 /// Decorative corner hearts for cards/containers
 class HeartCornerDecoration extends StatelessWidget {
   final Widget child;

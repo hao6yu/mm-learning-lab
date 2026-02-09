@@ -508,11 +508,14 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
       ],
     );
     
-    // Wrap with floating hearts for Valentine theme
+    // Wrap with floating hearts and sparkles for Valentine theme
     if (isValentine) {
       return FloatingHeartsOverlay(
         heartCount: 12,
-        child: content,
+        child: FloatingSparklesOverlay(
+          sparkleCount: 8,
+          child: content,
+        ),
       );
     }
     
