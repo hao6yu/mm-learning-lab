@@ -169,8 +169,8 @@ AppThemeConfig getThemeConfig(AppThemeType type) {
 /// Check if Valentine's theme should be default based on date
 bool isValentineSeason() {
   final now = DateTime.now();
-  // Feb 1 - Feb 18 (give a few days after Valentine's)
-  return now.month == 2 && now.day <= 18;
+  // All of February
+  return now.month == 2;
 }
 
 /// Get the default theme based on current date

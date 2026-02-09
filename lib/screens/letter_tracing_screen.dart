@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/profile_provider.dart';
 import '../services/activity_progress_service.dart';
+import '../services/theme_service.dart';
 import '../utils/activity_launcher.dart';
 import '../widgets/kid_screen_header.dart';
 import '../widgets/tracing_canvas.dart';
@@ -198,14 +199,15 @@ class _LetterTracingScreenState extends State<LetterTracingScreen> {
     final shortestSide = math.min(media.size.width, media.size.height);
     final isTablet = shortestSide >= 600;
     final isLandscape = media.size.width > media.size.height;
+    final themeConfig = context.watch<ThemeService>().config;
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF8FD6FF), Color(0xFFEAF6FF)],
+            colors: themeConfig.screenGradient,
           ),
         ),
         child: SafeArea(

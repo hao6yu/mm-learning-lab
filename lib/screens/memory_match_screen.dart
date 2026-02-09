@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import '../services/elevenlabs_service.dart';
+import '../services/theme_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'dart:async';
 import 'package:path_provider/path_provider.dart';
@@ -747,13 +749,15 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeConfig = context.watch<ThemeService>().config;
+    
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFFB2F2E9), Color(0xFFEAF6FF)],
+            colors: themeConfig.screenGradient,
           ),
         ),
         child: SafeArea(

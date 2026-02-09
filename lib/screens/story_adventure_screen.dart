@@ -9,6 +9,7 @@ import '../models/story.dart';
 import '../widgets/word_card.dart';
 import 'create_story_screen.dart';
 import '../services/elevenlabs_service.dart';
+import '../services/theme_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'dart:math';
 import '../providers/profile_provider.dart';
@@ -900,6 +901,8 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen>
 
   @override
   Widget build(BuildContext context) {
+    final themeConfig = context.watch<ThemeService>().config;
+    
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
@@ -930,7 +933,7 @@ class _StoryAdventureScreenState extends State<StoryAdventureScreen>
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFF8FD6FF), Color(0xFFEAF6FF)],
+              colors: themeConfig.screenGradient,
             ),
           ),
           child: SafeArea(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:math' as math;
+import '../services/theme_service.dart';
 
 class TicTacToeScreen extends StatefulWidget {
   const TicTacToeScreen({super.key});
@@ -218,6 +220,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+    final themeConfig = context.watch<ThemeService>().config;
 
     // Enhanced device detection (same as other screens)
     final shortestSide = math.min(screenWidth, screenHeight);
@@ -229,11 +232,11 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFFF3E8FF), Color(0xFFEAF6FF)],
+            colors: themeConfig.screenGradient,
           ),
         ),
         child: SafeArea(

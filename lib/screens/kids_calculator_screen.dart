@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:math' as math;
+import '../services/theme_service.dart';
 
 class KidsCalculatorScreen extends StatefulWidget {
   const KidsCalculatorScreen({super.key});
@@ -122,6 +124,7 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+    final themeConfig = context.watch<ThemeService>().config;
 
     // Enhanced device detection (same as other screens)
     final shortestSide = math.min(screenWidth, screenHeight);
@@ -181,11 +184,11 @@ class _KidsCalculatorScreenState extends State<KidsCalculatorScreen> {
     };
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF8FD6FF), Color(0xFFFFF3E0)],
+            colors: themeConfig.screenGradient,
           ),
         ),
         child: SafeArea(
