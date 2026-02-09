@@ -85,37 +85,38 @@ class ThemePicker extends StatelessWidget {
                     ),
                   ] : null,
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(6.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        theme.emoji,
-                        style: TextStyle(fontSize: emojiSize),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        theme.name,
-                        style: TextStyle(
-                          fontSize: fontSize,
-                          fontWeight: FontWeight.w600,
-                          color: theme.headingColor,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          theme.emoji,
+                          style: TextStyle(fontSize: emojiSize),
                         ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (isSelected) ...[
                         const SizedBox(height: 2),
-                        Icon(
-                          Icons.check_circle,
-                          size: isTablet ? 16.0 : 12.0,
-                          color: theme.primaryColor,
+                        Text(
+                          theme.name,
+                          style: TextStyle(
+                            fontSize: fontSize,
+                            fontWeight: FontWeight.w600,
+                            color: theme.headingColor,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
+                        if (isSelected) ...[
+                          const SizedBox(height: 2),
+                          Icon(
+                            Icons.check_circle,
+                            size: isTablet ? 14.0 : 12.0,
+                            color: theme.primaryColor,
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
