@@ -5,11 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math' as math;
 import 'dart:io';
+import '../config/app_theme.dart';
 import '../providers/profile_provider.dart';
 import '../widgets/profile_card.dart';
 import '../widgets/add_profile_modal.dart';
 import '../widgets/quick_avatar_update_modal.dart';
 import '../widgets/theme_picker.dart';
+import '../widgets/valentine_decorations.dart';
 import '../services/subscription_service.dart';
 import '../services/activity_progress_service.dart';
 import '../services/theme_service.dart';
@@ -461,9 +463,11 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
   }
 
   Widget _buildMainContent() {
-    final themeConfig = context.watch<ThemeService>().config;
+    final themeService = context.watch<ThemeService>();
+    final themeConfig = themeService.config;
+    final isValentine = themeService.currentTheme == AppThemeType.valentine;
     
-    return Stack(
+    Widget content = Stack(
       children: [
         // Background gradient
         Positioned.fill(
@@ -503,13 +507,25 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
         ),
       ],
     );
+    
+    // Wrap with floating hearts for Valentine theme
+    if (isValentine) {
+      return FloatingHeartsOverlay(
+        heartCount: 12,
+        child: content,
+      );
+    }
+    
+    return content;
   }
 
   Widget _buildWelcomeScreen(Profile selected) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
-    final themeConfig = context.watch<ThemeService>().config;
+    final themeService = context.watch<ThemeService>();
+    final themeConfig = themeService.config;
+    final isValentine = themeService.currentTheme == AppThemeType.valentine;
 
     // Better tablet detection: consider both dimensions and pixel density
     final shortestSide = math.min(screenWidth, screenHeight);
@@ -684,9 +700,9 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                     avatarFontSize, isLandscape, isTablet),
                                 SizedBox(height: verticalSpacing),
                                 Text(
-                                  isLandscape
-                                      ? 'Welcome, ${selected.name}'
-                                      : 'Welcome,\n${selected.name}',
+                                  isValentine
+                                      ? (isLandscape ? '💕 Hi ${selected.name}!' : '💕\nHi ${selected.name}!')
+                                      : (isLandscape ? 'Welcome, ${selected.name}' : 'Welcome,\n${selected.name}'),
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.baloo2(
                                     fontSize: welcomeFontSize,
@@ -769,9 +785,9 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                               avatarFontSize, isLandscape, isTablet),
                           SizedBox(height: verticalSpacing),
                           Text(
-                            isLandscape
-                                ? 'Welcome, ${selected.name}'
-                                : 'Welcome,\n${selected.name}',
+                            isValentine
+                                ? (isLandscape ? '💕 Hi ${selected.name}!' : '💕\nHi ${selected.name}!')
+                                : (isLandscape ? 'Welcome, ${selected.name}' : 'Welcome,\n${selected.name}'),
                             textAlign: TextAlign.center,
                             style: GoogleFonts.baloo2(
                               fontSize: welcomeFontSize,
