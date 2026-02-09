@@ -34,7 +34,7 @@ class _FloatingHeartsOverlayState extends State<FloatingHeartsOverlay>
     );
     
     controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
+      if (status == AnimationStatus.completed && mounted) {
         controller.reset();
         controller.forward();
       }
@@ -174,7 +174,7 @@ class _FloatingSparklesOverlayState extends State<FloatingSparklesOverlay>
           });
         }
         Future.delayed(Duration(milliseconds: _random.nextInt(2000)), () {
-          if (controller.status == AnimationStatus.dismissed) {
+          if (mounted && controller.status == AnimationStatus.dismissed) {
             controller.forward();
           }
         });
