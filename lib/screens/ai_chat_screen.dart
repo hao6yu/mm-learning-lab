@@ -13,6 +13,9 @@ import '../services/openai_service.dart';
 import '../services/elevenlabs_service.dart';
 import '../services/speech_recognition_service.dart';
 import '../services/audio_recorder_service.dart';
+import '../services/ai_usage_limit_service.dart';
+import '../services/ai_proxy_config.dart';
+import '../services/subscription_service.dart';
 import '../providers/profile_provider.dart';
 
 class AiChatScreen extends StatefulWidget {
@@ -32,18 +35,20 @@ class _AiChatScreenState extends State<AiChatScreen>
   final SpeechRecognitionService _speechRecognitionService =
       SpeechRecognitionService();
   final AudioRecorderService _audioRecorderService = AudioRecorderService();
+  final AIUsageLimitService _aiUsageLimitService = AIUsageLimitService();
 
   List<ChatMessage> _messages = [];
   bool _isLoading = false;
   bool _isSending = false;
   bool _isRecording = false;
-  bool _isPlayingAudio = false;
   AudioPlayer? _audioPlayer;
   int? _currentProfileId;
   String? _currentProfileName;
   int? _currentProfileAge;
   String? _currentProfileAvatar;
   String? _currentProfileAvatarType;
+  bool _isPremiumUser = false;
+  AiQuotaCheckResult? _chatQuotaStatus;
 
   bool _useVoiceResponse = true; // Whether to use ElevenLabs for AI responses
   String _selectedVoiceId = '9BWtsMINqrJLrRacOk9x'; // Default voice set to Aria
@@ -74,6 +79,7 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   // Add variable to track if we should show the help tooltip
   bool _showVoiceInputHelp = true;
+  bool _isVoiceSettingsSheetOpen = false;
 
   @override
   void initState() {
@@ -109,12 +115,6 @@ class _AiChatScreenState extends State<AiChatScreen>
 
     // Set default voice to Madeline for this screen
     ElevenLabsService.setVoiceId(_selectedVoiceId);
-
-    // Load previous messages
-    _loadMessages();
-
-    // Add welcome message if no messages exist
-    _addWelcomeMessageIfNeeded();
   }
 
   @override
@@ -125,11 +125,22 @@ class _AiChatScreenState extends State<AiChatScreen>
     final profileProvider =
         Provider.of<ProfileProvider>(context, listen: false);
     final currentProfileId = profileProvider.selectedProfileId;
+    final subscriptionService =
+        Provider.of<SubscriptionService>(context, listen: false);
+    _isPremiumUser = subscriptionService.isSubscribed;
 
-    if (currentProfileId != null) {
+    if (currentProfileId != null && _currentProfileId != currentProfileId) {
       _currentProfileId = currentProfileId;
       // Fetch profile details to get name and age
       _loadProfileDetails(currentProfileId);
+      _loadMessages().then((_) {
+        if (mounted) {
+          _addWelcomeMessageIfNeeded();
+        }
+      });
+      _refreshChatQuota();
+    } else if (currentProfileId != null) {
+      _refreshChatQuota();
     }
   }
 
@@ -243,7 +254,19 @@ class _AiChatScreenState extends State<AiChatScreen>
   }
 
   Future<void> _sendMessage(String text) async {
-    if (text.trim().isEmpty) return;
+    if (text.trim().isEmpty || _isSending) return;
+
+    final profileId = _currentProfileId;
+    if (profileId == null) {
+      _showErrorSnackBar('Please select a profile first.');
+      return;
+    }
+
+    final quotaReservation = await _reserveChatQuota();
+    if (quotaReservation == null) {
+      return;
+    }
+    var shouldReleaseReservation = true;
 
     debugPrint('======== AI CHAT: SENDING MESSAGE ========');
     debugPrint(
@@ -282,9 +305,7 @@ class _AiChatScreenState extends State<AiChatScreen>
     // Prepare conversation history
     debugPrint('Preparing conversation history...');
     final history = _messages
-        .where((msg) =>
-            _messages.indexOf(msg) <
-            _messages.length) // Exclude the message just added
+        .take(_messages.length > 1 ? _messages.length - 1 : 0)
         .map((msg) => {
               'role': msg.isUserMessage ? 'user' : 'assistant',
               'content': msg.message,
@@ -307,6 +328,13 @@ class _AiChatScreenState extends State<AiChatScreen>
         history: history,
         childName: _currentProfileName,
         childAge: _currentProfileAge,
+        assistantName: ElevenLabsService.getVoiceNameById(_selectedVoiceId),
+        requestContext: AiRequestContext(
+          profileId: profileId,
+          isPremium: _isPremiumUser,
+          feature: 'chat_message',
+          units: 1,
+        ),
       );
 
       debugPrint('✅ OpenAI API response received');
@@ -322,9 +350,9 @@ class _AiChatScreenState extends State<AiChatScreen>
           profileId: _currentProfileId,
         );
 
+        shouldReleaseReservation = false;
         setState(() {
           _messages.add(aiMessage);
-          _isSending = false;
         });
 
         // Save AI message to database
@@ -345,8 +373,28 @@ class _AiChatScreenState extends State<AiChatScreen>
           // If audio was generated successfully, update the message with the audio path
           if (audioPath != null) {
             debugPrint('Audio generated successfully at: $audioPath');
-            aiMessage.toMap()['audio_path'] = audioPath;
-            await _databaseService.updateChatMessage(aiMessage);
+            final updatedAiMessage = ChatMessage(
+              id: messageId,
+              message: aiMessage.message,
+              isUserMessage: aiMessage.isUserMessage,
+              audioPath: audioPath,
+              timestamp: aiMessage.timestamp,
+              profileId: aiMessage.profileId,
+            );
+            await _databaseService.updateChatMessage(updatedAiMessage);
+            if (mounted) {
+              setState(() {
+                final lastIndex = _messages.lastIndexWhere(
+                  (m) =>
+                      !m.isUserMessage &&
+                      m.timestamp == aiMessage.timestamp &&
+                      m.message == aiMessage.message,
+                );
+                if (lastIndex != -1) {
+                  _messages[lastIndex] = updatedAiMessage;
+                }
+              });
+            }
             debugPrint('Chat message updated with audio path');
           } else {
             debugPrint('⚠️ Failed to generate audio for AI response');
@@ -357,16 +405,22 @@ class _AiChatScreenState extends State<AiChatScreen>
       } else {
         debugPrint('❌ OpenAI API returned null response');
         _showErrorSnackBar('Sorry, I couldn\'t respond to that right now.');
-        setState(() {
-          _isSending = false;
-        });
       }
     } catch (e) {
       debugPrint('❌ ERROR getting AI response: $e');
       _showErrorSnackBar('Something went wrong. Please try again.');
-      setState(() {
-        _isSending = false;
-      });
+    } finally {
+      if (shouldReleaseReservation) {
+        await _aiUsageLimitService.releaseCountQuotaReservation(
+          quotaReservation.usageEventId,
+        );
+      }
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+      }
+      await _refreshChatQuota();
     }
 
     debugPrint('======== AI CHAT: MESSAGE PROCESSING COMPLETE ========');
@@ -420,6 +474,17 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   Future<void> _playAudio(String audioPath) async {
     try {
+      final audioFile = File(audioPath);
+      if (!await audioFile.exists()) {
+        _showErrorSnackBar('Audio file not found. Please ask Aria again.');
+        return;
+      }
+      final fileLength = await audioFile.length();
+      if (fileLength <= 0) {
+        _showErrorSnackBar('Audio file is empty. Please ask Aria again.');
+        return;
+      }
+
       // Stop any currently playing audio
       await _stopAudio();
 
@@ -429,26 +494,18 @@ class _AiChatScreenState extends State<AiChatScreen>
       // Set the audio source and play
       await _audioPlayer!.setFilePath(audioPath);
 
-      setState(() {
-        _isPlayingAudio = true;
-      });
-
       // Play the audio
       await _audioPlayer!.play();
 
       // Listen for completion
       _audioPlayer!.processingStateStream.listen((state) {
         if (state == ProcessingState.completed) {
-          setState(() {
-            _isPlayingAudio = false;
-          });
+          if (!mounted) return;
+          setState(() {});
         }
       });
     } catch (e) {
       debugPrint('Error playing audio: $e');
-      setState(() {
-        _isPlayingAudio = false;
-      });
     }
   }
 
@@ -458,9 +515,8 @@ class _AiChatScreenState extends State<AiChatScreen>
         await _audioPlayer!.stop();
         await _audioPlayer!.dispose();
         _audioPlayer = null;
-        setState(() {
-          _isPlayingAudio = false;
-        });
+        if (!mounted) return;
+        setState(() {});
       } catch (e) {
         debugPrint('Error stopping audio: $e');
       }
@@ -541,8 +597,18 @@ class _AiChatScreenState extends State<AiChatScreen>
         if (recordingBytes != null) {
           // Transcribe using OpenAI Whisper
           debugPrint('🔄 Calling OpenAI Whisper API for transcription...');
-          final transcription =
-              await _openAIService.transcribeAudio(recordingBytes);
+          final profileId = _currentProfileId;
+          final transcription = await _openAIService.transcribeAudio(
+            recordingBytes,
+            requestContext: profileId == null
+                ? null
+                : AiRequestContext(
+                    profileId: profileId,
+                    isPremium: _isPremiumUser,
+                    feature: 'chat_transcription',
+                    units: 0,
+                  ),
+          );
 
           if (transcription != null && transcription.isNotEmpty) {
             debugPrint('✅ Transcription received: "$transcription"');
@@ -597,6 +663,80 @@ class _AiChatScreenState extends State<AiChatScreen>
         content: Text(message),
         backgroundColor: Colors.red.shade800,
         behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _refreshChatQuota() async {
+    final profileId = _currentProfileId;
+    if (profileId == null) return;
+
+    final status = await _aiUsageLimitService.getCountQuotaStatus(
+      profileId: profileId,
+      isPremium: _isPremiumUser,
+      feature: AiCountFeature.chatMessage,
+    );
+    if (!mounted) return;
+    setState(() {
+      _chatQuotaStatus = status;
+    });
+  }
+
+  Future<AiQuotaReservation?> _reserveChatQuota() async {
+    final profileId = _currentProfileId;
+    if (profileId == null) {
+      _showErrorSnackBar('Please select a profile first.');
+      return null;
+    }
+
+    final reservation = await _aiUsageLimitService.reserveCountQuota(
+      profileId: profileId,
+      isPremium: _isPremiumUser,
+      feature: AiCountFeature.chatMessage,
+    );
+    if (reservation == null) {
+      final status = await _aiUsageLimitService.getCountQuotaStatus(
+        profileId: profileId,
+        isPremium: _isPremiumUser,
+        feature: AiCountFeature.chatMessage,
+      );
+      _showQuotaBlockedDialog(
+        title: 'Chat limit reached',
+        message: status.buildBlockedMessage(isPremium: _isPremiumUser),
+      );
+      return null;
+    }
+
+    if (!mounted) return reservation;
+    setState(() {
+      _chatQuotaStatus = reservation.statusAfterReserve;
+    });
+    return reservation;
+  }
+
+  void _showQuotaBlockedDialog({
+    required String title,
+    required String message,
+  }) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+          if (!_isPremiumUser)
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/subscription');
+              },
+              child: const Text('Upgrade'),
+            ),
+        ],
       ),
     );
   }
@@ -704,158 +844,210 @@ class _AiChatScreenState extends State<AiChatScreen>
   }
 
   Future<void> _showVoiceSettings() async {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
-          return Container(
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Voice Settings',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+    if (_isVoiceSettingsSheetOpen) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+
+    _isVoiceSettingsSheetOpen = true;
+    try {
+      await showModalBottomSheet(
+        context: context,
+        useRootNavigator: false,
+        useSafeArea: true,
+        isScrollControlled: true,
+        isDismissible: false,
+        enableDrag: false,
+        backgroundColor: Colors.transparent,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setModalState) {
+            final viewInsets = MediaQuery.viewInsetsOf(context).bottom;
+            return AnimatedPadding(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              padding: EdgeInsets.only(bottom: viewInsets),
+              child: SafeArea(
+                top: false,
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(context).height * 0.82,
                   ),
-                ),
-                const SizedBox(height: 20),
-
-                // Enable/disable voice responses
-                SwitchListTile(
-                  title: const Text('Enable Voice Responses'),
-                  subtitle: const Text('AI will speak its responses'),
-                  value: _useVoiceResponse,
-                  activeThumbColor: const Color(0xFF8E6CFF),
-                  onChanged: (value) {
-                    setModalState(() {
-                      _useVoiceResponse = value;
-                    });
-                    setState(() {
-                      _useVoiceResponse = value;
-                    });
-                  },
-                ),
-
-                const Divider(),
-
-                // Voice selection
-                const Text(
-                  'Select Voice',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(25)),
                   ),
-                ),
-                const SizedBox(height: 10),
-
-                RadioGroup<String>(
-                  groupValue: _selectedVoiceId,
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setModalState(() {
-                      _selectedVoiceId = value;
-                    });
-                    setState(() {
-                      _selectedVoiceId = value;
-                      ElevenLabsService.setVoiceId(value);
-                      // Update the app bar title immediately to reflect the new voice
-                    });
-                  },
-                  child: Column(
-                    children: ElevenLabsService.availableVoices
-                        .map((voice) => RadioListTile<String>(
-                              title: Text(voice['name']!),
-                              value: voice['id']!,
-                              activeColor: const Color(0xFF8E6CFF),
-                            ))
-                        .toList(),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // Clear cache button
-                Center(
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      Navigator.pop(context);
-
-                      setState(() {
-                        _isLoading = true;
-                      });
-
-                      try {
-                        await _databaseService.clearChatMessagesAudioFiles();
-
-                        // Also clean up audio files in the app's directory
-                        final appDir = await getApplicationDocumentsDirectory();
-                        final audioDir =
-                            Directory('${appDir.path}/story_audio');
-
-                        if (await audioDir.exists()) {
-                          final entities = await audioDir.list().toList();
-                          for (final entity in entities) {
-                            if (entity is File &&
-                                entity.path.contains('_voice_')) {
-                              await entity.delete();
-                            }
-                          }
-                        }
-
-                        if (!context.mounted) return;
-                        setState(() {
-                          _isLoading = false;
-                        });
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Audio cache cleared'),
-                            behavior: SnackBarBehavior.floating,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Voice Settings',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Close',
+                              onPressed: () => Navigator.of(context).pop(),
+                              icon: const Icon(Icons.close),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Choose a voice and listening settings.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF6B7280),
                           ),
-                        );
-                      } catch (e) {
-                        debugPrint('Error clearing audio cache: $e');
-                        if (!context.mounted) return;
-                        setState(() {
-                          _isLoading = false;
-                        });
-                        _showErrorSnackBar('Error clearing audio cache');
-                      }
-                    },
-                    icon: const Icon(Icons.cleaning_services),
-                    label: const Text('Clear Audio Cache'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.white,
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Enable/disable voice responses
+                        SwitchListTile(
+                          title: const Text('Enable Voice Responses'),
+                          subtitle: const Text('AI will speak its responses'),
+                          value: _useVoiceResponse,
+                          activeThumbColor: const Color(0xFF8E6CFF),
+                          onChanged: (value) {
+                            setModalState(() {
+                              _useVoiceResponse = value;
+                            });
+                            setState(() {
+                              _useVoiceResponse = value;
+                            });
+                          },
+                        ),
+
+                        const Divider(),
+
+                        // Voice selection
+                        const Text(
+                          'Select Voice',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+
+                        RadioGroup<String>(
+                          groupValue: _selectedVoiceId,
+                          onChanged: (value) {
+                            if (value == null) return;
+                            setModalState(() {
+                              _selectedVoiceId = value;
+                            });
+                            setState(() {
+                              _selectedVoiceId = value;
+                              ElevenLabsService.setVoiceId(value);
+                            });
+                          },
+                          child: Column(
+                            children: ElevenLabsService.availableVoices
+                                .map((voice) => RadioListTile<String>(
+                                      title: Text(voice['name']!),
+                                      value: voice['id']!,
+                                      activeColor: const Color(0xFF8E6CFF),
+                                    ))
+                                .toList(),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Clear cache button
+                        Center(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              Navigator.pop(context);
+
+                              setState(() {
+                                _isLoading = true;
+                              });
+
+                              try {
+                                await _databaseService
+                                    .clearChatMessagesAudioFiles();
+
+                                // Also clean up audio files in the app's directory
+                                final appDir =
+                                    await getApplicationDocumentsDirectory();
+                                final audioDir =
+                                    Directory('${appDir.path}/story_audio');
+
+                                if (await audioDir.exists()) {
+                                  final entities =
+                                      await audioDir.list().toList();
+                                  for (final entity in entities) {
+                                    if (entity is File &&
+                                        entity.path.contains('_voice_')) {
+                                      await entity.delete();
+                                    }
+                                  }
+                                }
+
+                                if (!context.mounted) return;
+                                setState(() {
+                                  _isLoading = false;
+                                });
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Audio cache cleared'),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              } catch (e) {
+                                debugPrint('Error clearing audio cache: $e');
+                                if (!context.mounted) return;
+                                setState(() {
+                                  _isLoading = false;
+                                });
+                                _showErrorSnackBar(
+                                    'Error clearing audio cache');
+                              }
+                            },
+                            icon: const Icon(Icons.cleaning_services),
+                            label: const Text('Clear Audio Cache'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
+              ),
+            );
+          },
+        ),
+      );
+    } finally {
+      _isVoiceSettingsSheetOpen = false;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Get the current voice name for the app bar title
-    String currentVoiceName =
-        ElevenLabsService.getVoiceNameById(_selectedVoiceId);
-
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chat with $currentVoiceName'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back',
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        title: const Text('Voice Chat with Aria'),
         backgroundColor: const Color(0xFF8E6CFF),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -930,6 +1122,28 @@ class _AiChatScreenState extends State<AiChatScreen>
           maintainBottomViewPadding: true,
           child: Column(
             children: [
+              if (_chatQuotaStatus != null)
+                Container(
+                  width: double.infinity,
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.88),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _isPremiumUser
+                        ? 'Premium AI chat left: ${_chatQuotaStatus!.remainingToday}/${_chatQuotaStatus!.dailyLimit} today'
+                        : 'Free AI chat left: ${_chatQuotaStatus!.remainingToday}/${_chatQuotaStatus!.dailyLimit} today',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF355C7D),
+                    ),
+                  ),
+                ),
               // Chat messages list
               Expanded(
                 child: _isLoading
@@ -1145,39 +1359,6 @@ class _AiChatScreenState extends State<AiChatScreen>
                       fontSize: 16,
                     ),
                   ),
-
-                  // Play button for AI messages with audio
-                  if (!isUserMessage &&
-                      message.audioPath != null &&
-                      _useVoiceResponse)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: GestureDetector(
-                        onTap: () {
-                          _playAudio(message.audioPath!);
-                        },
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _isPlayingAudio
-                                  ? Icons.pause_circle_filled
-                                  : Icons.play_circle_filled,
-                              color: const Color(0xFF8E6CFF),
-                              size: 24,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              _isPlayingAudio ? 'Pause' : 'Play',
-                              style: const TextStyle(
-                                color: Color(0xFF8E6CFF),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),

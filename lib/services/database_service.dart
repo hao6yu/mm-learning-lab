@@ -23,7 +23,7 @@ class DatabaseService {
     String path = join(await getDatabasesPath(), 'mm_learning_lab.db');
     return await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: _createDb,
       onUpgrade: _onUpgrade,
     );
@@ -93,6 +93,7 @@ class DatabaseService {
 
     // Create chat_messages table
     await _createChatMessagesTable(db);
+    await _createAiUsageTables(db);
 
     // Available emoji options:
     // Boys: 👶 (baby), 🧒 (child), 👦 (boy), 🧑 (person)
@@ -511,6 +512,11 @@ class DatabaseService {
       await _createProfileProgressTable(db);
       await _seedProfileProgressRowsForExistingProfiles(db);
     }
+
+    // For version 9, add AI usage tracking for free/premium quota limits.
+    if (oldVersion < 9) {
+      await _createAiUsageTables(db);
+    }
   }
 
   Future<bool> _columnExists(Database db, String table, String column) async {
@@ -598,6 +604,43 @@ class DatabaseService {
         FOREIGN KEY (profile_id) REFERENCES profiles (id)
       )
     ''');
+  }
+
+  Future<void> _createAiUsageTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ai_usage_events(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        profile_id INTEGER NOT NULL,
+        feature TEXT NOT NULL,
+        units INTEGER NOT NULL DEFAULT 1,
+        timestamp TEXT NOT NULL,
+        FOREIGN KEY (profile_id) REFERENCES profiles (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ai_call_sessions(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        profile_id INTEGER NOT NULL,
+        tier TEXT NOT NULL,
+        model TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        ended_at TEXT,
+        duration_seconds INTEGER NOT NULL DEFAULT 0,
+        end_reason TEXT,
+        FOREIGN KEY (profile_id) REFERENCES profiles (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ai_usage_events_profile_feature_time ON ai_usage_events(profile_id, feature, timestamp)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ai_call_sessions_profile_start ON ai_call_sessions(profile_id, started_at)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_ai_call_sessions_open ON ai_call_sessions(ended_at)',
+    );
   }
 
   // Profile CRUD operations
@@ -884,6 +927,11 @@ class DatabaseService {
   }
 
   Future<int> updateChatMessage(ChatMessage message) async {
+    if (message.id == null) {
+      debugPrint(
+          'DatabaseService.updateChatMessage skipped because message.id is null');
+      return 0;
+    }
     final db = await database;
     return await db.update(
       'chat_messages',
@@ -966,6 +1014,165 @@ class DatabaseService {
       'chat_messages',
       {'audio_path': null},
       where: 'audio_path IS NOT NULL',
+    );
+  }
+
+  Future<int> insertAiUsageEvent({
+    required int profileId,
+    required String feature,
+    int units = 1,
+    DateTime? timestamp,
+  }) async {
+    final db = await database;
+    return db.insert('ai_usage_events', {
+      'profile_id': profileId,
+      'feature': feature,
+      'units': units,
+      'timestamp': (timestamp ?? DateTime.now()).toIso8601String(),
+    });
+  }
+
+  Future<int> getAiUsageUnitsSince({
+    required int profileId,
+    required String feature,
+    required DateTime since,
+  }) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      '''
+      SELECT COALESCE(SUM(units), 0) AS total
+      FROM ai_usage_events
+      WHERE profile_id = ? AND feature = ? AND timestamp >= ?
+      ''',
+      [profileId, feature, since.toIso8601String()],
+    );
+
+    final total = result.first['total'];
+    if (total is num) return total.toInt();
+    return int.tryParse(total?.toString() ?? '') ?? 0;
+  }
+
+  Future<int> insertAiCallSession({
+    required int profileId,
+    required String tier,
+    required String model,
+    DateTime? startedAt,
+  }) async {
+    final db = await database;
+    return db.insert('ai_call_sessions', {
+      'profile_id': profileId,
+      'tier': tier,
+      'model': model,
+      'started_at': (startedAt ?? DateTime.now()).toIso8601String(),
+      'ended_at': null,
+      'duration_seconds': 0,
+      'end_reason': null,
+    });
+  }
+
+  Future<int> closeAiCallSession({
+    required int sessionId,
+    required DateTime endedAt,
+    required int durationSeconds,
+    required String endReason,
+  }) async {
+    final db = await database;
+    return db.update(
+      'ai_call_sessions',
+      {
+        'ended_at': endedAt.toIso8601String(),
+        'duration_seconds': durationSeconds,
+        'end_reason': endReason,
+      },
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
+  }
+
+  Future<int> getAiCallDurationSecondsSince({
+    required int profileId,
+    required DateTime since,
+    DateTime? until,
+  }) async {
+    final db = await database;
+    final windowEnd = until ?? DateTime.now();
+    if (!windowEnd.isAfter(since)) {
+      return 0;
+    }
+
+    final rows = await db.query(
+      'ai_call_sessions',
+      columns: ['started_at', 'ended_at', 'duration_seconds'],
+      where:
+          'profile_id = ? AND ended_at IS NOT NULL AND ended_at > ? AND started_at < ?',
+      whereArgs: [
+        profileId,
+        since.toIso8601String(),
+        windowEnd.toIso8601String(),
+      ],
+    );
+
+    var total = 0;
+    for (final row in rows) {
+      final startedAtRaw = row['started_at'] as String?;
+      final endedAtRaw = row['ended_at'] as String?;
+      final recordedDurationRaw = row['duration_seconds'];
+      if (startedAtRaw == null || endedAtRaw == null) continue;
+
+      final startedAt = DateTime.tryParse(startedAtRaw);
+      final endedAt = DateTime.tryParse(endedAtRaw);
+      if (startedAt == null || endedAt == null || !endedAt.isAfter(startedAt)) {
+        continue;
+      }
+
+      final overlapStart = startedAt.isAfter(since) ? startedAt : since;
+      final overlapEnd = endedAt.isBefore(windowEnd) ? endedAt : windowEnd;
+      if (!overlapEnd.isAfter(overlapStart)) {
+        continue;
+      }
+
+      final sessionWallSeconds = endedAt.difference(startedAt).inSeconds;
+      final overlapSeconds = overlapEnd.difference(overlapStart).inSeconds;
+      if (overlapSeconds <= 0) continue;
+
+      final recordedDuration = recordedDurationRaw is num
+          ? recordedDurationRaw.toInt()
+          : int.tryParse(recordedDurationRaw?.toString() ?? '') ?? 0;
+      if (recordedDuration <= 0 || sessionWallSeconds <= 0) {
+        total += overlapSeconds;
+        continue;
+      }
+
+      if (overlapSeconds >= sessionWallSeconds) {
+        total += recordedDuration;
+        continue;
+      }
+
+      total +=
+          ((recordedDuration * overlapSeconds) / sessionWallSeconds).round();
+    }
+
+    return total;
+  }
+
+  Future<List<Map<String, dynamic>>> getOpenAiCallSessions({
+    required int profileId,
+  }) async {
+    final db = await database;
+    return db.query(
+      'ai_call_sessions',
+      where: 'profile_id = ? AND ended_at IS NULL',
+      whereArgs: [profileId],
+      orderBy: 'started_at ASC',
+    );
+  }
+
+  Future<int> deleteAiUsageEventById(int eventId) async {
+    final db = await database;
+    return db.delete(
+      'ai_usage_events',
+      where: 'id = ?',
+      whereArgs: [eventId],
     );
   }
 

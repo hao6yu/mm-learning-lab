@@ -33,8 +33,6 @@ class MathGameSelectionScreen extends StatelessWidget {
                 title: 'Math Games',
                 isTablet: layout.isTablet,
                 onBack: () => Navigator.pop(context),
-                onHome: () =>
-                    Navigator.of(context).popUntil((route) => route.isFirst),
               ),
               Padding(
                 padding: EdgeInsets.symmetric(

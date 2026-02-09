@@ -470,6 +470,15 @@ class ElevenLabsService {
         }),
       );
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        final contentType = response.headers['content-type'] ?? '';
+        if (!_isAudioContentType(contentType) ||
+            !_looksLikeAudioBytes(response.bodyBytes)) {
+          debugPrint(
+            'ElevenLabs proxy returned non-audio payload. '
+            'status=${response.statusCode} contentType=$contentType',
+          );
+          return null;
+        }
         return response.bodyBytes;
       }
       return null;
@@ -499,6 +508,15 @@ class ElevenLabsService {
         }),
       );
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        final contentType = response.headers['content-type'] ?? '';
+        if (!_isAudioContentType(contentType) ||
+            !_looksLikeAudioBytes(response.bodyBytes)) {
+          debugPrint(
+            'ElevenLabs direct returned non-audio payload. '
+            'status=${response.statusCode} contentType=$contentType',
+          );
+          return null;
+        }
         return response.bodyBytes;
       }
       return null;
@@ -605,5 +623,18 @@ class ElevenLabsService {
     if (!_proxyConfig.allowDirectFallback) return false;
     if (_proxyConfig.requireProxy && kReleaseMode) return false;
     return true;
+  }
+
+  bool _isAudioContentType(String contentType) {
+    final normalized = contentType.toLowerCase();
+    return normalized.contains('audio/') ||
+        normalized.contains('application/octet-stream');
+  }
+
+  bool _looksLikeAudioBytes(List<int> bytes) {
+    if (bytes.length < 4) return false;
+    final isId3 = bytes[0] == 0x49 && bytes[1] == 0x44 && bytes[2] == 0x33;
+    final isMpegFrame = bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0;
+    return isId3 || isMpegFrame;
   }
 }

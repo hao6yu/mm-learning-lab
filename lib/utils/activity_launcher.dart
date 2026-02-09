@@ -14,6 +14,7 @@ import '../screens/tic_tac_toe_screen.dart';
 class ActivityIds {
   static const String storyAdventure = 'story_adventure';
   static const String aiChat = 'ai_chat';
+  static const String aiCall = 'ai_call';
   static const String letterTracing = 'letter_tracing';
   static const String bubblePop = 'bubble_pop';
   static const String phonics = 'phonics';
@@ -33,7 +34,9 @@ String activityTitle(String activityId) {
     case ActivityIds.storyAdventure:
       return 'AI Story Time';
     case ActivityIds.aiChat:
-      return 'Talk with AI';
+      return 'Voice Chat with Aria';
+    case ActivityIds.aiCall:
+      return 'Live Call with Bella';
     case ActivityIds.letterTracing:
       return 'Letter Tracing';
     case ActivityIds.bubblePop:
@@ -69,6 +72,8 @@ IconData activityIcon(String activityId) {
       return CupertinoIcons.wand_stars;
     case ActivityIds.aiChat:
       return CupertinoIcons.chat_bubble_fill;
+    case ActivityIds.aiCall:
+      return CupertinoIcons.phone_fill;
     case ActivityIds.letterTracing:
       return CupertinoIcons.pencil;
     case ActivityIds.bubblePop:
@@ -109,6 +114,9 @@ Future<bool> launchActivity(
       return true;
     case ActivityIds.aiChat:
       await Navigator.pushNamed(context, '/ai-chat');
+      return true;
+    case ActivityIds.aiCall:
+      await Navigator.pushNamed(context, '/ai-call');
       return true;
     case ActivityIds.letterTracing:
       await Navigator.pushNamed(context, '/tracing');

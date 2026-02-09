@@ -4,7 +4,7 @@ description: >
   M&M Learning Lab - A playful, modular Flutter app for early literacy and math.
 
 publish_to: 'none'
-version: 1.0.4+1
+version: 1.0.5+13
 environment:
   sdk: ">=3.0.0 <4.0.0"
 
@@ -24,12 +24,14 @@ dependencies:
   flutter_tts: ^3.8.3
   flutter_dotenv: ^5.1.0
   web_socket_channel: ^3.0.3
+  flutter_webrtc: ^1.2.1
   flutter_sound: ^9.28.0
   permission_handler: ^12.0.0+1
   just_audio: ^0.9.35
+  elevenlabs_agents: ^0.3.0
   path_provider: ^2.1.1
   http: ^1.1.0
-  #audio_session: ^0.2.1
+  audio_session: ^0.1.25
   lottie: ^2.6.0
   speech_to_text: 7.0.0
   in_app_purchase: ^3.1.13  # For subscription handling
@@ -45,6 +47,9 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^5.0.0
   sqflite_common_ffi: ^2.3.3
+
+dependency_overrides:
+  livekit_client: 2.5.4
 
 flutter:
   uses-material-design: true

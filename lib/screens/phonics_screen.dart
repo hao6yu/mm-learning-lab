@@ -234,8 +234,6 @@ class _PhonicsScreenState extends State<PhonicsScreen> {
                 title: 'Phonics Fun',
                 isTablet: isTablet,
                 onBack: () => Navigator.pop(context),
-                onHome: () =>
-                    Navigator.of(context).popUntil((route) => route.isFirst),
               ),
               Expanded(
                 child: AnimatedSwitcher(

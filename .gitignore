@@ -67,6 +67,8 @@ app.*.map.json
 /ios/Pods/
 /ios/ServiceDefinitions.json
 /ios/Runner/GeneratedPluginRegistrant.*
+/ios/.symlinks/
+/ios/Runner.xcworkspace/xcuserdata/
 
 # macOS
 /macos/Flutter/ephemeral/

@@ -215,8 +215,6 @@ class _LetterTracingScreenState extends State<LetterTracingScreen> {
                 title: 'Letter Tracing',
                 isTablet: isTablet,
                 onBack: () => Navigator.pop(context),
-                onHome: () =>
-                    Navigator.of(context).popUntil((route) => route.isFirst),
                 trailing: _HeaderControls(
                   showGuide: _showGuide,
                   isUpperCase: _isUpperCase,

@@ -1,6 +1,22 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+class AiRequestContext {
+  final int profileId;
+  final bool isPremium;
+  final String feature;
+  final int units;
+  final int? callReserveSeconds;
+
+  const AiRequestContext({
+    required this.profileId,
+    required this.isPremium,
+    required this.feature,
+    this.units = 1,
+    this.callReserveSeconds,
+  });
+}
+
 class AiProxyConfig {
   final String? baseUrl;
   final String? token;
@@ -43,7 +59,10 @@ class AiProxyConfig {
     return Uri.parse('$normalizedBase$normalizedPath');
   }
 
-  Map<String, String> proxyHeaders({bool json = true}) {
+  Map<String, String> proxyHeaders({
+    bool json = true,
+    AiRequestContext? requestContext,
+  }) {
     final headers = <String, String>{};
     if (json) {
       headers['Content-Type'] = 'application/json';
@@ -52,6 +71,19 @@ class AiProxyConfig {
     if (token != null && token!.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
       headers['X-Proxy-Token'] = token!;
+    }
+    if (requestContext != null) {
+      headers['X-Child-Profile-Id'] = requestContext.profileId.toString();
+      headers['X-User-Tier'] = requestContext.isPremium ? 'premium' : 'free';
+      headers['X-AI-Feature'] = requestContext.feature;
+      if (requestContext.units > 0) {
+        headers['X-AI-Units'] = requestContext.units.toString();
+      }
+      if (requestContext.callReserveSeconds != null &&
+          requestContext.callReserveSeconds! > 0) {
+        headers['X-AI-Call-Reserve-Seconds'] =
+            requestContext.callReserveSeconds.toString();
+      }
     }
     return headers;
   }

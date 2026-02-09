@@ -6,9 +6,9 @@ This app is configured to call AI providers through a backend proxy in productio
 
 Expose these routes:
 
-- `POST /openai/chat/completions`
+- `POST /openai/responses`
+- `POST /openai/chat/completions` (optional legacy fallback)
 - `POST /openai/audio/transcriptions`
-- `POST /openai/realtime/sessions`
 - `GET /elevenlabs/voices`
 - `POST /elevenlabs/text-to-speech/:voiceId`
 - `POST /elevenlabs/text-to-speech/:voiceId/with-timestamps`
@@ -28,6 +28,22 @@ Forward requests to provider APIs using server-side secrets:
 - Reject unauthorized requests with `401`.
 - Add request timeout and basic rate limiting.
 - Disable verbose provider error bodies in production logs.
+
+## 2.1 Quota Context Headers (Recommended)
+
+The app now sends per-request metadata headers that your proxy can enforce:
+
+- `X-Child-Profile-Id`: child profile ID in app DB
+- `X-User-Tier`: `free` or `premium`
+- `X-AI-Feature`: feature key (examples: `chat_message`, `story_generation`, `voice_call`)
+- `X-AI-Units`: consumed units for the request (count-based features)
+- `X-AI-Call-Reserve-Seconds`: reserved seconds for a new voice call session
+
+Recommended proxy behavior:
+
+- Validate these headers server-side before calling providers.
+- Reject over-limit requests with `429`.
+- Keep server-side counters as source of truth in production.
 
 ## 3) Cloudflare Workers Quick Deploy (Recommended)
 
@@ -94,16 +110,9 @@ export default {
     const url = new URL(req.url);
     const path = url.pathname;
 
-    // OpenAI chat completions
-    if (path === "/openai/chat/completions" && req.method === "POST") {
-      return proxyJson(req, "https://api.openai.com/v1/chat/completions", {
-        authorization: `Bearer ${env.OPENAI_API_KEY}`,
-      });
-    }
-
-    // OpenAI realtime sessions
-    if (path === "/openai/realtime/sessions" && req.method === "POST") {
-      return proxyJson(req, "https://api.openai.com/v1/realtime/sessions", {
+    // OpenAI Responses API
+    if (path === "/openai/responses" && req.method === "POST") {
+      return proxyJson(req, "https://api.openai.com/v1/responses", {
         authorization: `Bearer ${env.OPENAI_API_KEY}`,
       });
     }
@@ -193,13 +202,13 @@ export BASE_URL="https://mm-ai-proxy.<subdomain>.workers.dev"
 export TOKEN="your_proxy_token"
 ```
 
-Chat completions:
+Responses API:
 
 ```bash
-curl -sS "$BASE_URL/openai/chat/completions" \
+curl -sS "$BASE_URL/openai/responses" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Say hi"}]}'
+  -d '{"model":"gpt-5-nano","input":"Say hi"}'
 ```
 
 Voices:
