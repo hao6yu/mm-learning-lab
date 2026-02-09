@@ -145,7 +145,7 @@ void main() {
 
     expect(find.textContaining('Welcome'), findsOneWidget);
     expect(find.text('My Progress'), findsOneWidget);
-    expect(find.text('ABC'), findsOneWidget);
+    expect(find.text('AI Friends'), findsOneWidget);
     expect(find.text('123'), findsOneWidget);
     expect(find.text('Games'), findsOneWidget);
     expect(tester.takeException(), isNull);
