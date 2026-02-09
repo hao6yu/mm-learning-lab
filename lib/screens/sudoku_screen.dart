@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:math' as math;
+import '../services/theme_service.dart';
 
 class SudokuScreen extends StatefulWidget {
   const SudokuScreen({super.key});
@@ -239,6 +241,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
     final screenSize = MediaQuery.of(context).size;
     final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
     final isLandscape = screenSize.width > screenSize.height;
+    final themeConfig = context.watch<ThemeService>().config;
 
     // More accurate tablet detection
     final shortestSide = screenSize.width < screenSize.height
@@ -255,11 +258,11 @@ class _SudokuScreenState extends State<SudokuScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFFF3E8FF), Color(0xFFEAF6FF)],
+            colors: themeConfig.screenGradient,
           ),
         ),
         child: SafeArea(

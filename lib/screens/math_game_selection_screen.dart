@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/profile_provider.dart';
 import '../services/activity_progress_service.dart';
+import '../services/theme_service.dart';
 import '../utils/activity_launcher.dart';
 import '../utils/kid_layout_tokens.dart';
 import '../widgets/kid_game_card.dart';
@@ -15,14 +16,15 @@ class MathGameSelectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final layout = KidSelectionLayout.fromContext(context);
+    final themeConfig = context.watch<ThemeService>().config;
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF8FD6FF), Color(0xFFFFF3E0)],
+            colors: themeConfig.screenGradient,
           ),
         ),
         child: SafeArea(

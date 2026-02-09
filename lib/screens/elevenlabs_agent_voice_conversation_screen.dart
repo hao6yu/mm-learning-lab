@@ -13,6 +13,7 @@ import '../services/ai_proxy_config.dart';
 import '../services/ai_usage_limit_service.dart';
 import '../services/elevenlabs_agent_service.dart';
 import '../services/subscription_service.dart';
+import '../services/theme_service.dart';
 
 class ElevenLabsAgentVoiceConversationScreen extends StatefulWidget {
   const ElevenLabsAgentVoiceConversationScreen({super.key});
@@ -554,6 +555,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
 
   @override
   Widget build(BuildContext context) {
+    final themeConfig = context.watch<ThemeService>().config;
     final remainingRaw = _maxAllowedCallSeconds - _elapsedCallSeconds;
     final remaining = remainingRaw < 0 ? 0 : remainingRaw;
     final showStartCta = !_isConnected && !_isQuotaBlocked;
@@ -574,6 +576,8 @@ class _ElevenLabsAgentVoiceConversationScreenState
           onPressed: () => _closeConversation(endReason: 'back_button'),
         ),
         title: const Text('Live Call with Bella'),
+        backgroundColor: themeConfig.cardVoiceCall,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: Icon(_isPaused ? Icons.mic_off : Icons.mic),
@@ -598,14 +602,14 @@ class _ElevenLabsAgentVoiceConversationScreenState
       body: Stack(
         children: [
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFF1FAFF),
-                  Color(0xFFE3F3FF),
-                  Color(0xFFD8EEFF)
+                  themeConfig.screenGradient.first,
+                  themeConfig.screenGradient.last,
+                  themeConfig.screenGradient.last.withValues(alpha: 0.8),
                 ],
               ),
             ),

@@ -9,6 +9,7 @@ import '../services/ai_parental_control_service.dart';
 import '../services/ai_usage_limit_service.dart';
 import '../services/database_service.dart';
 import '../services/subscription_service.dart';
+import '../services/theme_service.dart';
 import '../widgets/kid_screen_header.dart';
 
 class AiUsageSnapshot {
@@ -340,14 +341,15 @@ class _KidProgressScreenState extends State<KidProgressScreen> {
     final size = MediaQuery.of(context).size;
     final isLandscape = size.width > size.height;
     final isTablet = math.min(size.width, size.height) >= 600;
+    final themeConfig = context.watch<ThemeService>().config;
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFB6E6FF), Color(0xFFFFF8D6)],
+            colors: themeConfig.screenGradient,
           ),
         ),
         child: SafeArea(

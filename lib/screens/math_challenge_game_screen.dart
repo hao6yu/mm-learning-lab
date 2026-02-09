@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:async';
 import 'dart:math' as math;
+import '../services/theme_service.dart';
 import 'math_challenge_result_screen.dart';
 
 class MathChallengeGameScreen extends StatefulWidget {
@@ -285,6 +287,7 @@ class _MathChallengeGameScreenState extends State<MathChallengeGameScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+    final themeConfig = context.watch<ThemeService>().config;
 
     // Enhanced device detection
     final shortestSide = math.min(screenWidth, screenHeight);
@@ -335,11 +338,11 @@ class _MathChallengeGameScreenState extends State<MathChallengeGameScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF8FD6FF), Color(0xFFFFE6E6), Color(0xFFFFF3E0)],
+            colors: [themeConfig.screenGradient.first, themeConfig.screenGradient.last, themeConfig.screenGradient.last],
           ),
         ),
         child: SafeArea(

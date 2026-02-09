@@ -13,6 +13,7 @@ import '../services/openai_service.dart';
 import '../services/elevenlabs_service.dart';
 import '../services/speech_recognition_service.dart';
 import '../services/audio_recorder_service.dart';
+import '../services/theme_service.dart';
 import '../services/ai_usage_limit_service.dart';
 import '../services/ai_proxy_config.dart';
 import '../services/subscription_service.dart';
@@ -1040,6 +1041,8 @@ class _AiChatScreenState extends State<AiChatScreen>
 
   @override
   Widget build(BuildContext context) {
+    final themeConfig = context.watch<ThemeService>().config;
+    
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -1048,7 +1051,7 @@ class _AiChatScreenState extends State<AiChatScreen>
           onPressed: () => Navigator.of(context).maybePop(),
         ),
         title: const Text('Voice Chat with Aria'),
-        backgroundColor: const Color(0xFF8E6CFF),
+        backgroundColor: themeConfig.cardAiChat,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -1109,12 +1112,12 @@ class _AiChatScreenState extends State<AiChatScreen>
         ],
       ),
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF8E6CFF), Color(0xFFF5F5FF)],
-            stops: [0.0, 0.3],
+            colors: [themeConfig.cardAiChat, themeConfig.screenGradient.last],
+            stops: const [0.0, 0.3],
           ),
         ),
         child: SafeArea(

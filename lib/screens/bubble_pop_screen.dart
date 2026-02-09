@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:math';
 import 'package:audioplayers/audioplayers.dart';
+import '../services/theme_service.dart';
 
 class BubblePopScreen extends StatefulWidget {
   const BubblePopScreen({super.key});
@@ -249,15 +251,17 @@ class _BubblePopScreenState extends State<BubblePopScreen>
 
   @override
   Widget build(BuildContext context) {
+    final themeConfig = context.watch<ThemeService>().config;
+    
     // Fallback widget in case of errors
     if (hasError) {
       return Scaffold(
         body: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFF8FD6FF), Color(0xFFEAF6FF)],
+              colors: themeConfig.screenGradient,
             ),
           ),
           child: SafeArea(
@@ -337,11 +341,11 @@ class _BubblePopScreenState extends State<BubblePopScreen>
       });
       return Scaffold(
         body: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFF8FD6FF), Color(0xFFEAF6FF)],
+              colors: themeConfig.screenGradient,
             ),
           ),
           child: const Center(
@@ -357,11 +361,11 @@ class _BubblePopScreenState extends State<BubblePopScreen>
           // Playful background with clouds
           Positioned.fill(
             child: Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFF8FD6FF), Color(0xFFEAF6FF)],
+                  colors: themeConfig.screenGradient,
                 ),
               ),
             ),

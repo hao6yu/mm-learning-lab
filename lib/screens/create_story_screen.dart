@@ -6,6 +6,7 @@ import '../services/openai_service.dart';
 import '../services/ai_usage_limit_service.dart';
 import '../services/ai_proxy_config.dart';
 import '../services/subscription_service.dart';
+import '../services/theme_service.dart';
 import '../providers/profile_provider.dart';
 
 class CreateStoryScreen extends StatefulWidget {
@@ -180,14 +181,15 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
     final screenHeight = MediaQuery.of(context).size.height;
     final isTablet = screenWidth > 600;
     final isLandscape = screenWidth > screenHeight;
+    final themeConfig = context.watch<ThemeService>().config;
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF8FD6FF), Color(0xFFEAF6FF)],
+            colors: themeConfig.screenGradient,
           ),
         ),
         child: SafeArea(
