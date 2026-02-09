@@ -20,7 +20,18 @@ class KidScreenHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final edgePadding = isTablet ? 16.0 : 12.0;
     final buttonSize = isTablet ? 50.0 : 44.0;
-    final leftSlotWidth = isTablet ? 128.0 : 112.0;
+    final hasHome = onHome != null;
+    final hasBack = onBack != null;
+    // Shrink side slots on phones to give the title more room
+    final double leftSlotWidth;
+    if (isTablet) {
+      leftSlotWidth = 128.0;
+    } else if (hasBack && hasHome) {
+      leftSlotWidth = 100.0;
+    } else {
+      leftSlotWidth = 56.0;
+    }
+    final rightSlotWidth = isTablet ? 128.0 : (trailing != null ? 56.0 : leftSlotWidth);
 
     return Padding(
       padding:
@@ -32,7 +43,7 @@ class KidScreenHeader extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                if (onBack != null)
+                if (hasBack)
                   _HeaderCircleButton(
                     icon: Icons.arrow_back_rounded,
                     size: buttonSize,
@@ -40,9 +51,9 @@ class KidScreenHeader extends StatelessWidget {
                     onTap: onBack!,
                     semanticsLabel: 'Back',
                   ),
-                if (onBack != null && onHome != null)
+                if (hasBack && hasHome)
                   SizedBox(width: isTablet ? 8.0 : 6.0),
-                if (onHome != null)
+                if (hasHome)
                   _HeaderCircleButton(
                     icon: Icons.home_rounded,
                     size: buttonSize,
@@ -54,15 +65,15 @@ class KidScreenHeader extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
               child: Text(
                 title,
                 textAlign: TextAlign.center,
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontFamily: 'Baloo2',
-                  fontSize: isTablet ? 32.0 : 28.0,
+                  fontSize: isTablet ? 32.0 : 26.0,
                   fontWeight: FontWeight.w900,
                   color: const Color(0xFF8E6CFF),
                   letterSpacing: 0.6,
@@ -71,7 +82,7 @@ class KidScreenHeader extends StatelessWidget {
             ),
           ),
           SizedBox(
-            width: leftSlotWidth,
+            width: rightSlotWidth,
             child: Align(
               alignment: Alignment.centerRight,
               child: trailing ?? const SizedBox.shrink(),

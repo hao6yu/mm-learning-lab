@@ -248,6 +248,52 @@ class _AiLimitsScreenState extends State<AiLimitsScreen> {
     );
   }
 
+  Widget _buildDurationQuotaRow({
+    required String label,
+    required int usedSeconds,
+    required int limitSeconds,
+    required Color color,
+  }) {
+    final safeLimit = limitSeconds <= 0 ? 1 : limitSeconds;
+    final ratio = (usedSeconds / safeLimit).clamp(0.0, 1.0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF355C7D),
+                ),
+              ),
+            ),
+            Text(
+              '${_usageService.formatDurationShort(usedSeconds)} / ${_usageService.formatDurationShort(limitSeconds)}',
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF355C7D),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: ratio,
+            minHeight: 8,
+            backgroundColor: color.withValues(alpha: 0.15),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildUsageCard() {
     final chat = _chatQuota;
     final story = _storyQuota;
@@ -312,18 +358,18 @@ class _AiLimitsScreenState extends State<AiLimitsScreen> {
             color: const Color(0xFFFF6B6B),
           ),
           const SizedBox(height: 14),
-          _buildQuotaRow(
-            label: 'Call Minutes Today',
-            used: call.usedTodaySeconds ~/ 60,
-            limit: (call.usedTodaySeconds + call.remainingTodaySeconds) ~/ 60,
+          _buildDurationQuotaRow(
+            label: 'Call Time Today',
+            usedSeconds: call.usedTodaySeconds,
+            limitSeconds: call.usedTodaySeconds + call.remainingTodaySeconds,
             color: const Color(0xFF8E6CFF),
           ),
           const SizedBox(height: 10),
-          _buildQuotaRow(
-            label: 'Call Minutes This Week',
-            used: call.usedThisWeekSeconds ~/ 60,
-            limit: (call.usedThisWeekSeconds + call.remainingThisWeekSeconds) ~/
-                60,
+          _buildDurationQuotaRow(
+            label: 'Call Time This Week',
+            usedSeconds: call.usedThisWeekSeconds,
+            limitSeconds:
+                call.usedThisWeekSeconds + call.remainingThisWeekSeconds,
             color: const Color(0xFF5AA9FF),
           ),
           const SizedBox(height: 12),

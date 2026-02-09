@@ -150,7 +150,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
         subtitle: 'Real-time call for English, languages, math, and science',
         color: themeConfig.cardVoiceCall,
         icon: CupertinoIcons.phone_fill,
-        isNew: true,
+        badgeLabel: 'PREVIEW',
         onTap: () => _openActivity(ActivityIds.aiCall),
       ),
     ];
@@ -191,6 +191,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
             color: game.color,
             icon: game.icon,
             isNew: game.isNew,
+            badgeLabel: game.badgeLabel,
             onTap: game.onTap,
             isTablet: layout.isTablet,
             isLandscape: true,
@@ -222,6 +223,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen>
                 color: game.color,
                 icon: game.icon,
                 isNew: game.isNew,
+                badgeLabel: game.badgeLabel,
                 onTap: game.onTap,
                 isTablet: layout.isTablet,
                 isLandscape: false,
@@ -266,6 +268,7 @@ class _GameData {
   final Color color;
   final IconData icon;
   final bool isNew;
+  final String? badgeLabel;
   final VoidCallback onTap;
 
   _GameData({
@@ -275,5 +278,6 @@ class _GameData {
     required this.icon,
     required this.onTap,
     this.isNew = false,
+    this.badgeLabel,
   });
 }

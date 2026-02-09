@@ -6,6 +6,7 @@ import 'package:elevenlabs_agents/elevenlabs_agents.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/profile_provider.dart';
 import '../services/ai_parental_control_service.dart';
@@ -37,6 +38,8 @@ class _ElevenLabsAgentVoiceConversationScreenState
   bool _isRecovering = false;
   bool _isStartingCall = false;
   bool _sentInitialUserActivity = false;
+  bool _shouldMarkFullIntroShown = false;
+  bool _fullIntroForCurrentCall = false;
 
   String? _currentTranscript;
   String? _error;
@@ -50,6 +53,8 @@ class _ElevenLabsAgentVoiceConversationScreenState
 
   AiParentalControls _parentalControls = const AiParentalControls.defaults();
   int? _currentProfileId;
+  String? _currentProfileName;
+  int? _currentProfileAge;
   bool _isPremiumUser = false;
   int? _callSessionId;
   Timer? _callTimer;
@@ -61,6 +66,10 @@ class _ElevenLabsAgentVoiceConversationScreenState
   DateTime? _connectedAt;
   DateTime? _lastInteractionAt;
   late final AnimationController _orbPulseController;
+  final ScrollController _transcriptScrollController = ScrollController();
+  static const String _bellaIntroLastShownPrefix =
+      'bella_intro_last_shown_profile_';
+  static Future<void> _globalTeardownChain = Future<void>.value();
 
   @override
   void initState() {
@@ -70,13 +79,19 @@ class _ElevenLabsAgentVoiceConversationScreenState
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     )..repeat(reverse: true);
-    _client = ConversationClient(
+    _client = _buildConversationClient();
+  }
+
+  ConversationClient _buildConversationClient() {
+    return ConversationClient(
       callbacks: ConversationCallbacks(
         onConnect: ({required String conversationId}) {
           _setStateIfActive(() {
             _isConnected = true;
             _error = null;
           });
+          unawaited(_startTrackedSessionIfNeeded());
+          _startCallTimer();
           unawaited(_configureCallAudioSession());
           _connectedAt = DateTime.now();
           _lastInteractionAt = DateTime.now();
@@ -87,12 +102,16 @@ class _ElevenLabsAgentVoiceConversationScreenState
           _setStateIfActive(() {
             _isConnected = false;
           });
+          _callTimer?.cancel();
           _stopSessionHealthMonitor();
         },
         onStatusChange: ({required ConversationStatus status}) {
           if (!mounted || _isDisposing) return;
           setState(() {
-            _isConnected = status == ConversationStatus.connected;
+            if (status == ConversationStatus.disconnected ||
+                status == ConversationStatus.disconnecting) {
+              _isConnected = false;
+            }
           });
         },
         onModeChange: ({required ConversationMode mode}) {
@@ -103,10 +122,15 @@ class _ElevenLabsAgentVoiceConversationScreenState
         onMessage: ({required String message, required Role source}) {
           if (message.trim().isEmpty) return;
           _lastInteractionAt = DateTime.now();
+          if (source == Role.ai && _shouldMarkFullIntroShown) {
+            _shouldMarkFullIntroShown = false;
+            unawaited(_markFullIntroShownToday());
+          }
           _setStateIfActive(() {
             _currentTranscript = message;
             _isAssistantSpeaking = source == Role.ai;
           });
+          _scrollTranscriptToTop();
         },
         onUserTranscript: ({required String transcript, required int eventId}) {
           if (transcript.trim().isEmpty) return;
@@ -114,6 +138,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
           _setStateIfActive(() {
             _currentTranscript = transcript;
           });
+          _scrollTranscriptToTop();
         },
         onVadScore: ({required double vadScore}) {
           if (vadScore > 0) {
@@ -134,6 +159,42 @@ class _ElevenLabsAgentVoiceConversationScreenState
     );
   }
 
+  Future<void> _queueGlobalTeardown(Future<void> Function() action) {
+    final completer = Completer<void>();
+    _globalTeardownChain =
+        _globalTeardownChain.catchError((_) {}).then((_) async {
+      try {
+        await action();
+        if (!completer.isCompleted) completer.complete();
+      } catch (e, st) {
+        if (!completer.isCompleted) completer.completeError(e, st);
+      }
+    });
+    return completer.future;
+  }
+
+  Future<void> _teardownClient({required bool recreate}) async {
+    final client = _client;
+    _client = null;
+    await _queueGlobalTeardown(() async {
+      if (client != null) {
+        try {
+          await client.endSession();
+        } catch (e) {
+          debugPrint('Error ending ElevenLabs SDK session during teardown: $e');
+        }
+        try {
+          client.dispose();
+        } catch (e) {
+          debugPrint('Error disposing ElevenLabs SDK client: $e');
+        }
+      }
+    });
+    if (recreate && mounted && !_isDisposing) {
+      _client = _buildConversationClient();
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -143,6 +204,18 @@ class _ElevenLabsAgentVoiceConversationScreenState
     final profileProvider = context.read<ProfileProvider>();
     final subscriptionService = context.read<SubscriptionService>();
     _currentProfileId = profileProvider.selectedProfileId;
+    final selectedProfile = profileProvider.profiles
+        .where((p) => p.id == _currentProfileId)
+        .cast<dynamic>()
+        .toList();
+    if (selectedProfile.isNotEmpty) {
+      final profile = selectedProfile.first;
+      _currentProfileName = profile.name?.toString();
+      _currentProfileAge = profile.age is int ? profile.age as int : null;
+    } else {
+      _currentProfileName = null;
+      _currentProfileAge = null;
+    }
     _isPremiumUser = subscriptionService.isSubscribed;
     _prepareAndStartConversation();
   }
@@ -290,33 +363,89 @@ class _ElevenLabsAgentVoiceConversationScreenState
         return;
       }
 
-      await _startTrackedSessionIfNeeded();
-      _startCallTimer();
-      await _configureCallAudioSession();
-
       // Let navigation/audio settle before starting the first SDK session.
       await Future.delayed(const Duration(milliseconds: 180));
 
-      await _client!.startSession(
-        conversationToken:
-            conversationToken != null && conversationToken.isNotEmpty
-                ? conversationToken
-                : null,
-        agentId: (conversationToken == null || conversationToken.isEmpty)
-            ? agentId
-            : null,
-        dynamicVariables: {
-          'tier': _isPremiumUser ? 'premium' : 'free',
-          'child_profile_id': profileId.toString(),
-        },
+      _fullIntroForCurrentCall = await _shouldUseFullIntroToday();
+      _shouldMarkFullIntroShown = _fullIntroForCurrentCall;
+
+      await _teardownClient(recreate: true);
+      final client = _client;
+      if (client == null) {
+        _setStateIfActive(
+          () => _error = 'Call setup interrupted. Please try again.',
+        );
+        return;
+      }
+
+      await _startSdkSession(
+        client: client,
+        conversationToken: conversationToken,
+        agentId: agentId,
+        profileId: profileId,
       );
     } catch (e) {
+      final errorText = e.toString();
+      if (errorText.contains('Session already active')) {
+        try {
+          debugPrint('Detected active session conflict; retrying once...');
+          await _teardownClient(recreate: true);
+          await Future.delayed(const Duration(milliseconds: 250));
+          final retryClient = _client;
+          if (retryClient != null) {
+            await _startSdkSession(
+              client: retryClient,
+              conversationToken: await _agentService.resolveConversationToken(
+                requestContext: AiRequestContext(
+                  profileId: _currentProfileId!,
+                  isPremium: _isPremiumUser,
+                  feature: 'voice_call',
+                  units: 1,
+                  callReserveSeconds: _maxAllowedCallSeconds,
+                ),
+              ),
+              agentId: _agentService.agentId,
+              profileId: _currentProfileId!,
+            );
+            return;
+          }
+        } catch (retryError) {
+          debugPrint('Retry after active session conflict failed: $retryError');
+        }
+      }
       debugPrint('ElevenLabs SDK conversation start failed: $e');
       _setStateIfActive(() => _error = 'Failed to connect: $e');
       await _endTrackedSessionIfNeeded('start_failed');
     } finally {
       _isStartingCall = false;
     }
+  }
+
+  Future<void> _startSdkSession({
+    required ConversationClient client,
+    required String? conversationToken,
+    required String? agentId,
+    required int profileId,
+  }) {
+    return client.startSession(
+      conversationToken:
+          conversationToken != null && conversationToken.isNotEmpty
+              ? conversationToken
+              : null,
+      agentId: (conversationToken == null || conversationToken.isEmpty)
+          ? agentId
+          : null,
+      dynamicVariables: {
+        'assistant_name': 'Bella',
+        if (_currentProfileName != null && _currentProfileName!.isNotEmpty)
+          'child_name': _currentProfileName!,
+        if (_currentProfileAge != null)
+          'child_age': _currentProfileAge.toString(),
+        'intro_mode': _fullIntroForCurrentCall ? 'full' : 'quick',
+        'tier': _isPremiumUser ? 'premium' : 'free',
+        'child_profile_id': profileId.toString(),
+      },
+    );
   }
 
   Future<void> _configureCallAudioSession() async {
@@ -328,8 +457,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
           avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
           avAudioSessionCategoryOptions:
               AVAudioSessionCategoryOptions.defaultToSpeaker |
-                  AVAudioSessionCategoryOptions.allowBluetooth |
-                  AVAudioSessionCategoryOptions.allowBluetoothA2dp,
+                  AVAudioSessionCategoryOptions.allowBluetooth,
           avAudioSessionMode: AVAudioSessionMode.voiceChat,
           androidAudioAttributes: const AndroidAudioAttributes(
             contentType: AndroidAudioContentType.speech,
@@ -415,9 +543,6 @@ class _ElevenLabsAgentVoiceConversationScreenState
     if (_isClosing || _isDisposing || _isPaused || !_isConnected) return;
     if (_sentInitialUserActivity) return;
     _sentInitialUserActivity = true;
-    try {
-      _client?.sendUserActivity();
-    } catch (_) {}
   }
 
   void _startSessionHealthMonitor() {
@@ -460,7 +585,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
     });
 
     try {
-      await _client?.endSession();
+      await _teardownClient(recreate: true);
     } catch (_) {}
     await _endTrackedSessionIfNeeded('auto_restart_startup_stall');
 
@@ -495,6 +620,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
   }) async {
     if (_isClosing) return;
     _isClosing = true;
+    _isStartingCall = false;
     _callTimer?.cancel();
     _stopSessionHealthMonitor();
 
@@ -510,11 +636,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
       _isAssistantSpeaking = false;
     }
 
-    try {
-      await _client?.endSession();
-    } catch (e) {
-      debugPrint('Error ending ElevenLabs SDK session: $e');
-    }
+    await _teardownClient(recreate: false);
 
     await _endTrackedSessionIfNeeded(endReason);
 
@@ -530,20 +652,24 @@ class _ElevenLabsAgentVoiceConversationScreenState
     _isDisposing = true;
     WidgetsBinding.instance.removeObserver(this);
     _orbPulseController.dispose();
-    unawaited(
-      _closeConversation(
-        endReason: 'screen_disposed',
-        pop: false,
-        allowStateUpdate: false,
-      ),
-    );
-    _client?.dispose();
+    _transcriptScrollController.dispose();
+    _callTimer?.cancel();
+    _stopSessionHealthMonitor();
+    unawaited(_teardownClient(recreate: false));
     super.dispose();
   }
 
   void _setStateIfActive(VoidCallback callback) {
     if (!mounted || _isDisposing) return;
     setState(callback);
+  }
+
+  void _scrollTranscriptToTop() {
+    if (!_transcriptScrollController.hasClients) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_transcriptScrollController.hasClients) return;
+      _transcriptScrollController.jumpTo(0);
+    });
   }
 
   String _formatSeconds(int totalSeconds) {
@@ -553,9 +679,39 @@ class _ElevenLabsAgentVoiceConversationScreenState
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
+  Future<bool> _shouldUseFullIntroToday() async {
+    final profileId = _currentProfileId;
+    if (profileId == null) return false;
+
+    final prefs = await SharedPreferences.getInstance();
+    final key = '$_bellaIntroLastShownPrefix$profileId';
+    final lastShownRaw = prefs.getString(key);
+    if (lastShownRaw == null || lastShownRaw.isEmpty) {
+      return true;
+    }
+
+    final lastShown = DateTime.tryParse(lastShownRaw);
+    if (lastShown == null) return true;
+    final now = DateTime.now();
+    return now.year != lastShown.year ||
+        now.month != lastShown.month ||
+        now.day != lastShown.day;
+  }
+
+  Future<void> _markFullIntroShownToday() async {
+    final profileId = _currentProfileId;
+    if (profileId == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final key = '$_bellaIntroLastShownPrefix$profileId';
+    await prefs.setString(key, DateTime.now().toIso8601String());
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeConfig = context.watch<ThemeService>().config;
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final transcriptPanelMaxHeight =
+        (screenHeight * 0.22).clamp(96.0, 190.0).toDouble();
     final remainingRaw = _maxAllowedCallSeconds - _elapsedCallSeconds;
     final remaining = remainingRaw < 0 ? 0 : remainingRaw;
     final showStartCta = !_isConnected && !_isQuotaBlocked;
@@ -644,243 +800,280 @@ class _ElevenLabsAgentVoiceConversationScreenState
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (_parentalControls.maxCallMinutesOverride != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(
-                            'Parent cap: ${_parentalControls.maxCallMinutesOverride} min/call',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF4A5D73),
-                              fontFamily: 'Baloo2',
-                            ),
-                          ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      physics: const BouncingScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight - 16,
                         ),
-                      const SizedBox(height: 24),
-                      AnimatedBuilder(
-                        animation: _orbPulseController,
-                        builder: (context, child) {
-                          final t = _orbPulseController.value;
-                          final pulseScale =
-                              showStartCta ? (1.0 + (t * 0.07)) : 1.0;
-                          final ringScale =
-                              showStartCta ? (1.02 + (t * 0.16)) : 1.0;
-                          final ringOpacity =
-                              showStartCta ? (0.14 + (t * 0.24)) : 0.08;
-                          final floatY = showStartCta ? (2.0 - (t * 4.0)) : 0.0;
-
-                          return SizedBox(
-                            width: 220,
-                            height: 205,
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Transform.translate(
-                                  offset: Offset(0, floatY),
-                                  child: Transform.scale(
-                                    scale: ringScale,
-                                    child: Container(
-                                      width: 178,
-                                      height: 178,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: const Color(0xFF38BDF8)
-                                                .withValues(alpha: ringOpacity),
-                                            blurRadius: 28,
-                                            spreadRadius: 10,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (_parentalControls.maxCallMinutesOverride !=
+                                null)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Text(
+                                  'Parent cap: ${_parentalControls.maxCallMinutesOverride} min/call',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF4A5D73),
+                                    fontFamily: 'Baloo2',
                                   ),
                                 ),
-                                Transform.translate(
-                                  offset: Offset(0, floatY),
-                                  child: Transform.scale(
-                                    scale: pulseScale,
-                                    child: GestureDetector(
-                                      onTap: showStartCta && !_isStartingCall
-                                          ? _startConversation
-                                          : null,
-                                      child: Container(
-                                        width: 172,
-                                        height: 172,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          gradient: const RadialGradient(
-                                            center: Alignment(-0.28, -0.30),
-                                            radius: 0.96,
-                                            colors: [
-                                              Color(0xFFBAF2FF),
-                                              Color(0xFF22C9F2),
-                                              Color(0xFF1478E8),
-                                              Color(0xFF0B4AB4),
-                                            ],
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: const Color(0xFF0B4AB4)
-                                                  .withValues(alpha: 0.34),
-                                              blurRadius: 20,
-                                              offset: const Offset(0, 12),
-                                            ),
-                                            BoxShadow(
-                                              color: Colors.white
-                                                  .withValues(alpha: 0.24),
-                                              blurRadius: 8,
-                                              spreadRadius: -2,
-                                              offset: const Offset(-4, -4),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Stack(
-                                          alignment: Alignment.center,
-                                          children: [
-                                            Positioned(
-                                              top: 30 - (t * 4),
-                                              left: 44 + (t * 4),
-                                              child: Container(
-                                                width: 58,
-                                                height: 30,
-                                                decoration: BoxDecoration(
-                                                  color:
-                                                      Colors.white.withValues(
-                                                    alpha: 0.36,
-                                                  ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(20),
-                                                ),
-                                              ),
-                                            ),
-                                            Column(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                  Icons.call_rounded,
-                                                  size: 34,
-                                                  color:
-                                                      Colors.white.withValues(
-                                                    alpha: 0.95,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 8),
-                                                Text(
-                                                  _isStartingCall
-                                                      ? 'Calling...'
-                                                      : 'Call Bella',
-                                                  textAlign: TextAlign.center,
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 30,
-                                                    fontWeight: FontWeight.w800,
-                                                    fontFamily: 'Baloo2',
-                                                    letterSpacing: 0.1,
-                                                  ),
+                              ),
+                            const SizedBox(height: 24),
+                            AnimatedBuilder(
+                              animation: _orbPulseController,
+                              builder: (context, child) {
+                                final t = _orbPulseController.value;
+                                final pulseScale =
+                                    showStartCta ? (1.0 + (t * 0.07)) : 1.0;
+                                final ringScale =
+                                    showStartCta ? (1.02 + (t * 0.16)) : 1.0;
+                                final ringOpacity =
+                                    showStartCta ? (0.14 + (t * 0.24)) : 0.08;
+                                final floatY =
+                                    showStartCta ? (2.0 - (t * 4.0)) : 0.0;
+
+                                return SizedBox(
+                                  width: 220,
+                                  height: 205,
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      Transform.translate(
+                                        offset: Offset(0, floatY),
+                                        child: Transform.scale(
+                                          scale: ringScale,
+                                          child: Container(
+                                            width: 178,
+                                            height: 178,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: const Color(0xFF38BDF8)
+                                                      .withValues(
+                                                          alpha: ringOpacity),
+                                                  blurRadius: 28,
+                                                  spreadRadius: 10,
                                                 ),
                                               ],
                                             ),
-                                          ],
+                                          ),
                                         ),
                                       ),
+                                      Transform.translate(
+                                        offset: Offset(0, floatY),
+                                        child: Transform.scale(
+                                          scale: pulseScale,
+                                          child: GestureDetector(
+                                            onTap:
+                                                showStartCta && !_isStartingCall
+                                                    ? _startConversation
+                                                    : null,
+                                            child: Container(
+                                              width: 172,
+                                              height: 172,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                gradient: const RadialGradient(
+                                                  center:
+                                                      Alignment(-0.28, -0.30),
+                                                  radius: 0.96,
+                                                  colors: [
+                                                    Color(0xFFBAF2FF),
+                                                    Color(0xFF22C9F2),
+                                                    Color(0xFF1478E8),
+                                                    Color(0xFF0B4AB4),
+                                                  ],
+                                                ),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color:
+                                                        const Color(0xFF0B4AB4)
+                                                            .withValues(
+                                                                alpha: 0.34),
+                                                    blurRadius: 20,
+                                                    offset: const Offset(0, 12),
+                                                  ),
+                                                  BoxShadow(
+                                                    color: Colors.white
+                                                        .withValues(
+                                                            alpha: 0.24),
+                                                    blurRadius: 8,
+                                                    spreadRadius: -2,
+                                                    offset:
+                                                        const Offset(-4, -4),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Stack(
+                                                alignment: Alignment.center,
+                                                children: [
+                                                  Positioned(
+                                                    top: 30 - (t * 4),
+                                                    left: 44 + (t * 4),
+                                                    child: Container(
+                                                      width: 58,
+                                                      height: 30,
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white
+                                                            .withValues(
+                                                          alpha: 0.36,
+                                                        ),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(20),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Column(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.call_rounded,
+                                                        size: 34,
+                                                        color: Colors.white
+                                                            .withValues(
+                                                          alpha: 0.95,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 8),
+                                                      Text(
+                                                        _isStartingCall
+                                                            ? 'Calling...'
+                                                            : 'Call Bella',
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 30,
+                                                          fontWeight:
+                                                              FontWeight.w800,
+                                                          fontFamily: 'Baloo2',
+                                                          letterSpacing: 0.1,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              'Call time left: ${_formatSeconds(remaining)}',
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF355C7D),
+                                fontFamily: 'Baloo2',
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            if (!showStartCta)
+                              Container(
+                                width: double.infinity,
+                                constraints: BoxConstraints(
+                                  maxHeight: transcriptPanelMaxHeight,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.88),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Scrollbar(
+                                  controller: _transcriptScrollController,
+                                  thumbVisibility: true,
+                                  child: SingleChildScrollView(
+                                    controller: _transcriptScrollController,
+                                    physics: const BouncingScrollPhysics(),
+                                    child: Text(
+                                      statusText,
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF334155),
+                                        fontFamily: 'Baloo2',
+                                      ),
+                                      textAlign: TextAlign.center,
                                     ),
                                   ),
                                 ),
-                              ],
+                              ),
+                            if (_error != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 14),
+                                child: Text(
+                                  _error!,
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontFamily: 'Baloo2',
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            if (_error != null &&
+                                _isQuotaBlocked &&
+                                !_isPremiumUser)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: FilledButton(
+                                  onPressed: () => Navigator.pushNamed(
+                                      context, '/subscription'),
+                                  child: const Text(
+                                    'Upgrade for more AI minutes',
+                                    style: TextStyle(fontFamily: 'Baloo2'),
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 18),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.78),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color(0xFF93C5FD)
+                                      .withValues(alpha: 0.6),
+                                ),
+                              ),
+                              child: const Text(
+                                'Try asking Bella about reading, speaking, English, other languages, math, nature, science, sports, or your school project ideas.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'Baloo2',
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                  color: Color(0xFF1E3A8A),
+                                  height: 1.2,
+                                ),
+                              ),
                             ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        'Call time left: ${_formatSeconds(remaining)}',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF355C7D),
-                          fontFamily: 'Baloo2',
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (!showStartCta)
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 14,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.88),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            statusText,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF334155),
-                              fontFamily: 'Baloo2',
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      if (_error != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 14),
-                          child: Text(
-                            _error!,
-                            style: const TextStyle(
-                              color: Colors.red,
-                              fontFamily: 'Baloo2',
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      if (_error != null && _isQuotaBlocked && !_isPremiumUser)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: FilledButton(
-                            onPressed: () =>
-                                Navigator.pushNamed(context, '/subscription'),
-                            child: const Text(
-                              'Upgrade for more AI minutes',
-                              style: TextStyle(fontFamily: 'Baloo2'),
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 18),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.78),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color:
-                                const Color(0xFF93C5FD).withValues(alpha: 0.6),
-                          ),
-                        ),
-                        child: const Text(
-                          'Try asking Bella about reading, speaking, English, other languages, math, nature, science, sports, or your school project ideas.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Baloo2',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                            color: Color(0xFF1E3A8A),
-                            height: 1.2,
-                          ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),

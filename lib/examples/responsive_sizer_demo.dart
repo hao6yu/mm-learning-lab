@@ -46,19 +46,13 @@ class ResponsiveSizerDemo extends StatelessWidget {
 
                 Expanded(
                   child: Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                    child: Device.orientation == Orientation.landscape
-                        ? _buildLandscapeWelcome()
-                        : _buildPortraitWelcome(),
+                    padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                    child: Device.orientation == Orientation.landscape ? _buildLandscapeWelcome() : _buildPortraitWelcome(),
                   ),
                 ),
 
                 // Bottom spacing
-                SizedBox(
-                    height: Device.orientation == Orientation.landscape
-                        ? 2.h
-                        : 8.h),
+                SizedBox(height: Device.orientation == Orientation.landscape ? 2.h : 8.h),
               ],
             ),
           ),
@@ -164,8 +158,7 @@ class ResponsiveSizerDemo extends StatelessWidget {
 
   Widget _buildAvatar() {
     return Container(
-      width:
-          Device.orientation == Orientation.landscape ? 20.w : 30.w, // Perfect!
+      width: Device.orientation == Orientation.landscape ? 20.w : 30.w, // Perfect!
       height: Device.orientation == Orientation.landscape ? 20.w : 30.w,
       decoration: BoxDecoration(
         color: const Color(0xFFFFE066),
@@ -181,9 +174,7 @@ class ResponsiveSizerDemo extends StatelessWidget {
       child: Center(
         child: Text(
           '👧',
-          style: TextStyle(
-              fontSize:
-                  Device.orientation == Orientation.landscape ? 45.sp : 60.sp),
+          style: TextStyle(fontSize: Device.orientation == Orientation.landscape ? 45.sp : 60.sp),
         ),
       ),
     );
@@ -191,14 +182,10 @@ class ResponsiveSizerDemo extends StatelessWidget {
 
   Widget _buildWelcomeText() {
     return Text(
-      Device.orientation == Orientation.landscape
-          ? 'Welcome, Madeline'
-          : 'Welcome,\nMadeline',
+      Device.orientation == Orientation.landscape ? 'Welcome, Madeline' : 'Welcome,\nMadeline',
       textAlign: TextAlign.center,
       style: GoogleFonts.baloo2(
-        fontSize: Device.orientation == Orientation.landscape
-            ? 28.sp
-            : 36.sp, // Clean!
+        fontSize: Device.orientation == Orientation.landscape ? 28.sp : 36.sp, // Clean!
         fontWeight: FontWeight.bold,
         color: Colors.white,
         shadows: [
@@ -217,9 +204,9 @@ class ResponsiveSizerDemo extends StatelessWidget {
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildGameButton('ABC', const Color(0xFFFF9F43)),
+          _buildGameButton('AI Friends', const Color(0xFFFF9F43)),
           SizedBox(height: 1.h),
-          _buildGameButton('123', const Color(0xFF43C465)),
+          _buildGameButton('Math', const Color(0xFF43C465)),
           SizedBox(height: 1.h),
           _buildGameButton('Games', const Color(0xFF8E6CFF)),
         ],
@@ -228,9 +215,9 @@ class ResponsiveSizerDemo extends StatelessWidget {
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildGameButton('ABC', const Color(0xFFFF9F43)),
+          _buildGameButton('AI Friends', const Color(0xFFFF9F43)),
           SizedBox(width: 4.w),
-          _buildGameButton('123', const Color(0xFF43C465)),
+          _buildGameButton('Math', const Color(0xFF43C465)),
           SizedBox(width: 4.w),
           _buildGameButton('Games', const Color(0xFF8E6CFF)),
         ],
@@ -241,9 +228,9 @@ class ResponsiveSizerDemo extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildGameButton('ABC', const Color(0xFFFF9F43)),
+              _buildGameButton('AI Friends', const Color(0xFFFF9F43)),
               SizedBox(width: 5.w),
-              _buildGameButton('123', const Color(0xFF43C465)),
+              _buildGameButton('Math', const Color(0xFF43C465)),
             ],
           ),
           SizedBox(height: 3.h),

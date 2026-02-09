@@ -7,6 +7,7 @@ class KidGameCard extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final bool isNew;
+  final String? badgeLabel;
   final bool isTablet;
   final bool isLandscape;
 
@@ -20,6 +21,7 @@ class KidGameCard extends StatelessWidget {
     required this.isTablet,
     required this.isLandscape,
     this.isNew = false,
+    this.badgeLabel,
   });
 
   @override
@@ -101,7 +103,7 @@ class KidGameCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (isNew) ...[
+                if (isNew || badgeLabel != null) ...[
                   SizedBox(width: spacing / 2),
                   Container(
                     padding:
@@ -111,7 +113,7 @@ class KidGameCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12.0),
                     ),
                     child: Text(
-                      'NEW',
+                      badgeLabel ?? 'NEW',
                       style: TextStyle(
                         color: color,
                         fontWeight: FontWeight.bold,

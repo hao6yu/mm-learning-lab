@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 class FloatingHeartsOverlay extends StatefulWidget {
   final int heartCount;
   final Widget child;
-  
+
   const FloatingHeartsOverlay({
     super.key,
-    this.heartCount = 15,
+    this.heartCount = 8,
     required this.child,
   });
 
@@ -16,8 +16,7 @@ class FloatingHeartsOverlay extends StatefulWidget {
   State<FloatingHeartsOverlay> createState() => _FloatingHeartsOverlayState();
 }
 
-class _FloatingHeartsOverlayState extends State<FloatingHeartsOverlay>
-    with TickerProviderStateMixin {
+class _FloatingHeartsOverlayState extends State<FloatingHeartsOverlay> with TickerProviderStateMixin {
   late List<_HeartData> _hearts;
   final Random _random = Random();
 
@@ -32,22 +31,22 @@ class _FloatingHeartsOverlayState extends State<FloatingHeartsOverlay>
       duration: Duration(milliseconds: 4000 + _random.nextInt(4000)),
       vsync: this,
     );
-    
+
     controller.addStatusListener((status) {
       if (status == AnimationStatus.completed && mounted) {
         controller.reset();
         controller.forward();
       }
     });
-    
+
     controller.forward(from: _random.nextDouble());
-    
+
     return _HeartData(
       controller: controller,
       startX: _random.nextDouble(),
-      size: 12.0 + _random.nextDouble() * 16.0,
-      opacity: 0.3 + _random.nextDouble() * 0.4,
-      wobble: _random.nextDouble() * 30.0,
+      size: 10.0 + _random.nextDouble() * 12.0,
+      opacity: 0.2 + _random.nextDouble() * 0.3,
+      wobble: _random.nextDouble() * 24.0,
       emoji: _random.nextBool() ? '💕' : (_random.nextBool() ? '💖' : '💗'),
     );
   }
@@ -76,12 +75,11 @@ class _FloatingHeartsOverlayState extends State<FloatingHeartsOverlay>
                     final progress = heart.controller.value;
                     final screenWidth = MediaQuery.of(context).size.width;
                     final screenHeight = MediaQuery.of(context).size.height;
-                    
+
                     // Float from bottom to top with slight wobble
-                    final x = heart.startX * screenWidth + 
-                        sin(progress * 3 * pi) * heart.wobble;
+                    final x = heart.startX * screenWidth + sin(progress * 3 * pi) * heart.wobble;
                     final y = screenHeight * (1 - progress);
-                    
+
                     return Positioned(
                       left: x,
                       top: y,
@@ -126,7 +124,7 @@ class _HeartData {
 class FloatingSparklesOverlay extends StatefulWidget {
   final int sparkleCount;
   final Widget child;
-  
+
   const FloatingSparklesOverlay({
     super.key,
     this.sparkleCount = 8,
@@ -137,8 +135,7 @@ class FloatingSparklesOverlay extends StatefulWidget {
   State<FloatingSparklesOverlay> createState() => _FloatingSparklesOverlayState();
 }
 
-class _FloatingSparklesOverlayState extends State<FloatingSparklesOverlay>
-    with TickerProviderStateMixin {
+class _FloatingSparklesOverlayState extends State<FloatingSparklesOverlay> with TickerProviderStateMixin {
   late List<_SparkleData> _sparkles;
   final Random _random = Random();
 
@@ -153,7 +150,7 @@ class _FloatingSparklesOverlayState extends State<FloatingSparklesOverlay>
       duration: Duration(milliseconds: 800 + _random.nextInt(1200)),
       vsync: this,
     );
-    
+
     controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         controller.reverse();
@@ -167,7 +164,7 @@ class _FloatingSparklesOverlayState extends State<FloatingSparklesOverlay>
                 controller: controller,
                 x: _random.nextDouble(),
                 y: _random.nextDouble() * 0.85, // Keep in upper 85% of screen
-                size: 22.0 + _random.nextDouble() * 18.0,
+                size: 16.0 + _random.nextDouble() * 14.0,
                 delay: _random.nextInt(300),
               );
             }
@@ -180,12 +177,12 @@ class _FloatingSparklesOverlayState extends State<FloatingSparklesOverlay>
         });
       }
     });
-    
+
     // Start with random delay
     Future.delayed(Duration(milliseconds: _random.nextInt(2000)), () {
       if (mounted) controller.forward();
     });
-    
+
     return _SparkleData(
       controller: controller,
       x: _random.nextDouble(),
@@ -218,7 +215,7 @@ class _FloatingSparklesOverlayState extends State<FloatingSparklesOverlay>
                   builder: (context, child) {
                     final screenWidth = MediaQuery.of(context).size.width;
                     final screenHeight = MediaQuery.of(context).size.height;
-                    
+
                     return Positioned(
                       left: sparkle.x * screenWidth,
                       top: sparkle.y * screenHeight,
@@ -265,7 +262,7 @@ class HeartCornerDecoration extends StatelessWidget {
   final Widget child;
   final double size;
   final Color? color;
-  
+
   const HeartCornerDecoration({
     super.key,
     required this.child,
@@ -297,7 +294,7 @@ class HeartCornerDecoration extends StatelessWidget {
 class SparkleWidget extends StatefulWidget {
   final double size;
   final Color color;
-  
+
   const SparkleWidget({
     super.key,
     this.size = 20.0,
@@ -308,8 +305,7 @@ class SparkleWidget extends StatefulWidget {
   State<SparkleWidget> createState() => _SparkleWidgetState();
 }
 
-class _SparkleWidgetState extends State<SparkleWidget>
-    with SingleTickerProviderStateMixin {
+class _SparkleWidgetState extends State<SparkleWidget> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
 
@@ -320,7 +316,7 @@ class _SparkleWidgetState extends State<SparkleWidget>
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat(reverse: true);
-    
+
     _animation = Tween<double>(begin: 0.3, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
@@ -353,7 +349,7 @@ class _SparkleWidgetState extends State<SparkleWidget>
 class ValentineBanner extends StatelessWidget {
   final String message;
   final bool isTablet;
-  
+
   const ValentineBanner({
     super.key,
     required this.message,

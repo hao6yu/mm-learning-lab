@@ -14,8 +14,7 @@ import 'package:mm_learning_lab/services/subscription_service.dart';
 import 'package:mm_learning_lab/services/theme_service.dart';
 import 'package:mm_learning_lab/utils/activity_launcher.dart';
 
-class _FakeSubscriptionService extends ChangeNotifier
-    implements SubscriptionService {
+class _FakeSubscriptionService extends ChangeNotifier implements SubscriptionService {
   _FakeSubscriptionService({required this.subscribed});
 
   final bool subscribed;
@@ -85,8 +84,7 @@ class _FakeProfileProvider extends ChangeNotifier implements ProfileProvider {
   }
 }
 
-Future<void> _pumpFrames(WidgetTester tester,
-    {int count = 8, Duration step = const Duration(milliseconds: 100)}) async {
+Future<void> _pumpFrames(WidgetTester tester, {int count = 8, Duration step = const Duration(milliseconds: 100)}) async {
   for (int i = 0; i < count; i++) {
     await tester.pump(step);
   }
@@ -99,8 +97,7 @@ Widget _buildProfileSelectionHarness({
   return MultiProvider(
     providers: [
       ChangeNotifierProvider<ProfileProvider>.value(value: profileProvider),
-      ChangeNotifierProvider<SubscriptionService>.value(
-          value: subscriptionService),
+      ChangeNotifierProvider<SubscriptionService>.value(value: subscriptionService),
       ChangeNotifierProvider<ThemeService>(
         create: (_) => ThemeService(),
       ),
@@ -114,8 +111,7 @@ Widget _buildProfileSelectionHarness({
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('profile selection supports phone portrait layout',
-      (tester) async {
+  testWidgets('profile selection supports phone portrait layout', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() async {
       await tester.binding.setSurfaceSize(null);
@@ -150,13 +146,12 @@ void main() {
     expect(find.textContaining('Welcome'), findsOneWidget);
     expect(find.text('My Progress'), findsOneWidget);
     expect(find.text('AI Friends'), findsOneWidget);
-    expect(find.text('123'), findsOneWidget);
+    expect(find.text('Math'), findsOneWidget);
     expect(find.text('Games'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('profile selection supports tablet landscape layout',
-      (tester) async {
+  testWidgets('profile selection supports tablet landscape layout', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1024, 768));
     addTearDown(() async {
       await tester.binding.setSurfaceSize(null);
@@ -247,8 +242,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('progress screen supports tablet landscape layout',
-      (tester) async {
+  testWidgets('progress screen supports tablet landscape layout', (tester) async {
     Future<KidProgressSummary> fakeSummaryLoader(int profileId) async {
       return const KidProgressSummary(
         stars: 42,

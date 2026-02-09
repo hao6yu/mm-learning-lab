@@ -78,7 +78,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
 
   void _showThemePicker(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -466,7 +466,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
     final themeService = context.watch<ThemeService>();
     final themeConfig = themeService.config;
     final isValentine = themeService.currentTheme == AppThemeType.valentine;
-    
+
     Widget content = Stack(
       children: [
         // Background gradient
@@ -507,7 +507,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
         ),
       ],
     );
-    
+
     // Wrap with floating hearts and sparkles for Valentine theme
     if (isValentine) {
       return FloatingHeartsOverlay(
@@ -518,7 +518,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
         ),
       );
     }
-    
+
     return content;
   }
 
@@ -608,7 +608,8 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.1),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.1),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -627,7 +628,8 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                         // Premium button
                         Consumer<SubscriptionService>(
                           builder: (context, subscriptionService, child) {
-                            final isSubscribed = subscriptionService.isSubscribed;
+                            final isSubscribed =
+                                subscriptionService.isSubscribed;
 
                             return GestureDetector(
                               onTap: () =>
@@ -704,8 +706,12 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                 SizedBox(height: verticalSpacing),
                                 Text(
                                   isValentine
-                                      ? (isLandscape ? '💕 Hi ${selected.name}!' : '💕\nHi ${selected.name}!')
-                                      : (isLandscape ? 'Welcome, ${selected.name}' : 'Welcome,\n${selected.name}'),
+                                      ? (isLandscape
+                                          ? '💕 Hi ${selected.name}!'
+                                          : '💕\nHi ${selected.name}!')
+                                      : (isLandscape
+                                          ? 'Welcome, ${selected.name}'
+                                          : 'Welcome,\n${selected.name}'),
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.baloo2(
                                     fontSize: welcomeFontSize,
@@ -749,7 +755,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                 ),
                                 const SizedBox(height: 6),
                                 _HomeButton(
-                                  label: '123',
+                                  label: 'Math',
                                   color: themeConfig.cardMath,
                                   onTap: () => Navigator.push(
                                     context,
@@ -789,8 +795,12 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                           SizedBox(height: verticalSpacing),
                           Text(
                             isValentine
-                                ? (isLandscape ? '💕 Hi ${selected.name}!' : '💕\nHi ${selected.name}!')
-                                : (isLandscape ? 'Welcome, ${selected.name}' : 'Welcome,\n${selected.name}'),
+                                ? (isLandscape
+                                    ? '💕 Hi ${selected.name}!'
+                                    : '💕\nHi ${selected.name}!')
+                                : (isLandscape
+                                    ? 'Welcome, ${selected.name}'
+                                    : 'Welcome,\n${selected.name}'),
                             textAlign: TextAlign.center,
                             style: GoogleFonts.baloo2(
                               fontSize: welcomeFontSize,
@@ -827,7 +837,7 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                     ),
                                     const SizedBox(width: 32),
                                     _HomeButton(
-                                      label: '123',
+                                      label: 'Math',
                                       color: themeConfig.cardMath,
                                       onTap: () => Navigator.push(
                                         context,
@@ -851,9 +861,10 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                 )
                               : Column(
                                   children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
+                                    Wrap(
+                                      alignment: WrapAlignment.center,
+                                      spacing: 12,
+                                      runSpacing: 12,
                                       children: [
                                         _HomeButton(
                                           label: 'AI Friends',
@@ -862,9 +873,8 @@ class _ProfileSelectionScreenState extends State<ProfileSelectionScreen> {
                                               context, '/ai-friends'),
                                           isTablet: isTablet,
                                         ),
-                                        const SizedBox(width: 20),
                                         _HomeButton(
-                                          label: '123',
+                                          label: 'Math',
                                           color: themeConfig.cardMath,
                                           onTap: () => Navigator.push(
                                             context,
@@ -1267,10 +1277,10 @@ class _HomeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final horizontalPadding = isTablet ? 56.0 : (isLandscape ? 32.0 : 40.0);
-    final verticalPadding = isTablet ? 20.0 : (isLandscape ? 12.0 : 16.0);
+    final horizontalPadding = isTablet ? 56.0 : (isLandscape ? 30.0 : 24.0);
+    final verticalPadding = isTablet ? 20.0 : (isLandscape ? 12.0 : 14.0);
     final borderRadius = isTablet ? 28.0 : (isLandscape ? 16.0 : 20.0);
-    final fontSize = isTablet ? 24.0 : (isLandscape ? 24.0 : 24.0);
+    final fontSize = isTablet ? 24.0 : (isLandscape ? 22.0 : 20.0);
 
     return GestureDetector(
       onTap: onTap,
