@@ -104,6 +104,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
           });
           _callTimer?.cancel();
           _stopSessionHealthMonitor();
+          unawaited(_endTrackedSessionIfNeeded('sdk_disconnect'));
         },
         onStatusChange: ({required ConversationStatus status}) {
           if (!mounted || _isDisposing) return;
@@ -323,10 +324,18 @@ class _ElevenLabsAgentVoiceConversationScreenState
       debugPrint('Initial microphone permission status: $initialStatus');
       final status = await Permission.microphone.request();
       if (status != PermissionStatus.granted) {
-        _setStateIfActive(() {
-          _error =
-              'Microphone permission denied. Please enable it in Settings.';
-        });
+        if (status == PermissionStatus.permanentlyDenied) {
+          _setStateIfActive(() {
+            _error =
+                'Microphone permission permanently denied. Opening Settings...';
+          });
+          await openAppSettings();
+        } else {
+          _setStateIfActive(() {
+            _error =
+                'Microphone permission denied. Please enable it in Settings.';
+          });
+        }
         return;
       }
 
@@ -637,6 +646,16 @@ class _ElevenLabsAgentVoiceConversationScreenState
     }
 
     await _teardownClient(recreate: false);
+
+    // Deactivate audio session
+    if (Platform.isIOS || Platform.isAndroid) {
+      try {
+        final session = await AudioSession.instance;
+        await session.setActive(false);
+      } catch (e) {
+        debugPrint('Could not deactivate audio session: $e');
+      }
+    }
 
     await _endTrackedSessionIfNeeded(endReason);
 
