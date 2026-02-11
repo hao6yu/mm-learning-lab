@@ -318,6 +318,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
       _lastInteractionAt = null;
       _sentInitialUserActivity = false;
     });
+    _autoRecoveryAttempted = false;
 
     try {
       final initialStatus = await Permission.microphone.status;
@@ -327,9 +328,9 @@ class _ElevenLabsAgentVoiceConversationScreenState
         if (status == PermissionStatus.permanentlyDenied) {
           _setStateIfActive(() {
             _error =
-                'Microphone permission permanently denied. Opening Settings...';
+                'Microphone permission permanently denied. Tap to open Settings.';
           });
-          await openAppSettings();
+          unawaited(openAppSettings());
         } else {
           _setStateIfActive(() {
             _error =
@@ -594,16 +595,18 @@ class _ElevenLabsAgentVoiceConversationScreenState
     });
 
     try {
-      await _teardownClient(recreate: true);
-    } catch (_) {}
-    await _endTrackedSessionIfNeeded('auto_restart_startup_stall');
+      try {
+        await _teardownClient(recreate: true);
+      } catch (_) {}
+      await _endTrackedSessionIfNeeded('auto_restart_startup_stall');
 
-    if (!mounted || _isDisposing) {
+      if (!mounted || _isDisposing) {
+        return;
+      }
+      await _startConversation();
+    } finally {
       _isRecovering = false;
-      return;
     }
-    await _startConversation();
-    _isRecovering = false;
   }
 
   Future<void> _pauseConversation() async {
@@ -645,25 +648,27 @@ class _ElevenLabsAgentVoiceConversationScreenState
       _isAssistantSpeaking = false;
     }
 
-    await _teardownClient(recreate: false);
+    try {
+      await _teardownClient(recreate: false);
 
-    // Deactivate audio session
-    if (Platform.isIOS || Platform.isAndroid) {
-      try {
-        final session = await AudioSession.instance;
-        await session.setActive(false);
-      } catch (e) {
-        debugPrint('Could not deactivate audio session: $e');
+      // Deactivate audio session
+      if (Platform.isIOS || Platform.isAndroid) {
+        try {
+          final session = await AudioSession.instance;
+          await session.setActive(false);
+        } catch (e) {
+          debugPrint('Could not deactivate audio session: $e');
+        }
       }
+
+      await _endTrackedSessionIfNeeded(endReason);
+
+      if (pop && mounted && !_isDisposing && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    } finally {
+      _isClosing = false;
     }
-
-    await _endTrackedSessionIfNeeded(endReason);
-
-    if (pop && mounted && !_isDisposing && Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
-    }
-
-    _isClosing = false;
   }
 
   @override
@@ -674,7 +679,13 @@ class _ElevenLabsAgentVoiceConversationScreenState
     _transcriptScrollController.dispose();
     _callTimer?.cancel();
     _stopSessionHealthMonitor();
+    // End tracked session before teardown (don't rely on SDK callback during disposal)
+    unawaited(_endTrackedSessionIfNeeded('disposed'));
     unawaited(_teardownClient(recreate: false));
+    // Deactivate audio session
+    if (Platform.isIOS || Platform.isAndroid) {
+      unawaited(AudioSession.instance.then((s) => s.setActive(false)).catchError((_) => false));
+    }
     super.dispose();
   }
 
