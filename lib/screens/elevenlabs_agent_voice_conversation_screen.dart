@@ -102,6 +102,8 @@ class _ElevenLabsAgentVoiceConversationScreenState
           _setStateIfActive(() {
             _isConnected = false;
           });
+          // Skip redundant cleanup if already closing/disposed
+          if (_isClosing || _isDisposing) return;
           _callTimer?.cancel();
           _stopSessionHealthMonitor();
           unawaited(_endTrackedSessionIfNeeded('sdk_disconnect'));
@@ -328,7 +330,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
         if (status == PermissionStatus.permanentlyDenied) {
           _setStateIfActive(() {
             _error =
-                'Microphone permission permanently denied. Tap to open Settings.';
+                'Microphone permission permanently denied. Opening Settings...';
           });
           unawaited(openAppSettings());
         } else {
@@ -397,30 +399,33 @@ class _ElevenLabsAgentVoiceConversationScreenState
     } catch (e) {
       final errorText = e.toString();
       if (errorText.contains('Session already active')) {
-        try {
-          debugPrint('Detected active session conflict; retrying once...');
-          await _teardownClient(recreate: true);
-          await Future.delayed(const Duration(milliseconds: 250));
-          final retryClient = _client;
-          if (retryClient != null) {
-            await _startSdkSession(
-              client: retryClient,
-              conversationToken: await _agentService.resolveConversationToken(
-                requestContext: AiRequestContext(
-                  profileId: _currentProfileId!,
-                  isPremium: _isPremiumUser,
-                  feature: 'voice_call',
-                  units: 1,
-                  callReserveSeconds: _maxAllowedCallSeconds,
+        final retryProfileId = _currentProfileId;
+        if (retryProfileId != null) {
+          try {
+            debugPrint('Detected active session conflict; retrying once...');
+            await _teardownClient(recreate: true);
+            await Future.delayed(const Duration(milliseconds: 250));
+            final retryClient = _client;
+            if (retryClient != null) {
+              await _startSdkSession(
+                client: retryClient,
+                conversationToken: await _agentService.resolveConversationToken(
+                  requestContext: AiRequestContext(
+                    profileId: retryProfileId,
+                    isPremium: _isPremiumUser,
+                    feature: 'voice_call',
+                    units: 1,
+                    callReserveSeconds: _maxAllowedCallSeconds,
+                  ),
                 ),
-              ),
-              agentId: _agentService.agentId,
-              profileId: _currentProfileId!,
-            );
-            return;
+                agentId: _agentService.agentId,
+                profileId: retryProfileId,
+              );
+              return;
+            }
+          } catch (retryError) {
+            debugPrint('Retry after active session conflict failed: $retryError');
           }
-        } catch (retryError) {
-          debugPrint('Retry after active session conflict failed: $retryError');
         }
       }
       debugPrint('ElevenLabs SDK conversation start failed: $e');
@@ -528,13 +533,15 @@ class _ElevenLabsAgentVoiceConversationScreenState
 
       if (remaining <= 60 && remaining > 0 && !_warnedOneMinuteLeft) {
         _warnedOneMinuteLeft = true;
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('1 minute left in this AI call.'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+        if (mounted && !_isDisposing) {
+          try {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('1 minute left in this AI call.'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          } catch (_) {}
         }
       }
 
@@ -610,7 +617,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
   }
 
   Future<void> _pauseConversation() async {
-    if (!mounted) return;
+    if (!mounted || _isDisposing) return;
     setState(() => _isPaused = true);
     try {
       await _client?.setMicMuted(true);
@@ -618,7 +625,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
   }
 
   Future<void> _resumeConversation() async {
-    if (!mounted) return;
+    if (!mounted || _isDisposing) return;
     setState(() => _isPaused = false);
     try {
       await _client?.setMicMuted(false);
