@@ -17,7 +17,7 @@ class MathBuddy {
   final Color themeColor; // Theme color for this buddy's UI elements
 
   // Audio related variables
-  static final AudioPlayer _audioPlayer = AudioPlayer();
+  static AudioPlayer _audioPlayer = AudioPlayer();
   static bool _isPlayingAudio = false;
   static int _tempAudioCounter = 0;
   static final List<String> _pendingAudioMessages = [];
@@ -79,6 +79,10 @@ class MathBuddy {
 
   // Initialize the voice system
   static void initialize() {
+    // Recreate audio player if it was previously disposed
+    if (_disposed) {
+      _audioPlayer = AudioPlayer();
+    }
     _disposed = false;
     debugPrint("Initializing Math Buddy audio system");
     ElevenLabsService.initialize();

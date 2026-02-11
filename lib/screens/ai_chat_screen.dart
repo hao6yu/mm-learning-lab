@@ -659,6 +659,7 @@ class _AiChatScreenState extends State<AiChatScreen>
   }
 
   void _showErrorSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
