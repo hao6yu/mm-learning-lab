@@ -4,7 +4,7 @@ description: >
   M&M Learning Lab - A playful, modular Flutter app for early literacy and math.
 
 publish_to: 'none'
-version: 1.0.5+18
+version: 1.0.6+19
 environment:
   sdk: ">=3.0.0 <4.0.0"
 

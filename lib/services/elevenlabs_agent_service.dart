@@ -4,130 +4,153 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
-import 'ai_proxy_config.dart';
+enum ElevenLabsVoicePreset {
+  male,
+  female,
+}
 
+/// Service for managing ElevenLabs Conversational AI Agent connections.
+///
+/// This follows the stable `agentId` call path used by howai-agent:
+/// `ConversationClient.startSession(agentId: ...)`.
 class ElevenLabsAgentService {
-  static const String _directSignedUrlEndpoint =
-      'https://api.elevenlabs.io/v1/convai/conversation/get-signed-url';
   static const String _directLiveKitTokenEndpoint =
-      'https://api.elevenlabs.io/v1/convai/conversation/token';
-  static const String _publicWebSocketEndpoint =
-      'wss://api.elevenlabs.io/v1/convai/conversation';
-  static const String _proxySignedUrlPath = '/elevenlabs/convai/signed-url';
-  static const String _proxyLiveKitTokenPath = '/elevenlabs/convai/token';
+      'https://api.elevenlabs.io/v1/convai/conversation/get-signed-url';
 
-  final AiProxyConfig _proxyConfig;
   final String? _apiKey;
-  final String? _agentId;
-  final String? _overrideWebSocketUrl;
-  final bool _useSignedUrl;
+  final String? _legacyAgentId;
+  final String? _maleAgentId;
+  final String? _femaleAgentId;
+
+  static String? _firstNonEmpty(List<String?> values) {
+    for (final value in values) {
+      final normalized = value?.trim();
+      if (normalized != null && normalized.isNotEmpty) {
+        return normalized;
+      }
+    }
+    return null;
+  }
 
   ElevenLabsAgentService({
-    AiProxyConfig? proxyConfig,
     String? apiKey,
     String? agentId,
-    String? overrideWebSocketUrl,
-    bool? useSignedUrl,
-  })  : _proxyConfig = proxyConfig ?? AiProxyConfig.fromEnv(),
-        _apiKey = (apiKey ?? dotenv.env['ELEVENLABS_API_KEY'])?.trim(),
-        _agentId = (agentId ?? dotenv.env['ELEVENLABS_AGENT_ID'])?.trim(),
-        _overrideWebSocketUrl = (overrideWebSocketUrl ??
-                dotenv.env['ELEVENLABS_AGENT_WEBSOCKET_URL'])
-            ?.trim(),
-        _useSignedUrl = useSignedUrl ??
-            _parseBool(
-              dotenv.env['ELEVENLABS_AGENT_USE_SIGNED_URL'],
-              defaultValue: true,
-            );
+    String? maleAgentId,
+    String? femaleAgentId,
+  })  : _apiKey = _firstNonEmpty([
+          apiKey,
+          dotenv.env['ELEVENLABS_API_KEY'],
+          dotenv.env['XI_API_KEY'],
+        ]),
+        _legacyAgentId = _firstNonEmpty([
+          agentId,
+          dotenv.env['ELEVENLABS_AGENT_ID'],
+          dotenv.env['ELEVENLABS_CONVAI_AGENT_ID'],
+          dotenv.env['ELEVENLABS_CONVERSATIONAL_AGENT_ID'],
+          dotenv.env['ELEVENLABS_CONVERSATIONAL_AI_AGENT_ID'],
+        ]),
+        _maleAgentId = _firstNonEmpty([
+          maleAgentId,
+          dotenv.env['ELEVENLABS_AGENT_ID_MALE'],
+          dotenv.env['ELEVENLABS_MALE_AGENT_ID'],
+        ]),
+        _femaleAgentId = _firstNonEmpty([
+          femaleAgentId,
+          dotenv.env['ELEVENLABS_AGENT_ID_FEMALE'],
+          dotenv.env['ELEVENLABS_FEMALE_AGENT_ID'],
+        ]);
 
-  String? get agentId => _agentId;
+  bool get _hasAnyVoiceSpecificAgent =>
+      _maleAgentId != null || _femaleAgentId != null;
 
-  bool get hasAgentId => _agentId != null && _agentId!.isNotEmpty;
+  String? _voiceSpecificAgentId(ElevenLabsVoicePreset voice) {
+    return switch (voice) {
+      ElevenLabsVoicePreset.male => _maleAgentId,
+      ElevenLabsVoicePreset.female => _femaleAgentId,
+    };
+  }
 
-  bool get isConfigured =>
-      _normalizeWebSocketUrl(_overrideWebSocketUrl) != null || hasAgentId;
+  /// The configured default agent ID (for backwards compatibility).
+  ///
+  /// For voice-specific selection, use [agentIdForVoice].
+  String? get agentId => agentIdForVoice(voice: ElevenLabsVoicePreset.male);
 
-  Future<String?> resolveConversationWebSocketUrl({
-    AiRequestContext? requestContext,
-  }) async {
-    final override = _normalizeWebSocketUrl(_overrideWebSocketUrl);
-    if (override != null) {
-      return override;
-    }
+  /// Agent ID resolved for a given voice.
+  ///
+  /// Resolution order:
+  /// 1) voice-specific env var (`_MALE` / `_FEMALE`)
+  /// 2) legacy single-agent env var (`ELEVENLABS_AGENT_ID`) only when no
+  ///    voice-specific IDs are configured at all.
+  String? agentIdForVoice({required ElevenLabsVoicePreset voice}) {
+    final specific = _voiceSpecificAgentId(voice);
+    if (specific != null) return specific;
 
+    // When one of the new keys is present, require explicit config per voice.
+    if (_hasAnyVoiceSpecificAgent) return null;
+
+    return _legacyAgentId;
+  }
+
+  /// Whether the chosen voice has a usable agent configuration.
+  bool isConfiguredForVoice({required ElevenLabsVoicePreset voice}) =>
+      agentIdForVoice(voice: voice) != null;
+
+  /// Whether any voice call agent is configured.
+  bool get hasAgentId =>
+      isConfiguredForVoice(voice: ElevenLabsVoicePreset.male) ||
+      isConfiguredForVoice(voice: ElevenLabsVoicePreset.female);
+
+  /// Whether an ElevenLabs API key is configured.
+  bool get hasApiKey => _apiKey != null && _apiKey!.isNotEmpty;
+
+  /// Whether the service is properly configured for voice calls.
+  ///
+  /// The SDK call path in this app only requires `agentId`.
+  bool get isConfigured => hasAgentId;
+
+  /// Human-readable missing configuration summary for debugging.
+  String? get configurationIssue {
     if (!hasAgentId) {
-      return null;
+      return 'Missing agent id (ELEVENLABS_AGENT_ID or ELEVENLABS_AGENT_ID_MALE/FEMALE)';
     }
-
-    if (!_useSignedUrl) {
-      return Uri.parse(_publicWebSocketEndpoint)
-          .replace(queryParameters: {'agent_id': _agentId}).toString();
-    }
-
-    final proxied = await _resolveSignedUrlViaProxy(requestContext);
-    if (proxied != null) {
-      return proxied;
-    }
-
-    final direct = await _resolveSignedUrlDirect();
-    if (direct != null) {
-      return direct;
-    }
-
     return null;
   }
 
-  Future<String?> resolveConversationToken({
-    AiRequestContext? requestContext,
+  String? configurationIssueForVoice({required ElevenLabsVoicePreset voice}) {
+    if (isConfiguredForVoice(voice: voice)) return null;
+
+    if (_hasAnyVoiceSpecificAgent) {
+      return switch (voice) {
+        ElevenLabsVoicePreset.male =>
+          'Missing male agent id (ELEVENLABS_AGENT_ID_MALE)',
+        ElevenLabsVoicePreset.female =>
+          'Missing female agent id (ELEVENLABS_AGENT_ID_FEMALE)',
+      };
+    }
+
+    return 'Missing agent id (ELEVENLABS_AGENT_ID)';
+  }
+
+  /// Resolve a signed URL for connecting to the ElevenLabs agent.
+  ///
+  /// Returns a signed WebSocket URL that can be used with the SDK,
+  /// or null if resolution fails.
+  Future<String?> resolveSignedUrl({
+    ElevenLabsVoicePreset voice = ElevenLabsVoicePreset.male,
+    String? agentId,
   }) async {
-    if (!hasAgentId) return null;
-
-    final proxied = await _resolveLiveKitTokenViaProxy(requestContext);
-    if (proxied != null) {
-      return proxied;
-    }
-
-    final direct = await _resolveLiveKitTokenDirect();
-    if (direct != null) {
-      return direct;
-    }
-
-    return null;
-  }
-
-  Future<String?> _resolveLiveKitTokenViaProxy(
-    AiRequestContext? requestContext,
-  ) async {
-    if (!_proxyConfig.hasProxy || !hasAgentId) {
-      return null;
-    }
-
-    try {
-      final uri = _proxyConfig
-          .proxyUri(_proxyLiveKitTokenPath)
-          .replace(queryParameters: {'agent_id': _agentId});
-      final headers = _proxyConfig.proxyHeaders(
-        requestContext: requestContext,
-      );
-      final response = await http.get(uri, headers: headers);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        return null;
-      }
-      return _extractLiveKitToken(response.body);
-    } catch (e) {
-      debugPrint('Proxy ElevenLabs LiveKit token request failed: $e');
-      return null;
-    }
-  }
-
-  Future<String?> _resolveLiveKitTokenDirect() async {
-    if (!_canCallDirectProvider || !hasAgentId) {
+    final resolvedAgentId =
+        _firstNonEmpty([agentId, agentIdForVoice(voice: voice)]);
+    if (resolvedAgentId == null || !hasApiKey) {
+      debugPrint(
+          'ElevenLabsAgentService: Not configured for signed URL (missing API key or agent ID)');
       return null;
     }
 
     try {
       final uri = Uri.parse(_directLiveKitTokenEndpoint)
-          .replace(queryParameters: {'agent_id': _agentId});
+          .replace(queryParameters: {'agent_id': resolvedAgentId});
+
       final response = await http.get(
         uri,
         headers: {
@@ -135,152 +158,42 @@ class ElevenLabsAgentService {
           'Accept': 'application/json',
         },
       );
+
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugPrint(
+            'ElevenLabsAgentService: Failed to get signed URL - ${response.statusCode}');
         return null;
       }
-      return _extractLiveKitToken(response.body);
+
+      return _extractSignedUrl(response.body);
     } catch (e) {
-      debugPrint('Direct ElevenLabs LiveKit token request failed: $e');
+      debugPrint('ElevenLabsAgentService: Error resolving signed URL - $e');
       return null;
     }
   }
 
-  String? _extractLiveKitToken(String body) {
+  String? _extractSignedUrl(String body) {
     try {
       final decoded = jsonDecode(body);
       if (decoded is! Map<String, dynamic>) {
         return null;
       }
-      final candidates = [
-        decoded['token']?.toString(),
-        decoded['conversation_token']?.toString(),
-      ];
-      for (final candidate in candidates) {
-        if (candidate != null && candidate.trim().isNotEmpty) {
-          return candidate.trim();
-        }
-      }
-    } catch (_) {
-      return null;
-    }
-    return null;
-  }
 
-  Future<String?> _resolveSignedUrlViaProxy(
-    AiRequestContext? requestContext,
-  ) async {
-    if (!_proxyConfig.hasProxy || !hasAgentId) {
-      return null;
-    }
-
-    try {
-      final uri = _proxyConfig
-          .proxyUri(_proxySignedUrlPath)
-          .replace(queryParameters: {'agent_id': _agentId});
-      final headers = _proxyConfig.proxyHeaders(
-        requestContext: requestContext,
-      );
-      final response = await http.get(uri, headers: headers);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        return null;
-      }
-      return _extractSignedWebSocketUrl(response.body);
-    } catch (e) {
-      debugPrint('Proxy ElevenLabs signed URL request failed: $e');
-      return null;
-    }
-  }
-
-  Future<String?> _resolveSignedUrlDirect() async {
-    if (!_canCallDirectProvider || !hasAgentId) {
-      return null;
-    }
-
-    try {
-      final uri = Uri.parse(_directSignedUrlEndpoint)
-          .replace(queryParameters: {'agent_id': _agentId});
-      final response = await http.get(
-        uri,
-        headers: {
-          'xi-api-key': _apiKey!,
-          'Accept': 'application/json',
-        },
-      );
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        return null;
-      }
-      return _extractSignedWebSocketUrl(response.body);
-    } catch (e) {
-      debugPrint('Direct ElevenLabs signed URL request failed: $e');
-      return null;
-    }
-  }
-
-  String? _extractSignedWebSocketUrl(String body) {
-    try {
-      final decoded = jsonDecode(body);
-      if (decoded is! Map<String, dynamic>) {
-        return null;
-      }
       final candidates = [
         decoded['signed_url']?.toString(),
         decoded['websocket_url']?.toString(),
         decoded['url']?.toString(),
       ];
+
       for (final candidate in candidates) {
-        final normalized = _normalizeWebSocketUrl(candidate);
-        if (normalized != null) {
-          return normalized;
+        if (candidate != null && candidate.trim().isNotEmpty) {
+          return candidate.trim();
         }
       }
-    } catch (_) {
-      return null;
+    } catch (e) {
+      debugPrint(
+          'ElevenLabsAgentService: Error parsing signed URL response - $e');
     }
     return null;
-  }
-
-  String? _normalizeWebSocketUrl(String? raw) {
-    if (raw == null) return null;
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) return null;
-
-    var uri = Uri.tryParse(trimmed);
-    if (uri == null) return null;
-    if (uri.scheme == 'http' || uri.scheme == 'https') {
-      uri = uri.replace(scheme: uri.scheme == 'https' ? 'wss' : 'ws');
-    }
-    if (uri.scheme != 'ws' && uri.scheme != 'wss') {
-      return null;
-    }
-    if (uri.fragment.isNotEmpty) {
-      uri = uri.replace(fragment: '');
-    }
-    return uri.toString();
-  }
-
-  bool get _canCallDirectProvider {
-    final hasKey = _apiKey != null && _apiKey!.isNotEmpty;
-    if (!hasKey) return false;
-    if (!_proxyConfig.allowDirectFallback) return false;
-    if (_proxyConfig.requireProxy && kReleaseMode) return false;
-    return true;
-  }
-
-  static bool _parseBool(String? raw, {required bool defaultValue}) {
-    if (raw == null) return defaultValue;
-    switch (raw.trim().toLowerCase()) {
-      case '1':
-      case 'true':
-      case 'yes':
-      case 'on':
-        return true;
-      case '0':
-      case 'false':
-      case 'no':
-      case 'off':
-        return false;
-      default:
-        return defaultValue;
-    }
   }
 }

@@ -10,7 +10,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/profile_provider.dart';
 import '../services/ai_parental_control_service.dart';
-import '../services/ai_proxy_config.dart';
 import '../services/ai_usage_limit_service.dart';
 import '../services/elevenlabs_agent_service.dart';
 import '../services/subscription_service.dart';
@@ -29,6 +28,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   bool _isPaused = false;
   bool _isConnected = false;
+  bool _isConnecting = false;
   bool _isAssistantSpeaking = false;
   bool _isClosing = false;
   bool _initialized = false;
@@ -66,9 +66,9 @@ class _ElevenLabsAgentVoiceConversationScreenState
   DateTime? _connectedAt;
   DateTime? _lastInteractionAt;
   late final AnimationController _orbPulseController;
-  final ScrollController _transcriptScrollController = ScrollController();
   static const String _bellaIntroLastShownPrefix =
       'bella_intro_last_shown_profile_';
+  static const Duration _connectTimeout = Duration(seconds: 20);
   static Future<void> _globalTeardownChain = Future<void>.value();
 
   @override
@@ -88,6 +88,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
         onConnect: ({required String conversationId}) {
           _setStateIfActive(() {
             _isConnected = true;
+            _isConnecting = false;
             _error = null;
           });
           unawaited(_startTrackedSessionIfNeeded());
@@ -101,6 +102,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
         onDisconnect: (details) {
           _setStateIfActive(() {
             _isConnected = false;
+            _isConnecting = false;
           });
           // Skip redundant cleanup if already closing/disposed
           if (_isClosing || _isDisposing) return;
@@ -114,6 +116,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
             if (status == ConversationStatus.disconnected ||
                 status == ConversationStatus.disconnecting) {
               _isConnected = false;
+              _isConnecting = false;
             }
           });
         },
@@ -133,7 +136,6 @@ class _ElevenLabsAgentVoiceConversationScreenState
             _currentTranscript = message;
             _isAssistantSpeaking = source == Role.ai;
           });
-          _scrollTranscriptToTop();
         },
         onUserTranscript: ({required String transcript, required int eventId}) {
           if (transcript.trim().isEmpty) return;
@@ -141,7 +143,6 @@ class _ElevenLabsAgentVoiceConversationScreenState
           _setStateIfActive(() {
             _currentTranscript = transcript;
           });
-          _scrollTranscriptToTop();
         },
         onVadScore: ({required double vadScore}) {
           if (vadScore > 0) {
@@ -153,6 +154,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
           debugPrint('ElevenLabs SDK error: $details');
           _setStateIfActive(() {
             _error = details;
+            _isConnecting = false;
           });
         },
         onEndCallRequested: () {
@@ -310,6 +312,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
     _isStartingCall = true;
     _setStateIfActive(() {
       _isConnected = false;
+      _isConnecting = true;
       _isPaused = false;
       _isAssistantSpeaking = false;
       _currentTranscript = null;
@@ -331,12 +334,14 @@ class _ElevenLabsAgentVoiceConversationScreenState
           _setStateIfActive(() {
             _error =
                 'Microphone permission permanently denied. Opening Settings...';
+            _isConnecting = false;
           });
           unawaited(openAppSettings());
         } else {
           _setStateIfActive(() {
             _error =
                 'Microphone permission denied. Please enable it in Settings.';
+            _isConnecting = false;
           });
         }
         return;
@@ -345,32 +350,20 @@ class _ElevenLabsAgentVoiceConversationScreenState
       final profileId = _currentProfileId;
       if (profileId == null) {
         _setStateIfActive(
-          () => _error = 'Please select a child profile first.',
+          () {
+            _error = 'Please select a child profile first.';
+            _isConnecting = false;
+          },
         );
         return;
       }
 
-      final requestContext = AiRequestContext(
-        profileId: profileId,
-        isPremium: _isPremiumUser,
-        feature: 'voice_call',
-        units: 1,
-        callReserveSeconds: _maxAllowedCallSeconds,
-      );
-
-      final conversationToken = await _agentService.resolveConversationToken(
-        requestContext: requestContext,
-      );
-      debugPrint(
-        'ElevenLabs SDK auth mode: ${conversationToken != null && conversationToken.isNotEmpty ? "conversationToken" : "agentId"}',
-      );
-
       final agentId = _agentService.agentId;
-      if ((conversationToken == null || conversationToken.isEmpty) &&
-          (agentId == null || agentId.isEmpty)) {
+      if (agentId == null || agentId.isEmpty) {
         _setStateIfActive(() {
           _error =
-              'Unable to start ElevenLabs call. Verify ELEVENLABS_AGENT_ID and signed-url configuration.';
+              'Unable to start ElevenLabs call. Verify ELEVENLABS_AGENT_ID configuration.';
+          _isConnecting = false;
         });
         return;
       }
@@ -385,14 +378,16 @@ class _ElevenLabsAgentVoiceConversationScreenState
       final client = _client;
       if (client == null) {
         _setStateIfActive(
-          () => _error = 'Call setup interrupted. Please try again.',
+          () {
+            _error = 'Call setup interrupted. Please try again.';
+            _isConnecting = false;
+          },
         );
         return;
       }
 
       await _startSdkSession(
         client: client,
-        conversationToken: conversationToken,
         agentId: agentId,
         profileId: profileId,
       );
@@ -409,27 +404,24 @@ class _ElevenLabsAgentVoiceConversationScreenState
             if (retryClient != null) {
               await _startSdkSession(
                 client: retryClient,
-                conversationToken: await _agentService.resolveConversationToken(
-                  requestContext: AiRequestContext(
-                    profileId: retryProfileId,
-                    isPremium: _isPremiumUser,
-                    feature: 'voice_call',
-                    units: 1,
-                    callReserveSeconds: _maxAllowedCallSeconds,
-                  ),
-                ),
                 agentId: _agentService.agentId,
                 profileId: retryProfileId,
               );
               return;
             }
           } catch (retryError) {
-            debugPrint('Retry after active session conflict failed: $retryError');
+            debugPrint(
+                'Retry after active session conflict failed: $retryError');
           }
         }
       }
       debugPrint('ElevenLabs SDK conversation start failed: $e');
-      _setStateIfActive(() => _error = 'Failed to connect: $e');
+      _setStateIfActive(() {
+        _error = e is TimeoutException
+            ? 'Connection timed out. Please try again.'
+            : 'Failed to connect: $e';
+        _isConnecting = false;
+      });
       await _endTrackedSessionIfNeeded('start_failed');
     } finally {
       _isStartingCall = false;
@@ -438,18 +430,11 @@ class _ElevenLabsAgentVoiceConversationScreenState
 
   Future<void> _startSdkSession({
     required ConversationClient client,
-    required String? conversationToken,
     required String? agentId,
     required int profileId,
   }) {
     return client.startSession(
-      conversationToken:
-          conversationToken != null && conversationToken.isNotEmpty
-              ? conversationToken
-              : null,
-      agentId: (conversationToken == null || conversationToken.isEmpty)
-          ? agentId
-          : null,
+      agentId: agentId,
       dynamicVariables: {
         'assistant_name': 'Bella',
         if (_currentProfileName != null && _currentProfileName!.isNotEmpty)
@@ -460,7 +445,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
         'tier': _isPremiumUser ? 'premium' : 'free',
         'child_profile_id': profileId.toString(),
       },
-    );
+    ).timeout(_connectTimeout);
   }
 
   Future<void> _configureCallAudioSession() async {
@@ -647,11 +632,13 @@ class _ElevenLabsAgentVoiceConversationScreenState
       setState(() {
         _isPaused = true;
         _isConnected = false;
+        _isConnecting = false;
         _isAssistantSpeaking = false;
       });
     } else {
       _isPaused = true;
       _isConnected = false;
+      _isConnecting = false;
       _isAssistantSpeaking = false;
     }
 
@@ -683,7 +670,6 @@ class _ElevenLabsAgentVoiceConversationScreenState
     _isDisposing = true;
     WidgetsBinding.instance.removeObserver(this);
     _orbPulseController.dispose();
-    _transcriptScrollController.dispose();
     _callTimer?.cancel();
     _stopSessionHealthMonitor();
     // End tracked session before teardown (don't rely on SDK callback during disposal)
@@ -691,7 +677,9 @@ class _ElevenLabsAgentVoiceConversationScreenState
     unawaited(_teardownClient(recreate: false));
     // Deactivate audio session
     if (Platform.isIOS || Platform.isAndroid) {
-      unawaited(AudioSession.instance.then((s) => s.setActive(false)).catchError((_) => false));
+      unawaited(AudioSession.instance
+          .then((s) => s.setActive(false))
+          .catchError((_) => false));
     }
     super.dispose();
   }
@@ -699,14 +687,6 @@ class _ElevenLabsAgentVoiceConversationScreenState
   void _setStateIfActive(VoidCallback callback) {
     if (!mounted || _isDisposing) return;
     setState(callback);
-  }
-
-  void _scrollTranscriptToTop() {
-    if (!_transcriptScrollController.hasClients) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_transcriptScrollController.hasClients) return;
-      _transcriptScrollController.jumpTo(0);
-    });
   }
 
   String _formatSeconds(int totalSeconds) {
@@ -746,12 +726,9 @@ class _ElevenLabsAgentVoiceConversationScreenState
   @override
   Widget build(BuildContext context) {
     final themeConfig = context.watch<ThemeService>().config;
-    final screenHeight = MediaQuery.sizeOf(context).height;
-    final transcriptPanelMaxHeight =
-        (screenHeight * 0.22).clamp(96.0, 190.0).toDouble();
     final remainingRaw = _maxAllowedCallSeconds - _elapsedCallSeconds;
     final remaining = remainingRaw < 0 ? 0 : remainingRaw;
-    final showStartCta = !_isConnected && !_isQuotaBlocked;
+    final showStartCta = !_isConnected && !_isQuotaBlocked && !_isConnecting;
     final statusText = _currentTranscript ??
         (_isPaused
             ? 'Mic is muted'
@@ -759,7 +736,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
                 ? (_isAssistantSpeaking
                     ? 'Bella is speaking...'
                     : 'Bella is listening...')
-                : (_isStartingCall ? 'Connecting...' : 'Ready when you are'));
+                : (_isConnecting ? 'Connecting...' : 'Ready when you are'));
 
     return Scaffold(
       appBar: AppBar(
@@ -983,7 +960,7 @@ class _ElevenLabsAgentVoiceConversationScreenState
                                                       ),
                                                       const SizedBox(height: 8),
                                                       Text(
-                                                        _isStartingCall
+                                                        _isConnecting
                                                             ? 'Calling...'
                                                             : 'Call Bella',
                                                         textAlign:
@@ -1024,33 +1001,26 @@ class _ElevenLabsAgentVoiceConversationScreenState
                             if (!showStartCta)
                               Container(
                                 width: double.infinity,
-                                constraints: BoxConstraints(
-                                  maxHeight: transcriptPanelMaxHeight,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 14,
-                                ),
+                                constraints:
+                                    const BoxConstraints(maxHeight: 150),
+                                padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.88),
+                                  color: Colors.white.withValues(alpha: 0.82),
                                   borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: const Color(0xFF38BDF8)
+                                        .withValues(alpha: 0.26),
+                                  ),
                                 ),
-                                child: Scrollbar(
-                                  controller: _transcriptScrollController,
-                                  thumbVisibility: true,
-                                  child: SingleChildScrollView(
-                                    controller: _transcriptScrollController,
-                                    physics: const BouncingScrollPhysics(),
-                                    child: Text(
-                                      statusText,
-                                      style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w700,
-                                        color: Color(0xFF334155),
-                                        fontFamily: 'Baloo2',
-                                      ),
-                                      textAlign: TextAlign.center,
+                                child: SingleChildScrollView(
+                                  child: Text(
+                                    statusText,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      color: Color(0xFF334155),
+                                      fontFamily: 'Baloo2',
                                     ),
+                                    textAlign: TextAlign.center,
                                   ),
                                 ),
                               ),
