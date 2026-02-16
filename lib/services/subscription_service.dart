@@ -1,6 +1,10 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
+import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Debug flag to bypass subscription validation for development
@@ -13,7 +17,7 @@ bool _debugIgnoreRestoredPurchases = false;
 // Debug flag for temporarily bypassing subscription (separate from production)
 bool _debugBypassActive = false;
 
-class SubscriptionService with ChangeNotifier {
+class SubscriptionService with ChangeNotifier, WidgetsBindingObserver {
   static final SubscriptionService _instance = SubscriptionService._internal();
 
   factory SubscriptionService() => _instance;
@@ -26,8 +30,18 @@ class SubscriptionService with ChangeNotifier {
   // Product IDs
   static const String monthlySubscriptionId =
       'com.hyu.LearningLab.premium.monthly';
+  static const String _isSubscribedKey = 'isSubscribed';
+  static const String _subscriptionValidUntilMsKey =
+      'subscription_valid_until_ms';
+  static const String _familySharedSubscriptionKey = 'familySharedSubscription';
   static const String _firstLaunchTimeKey = 'first_launch_time';
   static const int _freeTrialDurationDays = 14;
+  // Used for Google Play cache expiry estimation and fallback heuristic
+  static const int _subscriptionCycleDays = 31;
+  static const int _subscriptionGraceDays = 7;
+  static const int _defaultValidatedCacheHours = 24;
+  // Minimum interval between full platform store checks (app-resume throttle)
+  static const Duration _minCheckInterval = Duration(hours: 1);
 
   // Stream subscription for purchase updates
   late StreamSubscription<List<PurchaseDetails>> _subscription;
@@ -51,8 +65,17 @@ class SubscriptionService with ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
+  bool _isRestoringPurchases = false;
+  bool _foundSubscriptionDuringRestore = false;
+
+  // Throttle: tracks when the last full platform check completed
+  DateTime? _lastFullCheckTime;
+  bool _isCheckingStatus = false;
+
   // Initialize the subscription service
   Future<void> _initialize() async {
+    WidgetsBinding.instance.addObserver(this);
+
     // Set up the in-app purchase listener
     final Stream<List<PurchaseDetails>> purchaseUpdated =
         _inAppPurchase.purchaseStream;
@@ -93,7 +116,6 @@ class SubscriptionService with ChangeNotifier {
       debugPrint("Products loaded: ${_products.length}");
 
       if (_products.isNotEmpty) {
-        // Print product details for debugging
         for (var product in _products) {
           debugPrint(
               "Product: ${product.id} - ${product.title} - ${product.price}");
@@ -111,50 +133,204 @@ class SubscriptionService with ChangeNotifier {
     }
   }
 
-  // Check current subscription status
+  // ---------------------------------------------------------------------------
+  // Subscription status check — uses platform-native APIs
+  // ---------------------------------------------------------------------------
+
+  /// Full platform-store check. Use [checkSubscriptionStatusThrottled] from
+  /// app-resume to avoid hitting the store on every foreground event.
   Future<bool> checkSubscriptionStatus() async {
-    // Debug bypass - completely separate from production logic
     if (kBypassSubscriptionForDebug || _debugBypassActive) {
       _isSubscribed = true;
       debugPrint("🧪 DEBUG: Subscription bypassed (debug mode active)");
-      // Do NOT call notifyListeners() here to avoid build errors during initialization
       return true;
     }
 
+    // Prevent overlapping checks
+    if (_isCheckingStatus) {
+      debugPrint("Subscription check already in progress, skipping");
+      return _isSubscribed;
+    }
+    _isCheckingStatus = true;
+
     try {
-      // Check local storage first for rapid UI response
       final prefs = await SharedPreferences.getInstance();
-      final storedStatus = prefs.getBool('isSubscribed') ?? false;
+      final previousStatus = _isSubscribed;
 
-      // Set initial status from stored values
-      _isSubscribed = storedStatus;
+      // Start from clean state — guilty until proven innocent.
+      _isSubscribed = false;
 
-      // Check both direct purchases and Family Sharing
-      final bool validPurchase = await _verifyPreviousPurchases();
-      final bool familySharing = await _checkFamilySharing();
+      bool hasActiveSubscription = false;
 
-      // User has subscription if they have direct purchase OR family sharing
-      final bool hasSubscription = validPurchase || familySharing;
+      // Primary check: ask the platform store directly
+      if (Platform.isIOS) {
+        hasActiveSubscription = await _verifyViaStoreKit2();
+      } else if (Platform.isAndroid) {
+        hasActiveSubscription = await _verifyViaGooglePlay();
+      }
 
-      // If subscription status differs from local storage, update local
-      if (_isSubscribed != hasSubscription) {
-        _isSubscribed = hasSubscription;
-        await prefs.setBool('isSubscribed', hasSubscription);
-
-        if (familySharing && !validPurchase) {
-          debugPrint("✅ Subscription available through Family Sharing");
+      // Offline fallback: use cached entitlement if platform check returned false
+      if (!hasActiveSubscription) {
+        hasActiveSubscription = await _hasCachedValidatedEntitlement(prefs);
+        if (hasActiveSubscription) {
+          debugPrint("Using cached entitlement (offline/error fallback)");
         }
       }
 
+      _isSubscribed = hasActiveSubscription;
+      await prefs.setBool(_isSubscribedKey, hasActiveSubscription);
+
+      // Remove legacy sticky Family Sharing flag
+      if (prefs.containsKey(_familySharedSubscriptionKey)) {
+        await prefs.remove(_familySharedSubscriptionKey);
+      }
+
+      if (previousStatus != _isSubscribed) {
+        debugPrint(
+            "Subscription status changed: $previousStatus -> $_isSubscribed");
+      }
+
+      _lastFullCheckTime = DateTime.now();
       notifyListeners();
       return _isSubscribed;
     } catch (e) {
       debugPrint("Error checking subscription status: $e");
+      _isSubscribed = false;
+      notifyListeners();
       return false;
+    } finally {
+      _isCheckingStatus = false;
     }
   }
 
-  // Get remaining free-trial days (0 if expired)
+  /// Throttled variant — skips the platform store query if the last full check
+  /// was less than [_minCheckInterval] ago. Used by app-resume lifecycle.
+  Future<bool> checkSubscriptionStatusThrottled() async {
+    if (_lastFullCheckTime != null &&
+        DateTime.now().difference(_lastFullCheckTime!) < _minCheckInterval) {
+      debugPrint("Subscription check throttled "
+          "(last check ${DateTime.now().difference(_lastFullCheckTime!).inMinutes} min ago)");
+      return _isSubscribed;
+    }
+    return checkSubscriptionStatus();
+  }
+
+  // ---------------------------------------------------------------------------
+  // iOS: StoreKit 2 verification via SK2Transaction.transactions()
+  // ---------------------------------------------------------------------------
+
+  Future<bool> _verifyViaStoreKit2() async {
+    try {
+      debugPrint("SK2: Querying transactions...");
+      final transactions = await SK2Transaction.transactions();
+      debugPrint("SK2: Found ${transactions.length} transactions");
+
+      DateTime? latestExpiry;
+
+      for (final t in transactions) {
+        if (t.productId != monthlySubscriptionId) continue;
+
+        final expStr = t.expirationDate;
+        if (expStr == null) {
+          debugPrint("SK2: Transaction has no expirationDate, skipping");
+          continue;
+        }
+
+        // StoreKit 2 pigeon bridge sends dates as epoch-ms strings
+        final expMs = int.tryParse(expStr);
+        DateTime? expDate;
+        if (expMs != null) {
+          expDate = DateTime.fromMillisecondsSinceEpoch(expMs);
+        } else {
+          expDate = DateTime.tryParse(expStr);
+        }
+        if (expDate == null) {
+          debugPrint("SK2: Could not parse expirationDate: $expStr");
+          continue;
+        }
+
+        // Track the latest expiration across all transactions for this product
+        if (latestExpiry == null || expDate.isAfter(latestExpiry)) {
+          latestExpiry = expDate;
+        }
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+
+      if (latestExpiry != null && latestExpiry.isAfter(DateTime.now())) {
+        debugPrint("SK2: Active subscription, expires $latestExpiry");
+        await _setValidatedEntitlementCache(prefs,
+            expiresAtMs: latestExpiry.millisecondsSinceEpoch);
+        return true;
+      }
+
+      if (latestExpiry != null) {
+        debugPrint("SK2: Subscription expired on $latestExpiry");
+      } else {
+        debugPrint("SK2: No subscription transactions found");
+      }
+      await _clearValidatedEntitlementCache(prefs);
+      return false;
+    } catch (e) {
+      debugPrint("SK2 verification error: $e");
+      return false; // Caller falls back to cached entitlement
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Android: Google Play Billing verification via queryPastPurchases()
+  // ---------------------------------------------------------------------------
+
+  Future<bool> _verifyViaGooglePlay() async {
+    try {
+      debugPrint("Google Play: Querying past purchases...");
+      final androidAddition = _inAppPurchase
+          .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
+
+      // queryPastPurchases calls BillingClient.queryPurchases for both
+      // inapp and subs. Google Play only returns currently active purchases.
+      final result = await androidAddition.queryPastPurchases();
+
+      if (result.error != null) {
+        debugPrint("Google Play query error: ${result.error}");
+      }
+
+      for (final purchase in result.pastPurchases) {
+        if (purchase.productID != monthlySubscriptionId) continue;
+
+        final gpPurchase = purchase as GooglePlayPurchaseDetails;
+        final billingPurchase = gpPurchase.billingClientPurchase;
+
+        // Google only returns this purchase if it's currently active
+        debugPrint("Google Play: Active subscription found "
+            "(autoRenewing=${billingPurchase.isAutoRenewing})");
+
+        // Cache entitlement — estimate expiry from now + cycle + grace.
+        // We use now() because purchaseTime is the *original* purchase date,
+        // not the latest renewal, so it would already be in the past for
+        // long-running subscriptions.
+        final expMs = DateTime.now().millisecondsSinceEpoch +
+            const Duration(days: _subscriptionCycleDays + _subscriptionGraceDays)
+                .inMilliseconds;
+        final prefs = await SharedPreferences.getInstance();
+        await _setValidatedEntitlementCache(prefs, expiresAtMs: expMs);
+        return true;
+      }
+
+      debugPrint("Google Play: No active subscription found");
+      final prefs = await SharedPreferences.getInstance();
+      await _clearValidatedEntitlementCache(prefs);
+      return false;
+    } catch (e) {
+      debugPrint("Google Play verification error: $e");
+      return false; // Caller falls back to cached entitlement
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Free trial
+  // ---------------------------------------------------------------------------
+
   Future<int> getDaysLeftInTrial() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -185,72 +361,34 @@ class SubscriptionService with ChangeNotifier {
     return isInFreeTrial();
   }
 
-  // Check for Family Sharing subscription access (Better approach)
-  Future<bool> _checkFamilySharing() async {
+  // ---------------------------------------------------------------------------
+  // Restore purchases (used by "Restore Purchases" button, not by status check)
+  // ---------------------------------------------------------------------------
+
+  Future<bool> restorePurchases() async {
     try {
-      debugPrint("🔍 Checking subscription entitlements...");
+      debugPrint("Restoring purchases...");
+      _isRestoringPurchases = true;
+      _foundSubscriptionDuringRestore = false;
 
-      // Check if we have any stored family sharing status first
-      final prefs = await SharedPreferences.getInstance();
-      final familySharedStatus =
-          prefs.getBool('familySharedSubscription') ?? false;
-
-      if (familySharedStatus) {
-        debugPrint("✅ Family Sharing status found in storage");
-        return true;
-      }
-
-      // For Flutter with in_app_purchase plugin (StoreKit 1),
-      // the best we can do is rely on restorePurchases() and
-      // check if subscription status gets updated through the purchase stream
-
-      // Note: This is a limitation of StoreKit 1 via Flutter
-      // For better Family Sharing support, consider:
-      // 1. Upgrading to StoreKit 2 with native iOS code
-      // 2. Server-side receipt validation
-      // 3. Using a more advanced Flutter plugin
-
-      return false;
-    } catch (e) {
-      debugPrint("Error checking subscription entitlements: $e");
-      return false;
-    }
-  }
-
-  // Method to mark subscription as family shared (called when we detect family sharing)
-  Future<void> _markAsFamilyShared() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('familySharedSubscription', true);
-      debugPrint("✅ Marked subscription as Family Shared");
-    } catch (e) {
-      debugPrint("Error marking as family shared: $e");
-    }
-  }
-
-  // Verify previous purchases
-  Future<bool> _verifyPreviousPurchases() async {
-    try {
-      debugPrint("Verifying previous purchases...");
-
-      // On iOS, we need to check previous purchases
       await _inAppPurchase.restorePurchases();
-      debugPrint("Restore purchases completed");
+      debugPrint("Restore purchases initiated");
 
-      // The response doesn't actually contain purchases on iOS
-      // The purchases come through the purchaseStream listener
-
-      // Wait a moment for purchases to be processed by the listener
-      await Future.delayed(const Duration(seconds: 1));
-
-      return _isSubscribed;
+      // Purchases are received through purchaseStream; give it time to flush.
+      await Future.delayed(const Duration(seconds: 2));
+      return _foundSubscriptionDuringRestore;
     } catch (e) {
-      debugPrint("Error verifying previous purchases: $e");
+      debugPrint("Error restoring purchases: $e");
       return false;
+    } finally {
+      _isRestoringPurchases = false;
     }
   }
 
-  // Start the subscription purchase flow
+  // ---------------------------------------------------------------------------
+  // Purchase flow
+  // ---------------------------------------------------------------------------
+
   Future<void> subscribe() async {
     try {
       if (_products.isEmpty) {
@@ -259,7 +397,6 @@ class SubscriptionService with ChangeNotifier {
         return;
       }
 
-      // Find the monthly subscription product
       final productDetails = _products.firstWhere(
         (product) => product.id == monthlySubscriptionId,
         orElse: () => throw Exception("Monthly subscription product not found"),
@@ -271,7 +408,6 @@ class SubscriptionService with ChangeNotifier {
         productDetails: productDetails,
       );
 
-      // This is a subscription, so use buyNonConsumable
       final bool success =
           await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
 
@@ -283,11 +419,14 @@ class SubscriptionService with ChangeNotifier {
       debugPrint("Error starting subscription: $e");
       _errorMessage = "Error starting subscription: $e";
       notifyListeners();
-      rethrow; // Rethrow to handle in the UI
+      rethrow;
     }
   }
 
-  // Listen to purchase updates
+  // ---------------------------------------------------------------------------
+  // Purchase stream listener
+  // ---------------------------------------------------------------------------
+
   void _listenToPurchaseUpdated(
       List<PurchaseDetails> purchaseDetailsList) async {
     debugPrint(
@@ -298,61 +437,26 @@ class SubscriptionService with ChangeNotifier {
           "Purchase status: ${purchaseDetails.status} for ${purchaseDetails.productID}");
 
       if (purchaseDetails.status == PurchaseStatus.pending) {
-        // Show loading UI
         debugPrint("Purchase is pending");
       } else if (purchaseDetails.status == PurchaseStatus.error) {
-        // Handle the error - check for Family Sharing
         debugPrint("Purchase error: ${purchaseDetails.error}");
-
-        final errorMessage = purchaseDetails.error?.message.toLowerCase() ?? '';
-        final errorCode = purchaseDetails.error?.code ?? '';
-
-        // Check if this error indicates Family Sharing
-        // NOTE: This is a workaround for StoreKit 1 limitations in Flutter
-        // For production apps, consider server-side receipt validation
-        if (errorMessage.contains('family') ||
-            errorMessage.contains('shared') ||
-            errorMessage.contains('already purchased') ||
-            errorMessage.contains('member') ||
-            errorCode.contains('AlreadyOwned')) {
-          debugPrint("✅ Family Sharing detected - granting access");
-
-          // Grant subscription access through Family Sharing
-          _isSubscribed = true;
-
-          // Save subscription status
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('isSubscribed', true);
-
-          // Mark as family shared for future checks
-          await _markAsFamilyShared();
-
-          // Clear error message since this is actually success
-          _errorMessage = null;
-
-          notifyListeners();
-        } else {
-          // This is a real error
-          _errorMessage =
-              "Purchase error: ${purchaseDetails.error?.message ?? 'Unknown error'}";
-          notifyListeners();
-        }
+        _errorMessage =
+            "Purchase error: ${purchaseDetails.error?.message ?? 'Unknown error'}";
+        notifyListeners();
       } else if (purchaseDetails.status == PurchaseStatus.purchased ||
           purchaseDetails.status == PurchaseStatus.restored) {
-        // Check if this is our monthly subscription
         if (purchaseDetails.productID == monthlySubscriptionId) {
-          // Skip restored purchases if we're in debug ignore mode
           if (purchaseDetails.status == PurchaseStatus.restored &&
               _debugIgnoreRestoredPurchases) {
             debugPrint("🧪 DEBUG: Ignoring restored purchase for testing");
-            return;
+            // Still complete the purchase below
+          } else {
+            await _handleSubscriptionPurchase(purchaseDetails);
           }
-          // Validate the purchase
-          await _handleValidPurchase(purchaseDetails);
         }
       }
 
-      // Complete the purchase - important!
+      // Complete the purchase — important!
       if (purchaseDetails.pendingCompletePurchase) {
         debugPrint("Completing purchase for ${purchaseDetails.productID}");
         await _inAppPurchase.completePurchase(purchaseDetails);
@@ -360,26 +464,32 @@ class SubscriptionService with ChangeNotifier {
     }
   }
 
-  // Handle a valid purchase
-  Future<void> _handleValidPurchase(PurchaseDetails purchaseDetails) async {
+  Future<void> _handleSubscriptionPurchase(
+      PurchaseDetails purchaseDetails) async {
     try {
-      debugPrint("Handling valid purchase for ${purchaseDetails.productID}");
+      debugPrint("Handling purchase for ${purchaseDetails.productID}");
+      final isEntitled =
+          await _validateSubscriptionEntitlement(purchaseDetails);
 
-      // For a real app, you might want to do additional validation here
-      // For example, checking with Apple's server to verify the receipt
-
-      // Set subscription status
-      _isSubscribed = true;
-
-      // Save subscription status
+      _isSubscribed = isEntitled;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('isSubscribed', true);
+      await prefs.setBool(_isSubscribedKey, isEntitled);
 
-      debugPrint("Subscription activated");
+      if (isEntitled) {
+        if (purchaseDetails.status == PurchaseStatus.purchased) {
+          // Immediate 24h cache so the user isn't blocked
+          await _setValidatedEntitlementCache(prefs);
+          // Fire-and-forget: update cache with real expiry from platform API
+          _updateCacheWithRealExpiry();
+        }
+        _foundSubscriptionDuringRestore = true;
+        debugPrint("Subscription entitlement confirmed");
+      } else {
+        await _clearValidatedEntitlementCache(prefs);
+        debugPrint("Subscription entitlement not active");
+      }
 
-      // Clear any error message
       _errorMessage = null;
-
       notifyListeners();
     } catch (e) {
       debugPrint("Error handling purchase: $e");
@@ -388,34 +498,125 @@ class SubscriptionService with ChangeNotifier {
     }
   }
 
-  // Developer testing methods - completely reset subscription state
+  Future<bool> _validateSubscriptionEntitlement(
+      PurchaseDetails purchaseDetails) async {
+    // Fresh purchase (not a restore): trusted immediately — Apple/Google
+    // already validated it. We check the status directly because
+    // _isRestoringPurchases may not be set when the subscription screen
+    // calls InAppPurchase.instance.restorePurchases() directly.
+    if (purchaseDetails.status == PurchaseStatus.purchased &&
+        !_isRestoringPurchases) {
+      return true;
+    }
+
+    // Restored purchase (or purchase during active restore): verify with the
+    // platform store API to check expiry.
+    if (Platform.isIOS) {
+      return _verifyViaStoreKit2();
+    } else if (Platform.isAndroid) {
+      return _verifyViaGooglePlay();
+    }
+
+    // Unknown platform fallback
+    return _isLikelyActiveByTransactionDate(purchaseDetails);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Entitlement cache (offline fallback)
+  // ---------------------------------------------------------------------------
+
+  Future<bool> _hasCachedValidatedEntitlement(SharedPreferences prefs) async {
+    final validUntilMs = prefs.getInt(_subscriptionValidUntilMsKey);
+    if (validUntilMs == null) {
+      return false;
+    }
+    return DateTime.now().millisecondsSinceEpoch < validUntilMs;
+  }
+
+  Future<void> _setValidatedEntitlementCache(SharedPreferences prefs,
+      {int? expiresAtMs}) async {
+    final fallbackValidUntil = DateTime.now()
+        .add(const Duration(hours: _defaultValidatedCacheHours))
+        .millisecondsSinceEpoch;
+    await prefs.setInt(
+      _subscriptionValidUntilMsKey,
+      expiresAtMs ?? fallbackValidUntil,
+    );
+  }
+
+  Future<void> _clearValidatedEntitlementCache(SharedPreferences prefs) async {
+    await prefs.remove(_subscriptionValidUntilMsKey);
+  }
+
+  /// Background call to replace the 24h fallback cache with the real expiry
+  /// from the platform store. Called after a fresh purchase is trusted.
+  void _updateCacheWithRealExpiry() {
+    Future<void> doUpdate() async {
+      try {
+        if (Platform.isIOS) {
+          await _verifyViaStoreKit2();
+        } else if (Platform.isAndroid) {
+          await _verifyViaGooglePlay();
+        }
+      } catch (e) {
+        debugPrint("Background cache update failed (non-fatal): $e");
+      }
+    }
+
+    doUpdate();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Last-resort fallback: transaction date heuristic (unknown platforms only)
+  // ---------------------------------------------------------------------------
+
+  bool _isLikelyActiveByTransactionDate(PurchaseDetails purchaseDetails) {
+    final transactionDateRaw = purchaseDetails.transactionDate;
+    if (transactionDateRaw == null || transactionDateRaw.isEmpty) {
+      debugPrint('Missing transaction date for local subscription fallback');
+      return false;
+    }
+
+    final transactionMs = int.tryParse(transactionDateRaw);
+    if (transactionMs == null) {
+      debugPrint('Invalid transaction date for local subscription fallback');
+      return false;
+    }
+
+    final transactionTime =
+        DateTime.fromMillisecondsSinceEpoch(transactionMs, isUtc: true)
+            .toLocal();
+    final daysSinceTransaction =
+        DateTime.now().difference(transactionTime).inDays;
+    final activeWindowDays = _subscriptionCycleDays + _subscriptionGraceDays;
+    final isActive = daysSinceTransaction <= activeWindowDays;
+    debugPrint(
+        'Local fallback: days=$daysSinceTransaction window=$activeWindowDays active=$isActive');
+    return isActive;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Developer testing methods
+  // ---------------------------------------------------------------------------
+
   Future<void> resetSubscriptionForTesting() async {
     try {
       debugPrint("🧪 DEBUG: Resetting subscription for testing...");
 
-      // 1. Enable debug mode to ignore restored purchases
       _debugIgnoreRestoredPurchases = true;
-
-      // 2. Reset local subscription state
       _isSubscribed = false;
       _errorMessage = null;
 
-      // 3. Clear persistent storage
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('isSubscribed');
-      await prefs.remove(
-          'familySharedSubscription'); // Clear family sharing status too
-      await prefs.clear(); // Clear all preferences for thorough reset
+      await prefs.remove(_isSubscribedKey);
+      await prefs.remove(_subscriptionValidUntilMsKey);
+      await prefs.remove(_familySharedSubscriptionKey);
+      await prefs.clear();
 
       debugPrint("🧪 DEBUG: Subscription state reset complete");
       debugPrint("🧪 DEBUG: isSubscribed = $_isSubscribed");
-      debugPrint(
-          "🧪 DEBUG: Debug ignore mode enabled = $_debugIgnoreRestoredPurchases");
 
-      // 4. Notify listeners to update UI
       notifyListeners();
-
-      // 5. Small delay to ensure state is fully reset
       await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
       debugPrint("🧪 DEBUG: Error resetting subscription: $e");
@@ -424,19 +625,11 @@ class SubscriptionService with ChangeNotifier {
     }
   }
 
-  // Force re-check subscription status (useful after reset)
   Future<void> forceRefreshSubscriptionStatus() async {
     try {
       debugPrint("🧪 DEBUG: Force refreshing subscription status...");
-      debugPrint(
-          "🧪 DEBUG: Debug ignore mode = $_debugIgnoreRestoredPurchases");
-
-      // Reset state first
       _isSubscribed = false;
-
-      // Check with Apple again (will ignore restored purchases if debug flag is set)
       await checkSubscriptionStatus();
-
       debugPrint(
           "🧪 DEBUG: Force refresh complete, isSubscribed = $_isSubscribed");
     } catch (e) {
@@ -444,7 +637,6 @@ class SubscriptionService with ChangeNotifier {
     }
   }
 
-  // Re-enable normal subscription checking (turn off debug mode)
   Future<void> enableNormalSubscriptionChecking() async {
     debugPrint("🧪 DEBUG: Re-enabling normal subscription checking...");
     _debugIgnoreRestoredPurchases = false;
@@ -453,28 +645,17 @@ class SubscriptionService with ChangeNotifier {
         "🧪 DEBUG: Normal subscription checking restored, isSubscribed = $_isSubscribed");
   }
 
-  // Debug method to temporarily bypass subscription validation
   Future<void> debugSkipSubscription() async {
     try {
       debugPrint("🧪 DEBUG: Bypassing subscription validation for testing...");
-      debugPrint(
-          "🧪 DEBUG: This does NOT affect production subscription logic!");
 
-      // Set debug bypass flag (does NOT modify production SharedPreferences)
       _debugBypassActive = true;
-
-      // Update UI state for debug mode
       _isSubscribed = true;
-
-      // Clear any existing error messages
       _errorMessage = null;
 
       debugPrint(
           "🧪 DEBUG: Debug bypass activated - isSubscribed = $_isSubscribed");
-      debugPrint(
-          "🧪 DEBUG: Production subscription validation remains unchanged");
 
-      // Notify listeners to update UI
       notifyListeners();
     } catch (e) {
       debugPrint("🧪 DEBUG: Error activating debug bypass: $e");
@@ -484,24 +665,17 @@ class SubscriptionService with ChangeNotifier {
     }
   }
 
-  // Debug method to clear debug bypass and restore normal subscription checking
   Future<void> debugClearBypass() async {
     try {
-      debugPrint(
-          "🧪 DEBUG: Clearing debug bypass - restoring normal subscription validation...");
+      debugPrint("🧪 DEBUG: Clearing debug bypass...");
 
-      // Clear debug bypass flag
       _debugBypassActive = false;
-
-      // Clear error messages
       _errorMessage = null;
 
-      // Re-check actual subscription status from production logic
       await checkSubscriptionStatus();
 
       debugPrint(
-          "🧪 DEBUG: Debug bypass cleared - normal subscription checking restored");
-      debugPrint("🧪 DEBUG: Current subscription status: $_isSubscribed");
+          "🧪 DEBUG: Debug bypass cleared, isSubscribed = $_isSubscribed");
     } catch (e) {
       debugPrint("🧪 DEBUG: Error clearing debug bypass: $e");
       _errorMessage = "Error clearing debug bypass: $e";
@@ -509,11 +683,22 @@ class SubscriptionService with ChangeNotifier {
     }
   }
 
-  // Debug method to check if bypass is currently active
   bool get isDebugBypassActive => _debugBypassActive;
+
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      checkSubscriptionStatusThrottled();
+    }
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _subscription.cancel();
     super.dispose();
   }

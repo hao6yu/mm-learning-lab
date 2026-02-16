@@ -38,7 +38,7 @@ class _SubscriptionGuardState extends State<SubscriptionGuard> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _showPaywall = false;
+        _showPaywall = true; // Default to paywall on error, not free access
         _isCheckingAccess = false;
       });
     }

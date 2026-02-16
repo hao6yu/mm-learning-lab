@@ -107,3 +107,6 @@ coverage/
 
 # FVM (Flutter Version Management)
 .fvm/
+
+# Claude Code
+.claude/

@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -160,9 +161,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Future<void> _manageSubscription() async {
-    await _openExternalUrl(
-      Uri.parse('https://apps.apple.com/account/subscriptions'),
-    );
+    final url = Platform.isAndroid
+        ? 'https://play.google.com/store/account/subscriptions'
+        : 'https://apps.apple.com/account/subscriptions';
+    await _openExternalUrl(Uri.parse(url));
   }
 
   bool _looksLikeFamilySharingIssue(String? message) {
@@ -843,11 +845,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           children: [
             GestureDetector(
               onTap: () {
-                _openExternalUrl(
-                  Uri.parse(
-                    'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
-                  ),
-                );
+                final termsUrl = Platform.isAndroid
+                    ? 'https://haoyu.io/mm-privacy'
+                    : 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+                _openExternalUrl(Uri.parse(termsUrl));
               },
               child: const Text(
                 'Terms of Use',
