@@ -38,4 +38,7 @@
 -dontwarn com.google.android.play.core.tasks.**
 
 # Keep all Play Core classes if they exist
--keep class com.google.android.play.core.** { *; } 
+-keep class com.google.android.play.core.** { *; }
+
+# flutter_local_notifications
+-keep class com.dexterous.** { *; } 

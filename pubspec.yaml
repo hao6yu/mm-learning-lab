@@ -43,6 +43,8 @@ dependencies:
   image_picker: ^1.0.4
   image_cropper: ^8.0.2
   responsive_sizer: ^3.3.1
+  flutter_local_notifications: ^18.0.1  # Local push notifications
+  timezone: ^0.10.0                      # Timezone support for scheduled notifications
 
 dev_dependencies:
   flutter_test:

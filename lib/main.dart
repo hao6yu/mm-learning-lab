@@ -22,6 +22,7 @@ import 'services/openai_service.dart';
 import 'services/database_service.dart';
 import 'services/performance_warmup_service.dart';
 import 'services/subscription_service.dart';
+import 'services/notification_service.dart';
 import 'screens/kid_progress_screen.dart';
 import 'screens/subscription_screen.dart';
 
@@ -62,6 +63,13 @@ Future<void> main() async {
   // Initialize theme service
   final themeService = ThemeService();
   await themeService.initialize();
+
+  // Initialize notification service
+  try {
+    await NotificationService.instance.init();
+  } catch (e) {
+    debugPrint("Error initializing notification service: $e");
+  }
 
   runApp(MMLearningLabApp(themeService: themeService));
 }

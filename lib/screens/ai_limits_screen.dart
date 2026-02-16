@@ -8,6 +8,7 @@ import '../providers/profile_provider.dart';
 import '../services/ai_parental_control_service.dart';
 import '../services/ai_usage_limit_service.dart';
 import '../services/database_service.dart';
+import '../services/notification_service.dart';
 import '../services/subscription_service.dart';
 
 class AiLimitsScreenData {
@@ -65,6 +66,7 @@ class _AiLimitsScreenState extends State<AiLimitsScreen> {
   AiQuotaCheckResult? _storyQuota;
   AiCallAllowance? _callAllowance;
   AiParentalControls _controls = const AiParentalControls.defaults();
+  bool _notificationsEnabled = true;
 
   @override
   void didChangeDependencies() {
@@ -106,6 +108,8 @@ class _AiLimitsScreenState extends State<AiLimitsScreen> {
               isPremium: _isPremium,
             );
 
+      final notifEnabled = await NotificationService.instance.isEnabled();
+
       if (!mounted) return;
       setState(() {
         _profileName = data.profileName;
@@ -113,6 +117,7 @@ class _AiLimitsScreenState extends State<AiLimitsScreen> {
         _storyQuota = data.storyQuota;
         _callAllowance = data.callAllowance;
         _controls = data.controls;
+        _notificationsEnabled = notifEnabled;
         _isLoading = false;
       });
     } catch (e) {
@@ -534,6 +539,26 @@ class _AiLimitsScreenState extends State<AiLimitsScreen> {
                 ),
               ],
             ),
+          const Divider(height: 24),
+          SwitchListTile(
+            value: _notificationsEnabled,
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            secondary: const Icon(Icons.notifications_active_outlined),
+            title: const Text(
+              'Learning Reminders',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            subtitle: const Text(
+              'Fun reminders to come back and play (2x/week)',
+            ),
+            onChanged: (value) async {
+              setState(() {
+                _notificationsEnabled = value;
+              });
+              await NotificationService.instance.setEnabled(value);
+            },
+          ),
         ],
       ),
     );
