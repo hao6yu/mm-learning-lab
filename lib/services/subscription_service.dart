@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
@@ -67,6 +68,11 @@ class SubscriptionService with ChangeNotifier, WidgetsBindingObserver {
 
   bool _isRestoringPurchases = false;
   bool _foundSubscriptionDuringRestore = false;
+  Completer<bool>? _restoreCompleter;
+
+  // Sequential purchase processing — prevents async interleaving
+  bool _processingPurchases = false;
+  final List<List<PurchaseDetails>> _pendingPurchaseLists = [];
 
   // Throttle: tracks when the last full platform check completed
   DateTime? _lastFullCheckTime;
@@ -99,8 +105,9 @@ class SubscriptionService with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // Load available products from the store
-  Future<void> _loadProducts() async {
+  // Load available products from the store, with up to 3 attempts on failure.
+  Future<void> _loadProducts({int attempt = 1}) async {
+    const maxAttempts = 3;
     try {
       final Set<String> productIds = {monthlySubscriptionId};
       final ProductDetailsResponse response =
@@ -120,17 +127,33 @@ class SubscriptionService with ChangeNotifier, WidgetsBindingObserver {
           debugPrint(
               "Product: ${product.id} - ${product.title} - ${product.price}");
         }
+        _errorMessage = null;
       } else {
-        debugPrint("No products found");
+        debugPrint("No products found (attempt $attempt/$maxAttempts)");
+        if (attempt < maxAttempts) {
+          await Future.delayed(Duration(seconds: attempt * 2));
+          return _loadProducts(attempt: attempt + 1);
+        }
         _errorMessage = "No subscription products found";
       }
 
       notifyListeners();
     } catch (e) {
-      debugPrint("Error loading products: $e");
+      debugPrint("Error loading products (attempt $attempt/$maxAttempts): $e");
+      if (attempt < maxAttempts) {
+        await Future.delayed(Duration(seconds: attempt * 2));
+        return _loadProducts(attempt: attempt + 1);
+      }
       _errorMessage = "Error loading products: $e";
       notifyListeners();
     }
+  }
+
+  /// Allows the UI to trigger a fresh product load after a failure.
+  Future<void> retryLoadProducts() async {
+    _errorMessage = null;
+    notifyListeners();
+    await _loadProducts();
   }
 
   // ---------------------------------------------------------------------------
@@ -354,7 +377,7 @@ class SubscriptionService with ChangeNotifier, WidgetsBindingObserver {
   }
 
   // Single source of truth for whether app access should be granted.
-  Future<bool> hasActiveAccess({bool refreshSubscription = true}) async {
+  Future<bool> hasActiveAccess({bool refreshSubscription = false}) async {
     final isSubscribed =
         refreshSubscription ? await checkSubscriptionStatus() : _isSubscribed;
     if (isSubscribed) return true;
@@ -370,18 +393,24 @@ class SubscriptionService with ChangeNotifier, WidgetsBindingObserver {
       debugPrint("Restoring purchases...");
       _isRestoringPurchases = true;
       _foundSubscriptionDuringRestore = false;
+      _restoreCompleter = Completer<bool>();
 
       await _inAppPurchase.restorePurchases();
-      debugPrint("Restore purchases initiated");
+      debugPrint("Restore purchases initiated — waiting for stream...");
 
-      // Purchases are received through purchaseStream; give it time to flush.
-      await Future.delayed(const Duration(seconds: 2));
-      return _foundSubscriptionDuringRestore;
+      // Completes early as soon as a valid subscription is confirmed.
+      // Falls back to _foundSubscriptionDuringRestore after 10 s if the
+      // platform sends no further events (e.g. no active subscription).
+      return await _restoreCompleter!.future.timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => _foundSubscriptionDuringRestore,
+      );
     } catch (e) {
       debugPrint("Error restoring purchases: $e");
       return false;
     } finally {
       _isRestoringPurchases = false;
+      _restoreCompleter = null;
     }
   }
 
@@ -427,40 +456,58 @@ class SubscriptionService with ChangeNotifier, WidgetsBindingObserver {
   // Purchase stream listener
   // ---------------------------------------------------------------------------
 
-  void _listenToPurchaseUpdated(
-      List<PurchaseDetails> purchaseDetailsList) async {
+  // Enqueue incoming purchase events and drain sequentially so that async
+  // handlers (completePurchase, handleSubscriptionPurchase) never interleave.
+  void _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) {
     debugPrint(
         "Purchase update received: ${purchaseDetailsList.length} purchases");
+    _pendingPurchaseLists.add(purchaseDetailsList);
+    _drainPurchaseQueue();
+  }
 
-    for (final PurchaseDetails purchaseDetails in purchaseDetailsList) {
-      debugPrint(
-          "Purchase status: ${purchaseDetails.status} for ${purchaseDetails.productID}");
-
-      if (purchaseDetails.status == PurchaseStatus.pending) {
-        debugPrint("Purchase is pending");
-      } else if (purchaseDetails.status == PurchaseStatus.error) {
-        debugPrint("Purchase error: ${purchaseDetails.error}");
-        _errorMessage =
-            "Purchase error: ${purchaseDetails.error?.message ?? 'Unknown error'}";
-        notifyListeners();
-      } else if (purchaseDetails.status == PurchaseStatus.purchased ||
-          purchaseDetails.status == PurchaseStatus.restored) {
-        if (purchaseDetails.productID == monthlySubscriptionId) {
-          if (purchaseDetails.status == PurchaseStatus.restored &&
-              _debugIgnoreRestoredPurchases) {
-            debugPrint("🧪 DEBUG: Ignoring restored purchase for testing");
-            // Still complete the purchase below
-          } else {
-            await _handleSubscriptionPurchase(purchaseDetails);
-          }
+  Future<void> _drainPurchaseQueue() async {
+    if (_processingPurchases) return;
+    _processingPurchases = true;
+    try {
+      while (_pendingPurchaseLists.isNotEmpty) {
+        final list = _pendingPurchaseLists.removeAt(0);
+        for (final purchaseDetails in list) {
+          await _processSinglePurchase(purchaseDetails);
         }
       }
+    } finally {
+      _processingPurchases = false;
+    }
+  }
 
-      // Complete the purchase — important!
-      if (purchaseDetails.pendingCompletePurchase) {
-        debugPrint("Completing purchase for ${purchaseDetails.productID}");
-        await _inAppPurchase.completePurchase(purchaseDetails);
+  Future<void> _processSinglePurchase(PurchaseDetails purchaseDetails) async {
+    debugPrint(
+        "Purchase status: ${purchaseDetails.status} for ${purchaseDetails.productID}");
+
+    if (purchaseDetails.status == PurchaseStatus.pending) {
+      debugPrint("Purchase is pending");
+    } else if (purchaseDetails.status == PurchaseStatus.error) {
+      debugPrint("Purchase error: ${purchaseDetails.error}");
+      _errorMessage =
+          "Purchase error: ${purchaseDetails.error?.message ?? 'Unknown error'}";
+      notifyListeners();
+    } else if (purchaseDetails.status == PurchaseStatus.purchased ||
+        purchaseDetails.status == PurchaseStatus.restored) {
+      if (purchaseDetails.productID == monthlySubscriptionId) {
+        if (purchaseDetails.status == PurchaseStatus.restored &&
+            _debugIgnoreRestoredPurchases) {
+          debugPrint("🧪 DEBUG: Ignoring restored purchase for testing");
+          // Still complete the purchase below
+        } else {
+          await _handleSubscriptionPurchase(purchaseDetails);
+        }
       }
+    }
+
+    // Complete the purchase — important!
+    if (purchaseDetails.pendingCompletePurchase) {
+      debugPrint("Completing purchase for ${purchaseDetails.productID}");
+      await _inAppPurchase.completePurchase(purchaseDetails);
     }
   }
 
@@ -483,6 +530,10 @@ class SubscriptionService with ChangeNotifier, WidgetsBindingObserver {
           _updateCacheWithRealExpiry();
         }
         _foundSubscriptionDuringRestore = true;
+        // Resolve restorePurchases() early — no need to wait for the timeout.
+        if (!(_restoreCompleter?.isCompleted ?? true)) {
+          _restoreCompleter!.complete(true);
+        }
         debugPrint("Subscription entitlement confirmed");
       } else {
         await _clearValidatedEntitlementCache(prefs);
@@ -600,6 +651,8 @@ class SubscriptionService with ChangeNotifier, WidgetsBindingObserver {
   // ---------------------------------------------------------------------------
 
   Future<void> resetSubscriptionForTesting() async {
+    assert(kDebugMode, 'resetSubscriptionForTesting() must only be called in debug builds');
+    if (!kDebugMode) return;
     try {
       debugPrint("🧪 DEBUG: Resetting subscription for testing...");
 
@@ -611,7 +664,7 @@ class SubscriptionService with ChangeNotifier, WidgetsBindingObserver {
       await prefs.remove(_isSubscribedKey);
       await prefs.remove(_subscriptionValidUntilMsKey);
       await prefs.remove(_familySharedSubscriptionKey);
-      await prefs.clear();
+      await prefs.remove(_firstLaunchTimeKey);
 
       debugPrint("🧪 DEBUG: Subscription state reset complete");
       debugPrint("🧪 DEBUG: isSubscribed = $_isSubscribed");
@@ -626,6 +679,8 @@ class SubscriptionService with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> forceRefreshSubscriptionStatus() async {
+    assert(kDebugMode, 'forceRefreshSubscriptionStatus() must only be called in debug builds');
+    if (!kDebugMode) return;
     try {
       debugPrint("🧪 DEBUG: Force refreshing subscription status...");
       _isSubscribed = false;
@@ -638,6 +693,8 @@ class SubscriptionService with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> enableNormalSubscriptionChecking() async {
+    assert(kDebugMode, 'enableNormalSubscriptionChecking() must only be called in debug builds');
+    if (!kDebugMode) return;
     debugPrint("🧪 DEBUG: Re-enabling normal subscription checking...");
     _debugIgnoreRestoredPurchases = false;
     await checkSubscriptionStatus();
@@ -646,6 +703,8 @@ class SubscriptionService with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> debugSkipSubscription() async {
+    assert(kDebugMode, 'debugSkipSubscription() must only be called in debug builds');
+    if (!kDebugMode) return;
     try {
       debugPrint("🧪 DEBUG: Bypassing subscription validation for testing...");
 
@@ -666,6 +725,8 @@ class SubscriptionService with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> debugClearBypass() async {
+    assert(kDebugMode, 'debugClearBypass() must only be called in debug builds');
+    if (!kDebugMode) return;
     try {
       debugPrint("🧪 DEBUG: Clearing debug bypass...");
 

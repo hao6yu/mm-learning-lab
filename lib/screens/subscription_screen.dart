@@ -71,7 +71,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               '• Track learning progress\n'
               '• Ensure service security\n\n'
               'We do not sell your personal information. We implement appropriate security measures to protect your data.\n\n'
-              'Full privacy policy: https://haoyu.io/mm-privacy.html\n'
+              'Full privacy policy: https://haoyu.io/mm-privacy/\n'
               'Contact: support@mmlearninglab.com',
               style: TextStyle(fontSize: 14),
             ),
@@ -846,7 +846,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             GestureDetector(
               onTap: () {
                 final termsUrl = Platform.isAndroid
-                    ? 'https://haoyu.io/mm-privacy'
+                    ? 'https://haoyu.io/mm-privacy/'
                     : 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
                 _openExternalUrl(Uri.parse(termsUrl));
               },
@@ -864,7 +864,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             GestureDetector(
               onTap: () async {
                 final privacyUrl =
-                    Uri.parse('https://haoyu.io/mm-privacy.html');
+                    Uri.parse('https://haoyu.io/mm-privacy/');
                 final canLaunch = await launcher.canLaunchUrl(privacyUrl);
                 if (!mounted) return;
                 if (canLaunch) {
