@@ -26,7 +26,8 @@ A playful Flutter app for early literacy and math learning. Built for kids, desi
 - **Chess Maze** - Chess piece movement puzzles
 
 ### 🎙️ AI Features
-- **Voice Conversations** - Talk to AI tutors (OpenAI Realtime)
+- **Live AI Call** - Voice call with Bella, a friendly AI tutor (ElevenLabs Agents)
+- **Parental Controls** - Bedtime restrictions, per-call duration caps, usage limits
 - **Text-to-Speech** - Stories read aloud (ElevenLabs)
 - **AI Chat** - Ask questions, get kid-friendly answers
 
@@ -41,7 +42,7 @@ A playful Flutter app for early literacy and math learning. Built for kids, desi
 - **State Management:** Provider
 - **Database:** SQLite (local)
 - **AI:** OpenAI API
-- **Voice:** ElevenLabs TTS
+- **Voice:** ElevenLabs TTS + ElevenLabs Agents (live AI calls)
 - **Platforms:** iOS, Android
 
 ## Getting Started
